@@ -1,4 +1,4 @@
-import type { Locale } from "@/server/demo-dashboard";
+import type { Locale } from "@/server/locale";
 
 const en = {
   language: "Language",

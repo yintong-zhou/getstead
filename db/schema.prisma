@@ -17,6 +17,14 @@ model User {
   lastTotpStep Int?             @map("last_totp_step")
   challenges   LoginChallenge[]
   sessions     Session[]
+  accounts     Account[]
+  categories   Category[]
+  transfers    Transfer[]
+  movements    Movement[]
+  rules        CategoryRule[]
+  limits       BudgetLimit[]
+  templates    RecurringTemplate[]
+  occurrences  RecurringOccurrence[]
 
   @@map("stead_users")
 }
@@ -50,4 +58,202 @@ model AuthLimit {
 
   @@id([phase, subjectDigest])
   @@map("stead_auth_limits")
+}
+
+enum AccountType {
+  CHECKING
+  CARD
+  BROKERAGE
+  CRYPTO
+  CASH
+  DEBT
+
+  @@map("stead_account_type")
+}
+
+enum CategoryKind {
+  EXPENSE
+  INCOME
+
+  @@map("stead_category_kind")
+}
+
+enum TransferLeg {
+  OUT
+  IN
+
+  @@map("stead_transfer_leg")
+}
+
+enum BudgetLimitKind {
+  BASE
+  OVERRIDE
+
+  @@map("stead_budget_limit_kind")
+}
+
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+
+  @@map("stead_recurrence_frequency")
+}
+
+enum OccurrenceStatus {
+  CONFIRMED
+  MATCHED
+  SKIPPED
+
+  @@map("stead_occurrence_status")
+}
+
+// Every M1 table carries user_id. Child rows reference their parents through (user_id, id),
+// so the database itself rejects a link between rows of two different users.
+
+model Account {
+  id         String              @id @default(uuid()) @map("account_id") @db.Uuid
+  userId     String              @map("user_id") @db.Uuid
+  name       String              @db.VarChar(80)
+  type       AccountType
+  archivedAt DateTime?           @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  movements  Movement[]
+  templates  RecurringTemplate[]
+
+  @@unique([userId, id])
+  @@unique([userId, name])
+  @@map("stead_accounts")
+}
+
+model Category {
+  id         String              @id @default(uuid()) @map("category_id") @db.Uuid
+  userId     String              @map("user_id") @db.Uuid
+  name       String              @db.VarChar(80)
+  kind       CategoryKind
+  archivedAt DateTime?           @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  movements  Movement[]
+  rules      CategoryRule[]
+  limits     BudgetLimit[]
+  templates  RecurringTemplate[]
+
+  @@unique([userId, id])
+  @@unique([userId, name])
+  @@map("stead_categories")
+}
+
+/// A transfer groups exactly one outgoing and one incoming movement (see Movement.transferLeg).
+model Transfer {
+  id        String     @id @default(uuid()) @map("transfer_id") @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  legs      Movement[]
+
+  @@unique([userId, id])
+  @@map("stead_transfers")
+}
+
+model Movement {
+  id          String               @id @default(uuid()) @map("movement_id") @db.Uuid
+  userId      String               @map("user_id") @db.Uuid
+  accountId   String               @map("account_id") @db.Uuid
+  categoryId  String?              @map("category_id") @db.Uuid
+  /// Calendar date as entered; no time zone applies to it.
+  bookingDate DateTime             @map("booking_date") @db.Date
+  /// AES-256-GCM envelope of the free-text description (see server/cash-flow/text-crypto.ts).
+  description Bytes                @map("description_enc")
+  /// Signed integer cents in EUR: negative leaves the account, positive enters it.
+  amountCents Int                  @map("amount_cents")
+  voidedAt    DateTime?            @map("voided_at") @db.Timestamptz(3)
+  transferId  String?              @map("transfer_id") @db.Uuid
+  transferLeg TransferLeg?         @map("transfer_leg")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account     Account              @relation(fields: [userId, accountId], references: [userId, id], onDelete: Restrict)
+  category    Category?            @relation(fields: [userId, categoryId], references: [userId, id], onDelete: Restrict)
+  transfer    Transfer?            @relation(fields: [userId, transferId], references: [userId, id], onDelete: Restrict)
+  occurrence  RecurringOccurrence?
+
+  @@unique([userId, id])
+  @@unique([transferId, transferLeg])
+  @@index([userId, bookingDate])
+  @@index([userId, accountId, bookingDate])
+  @@index([userId, categoryId, bookingDate])
+  @@map("stead_movements")
+}
+
+model CategoryRule {
+  id         String   @id @default(uuid()) @map("rule_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  /// Normalized phrase (lower case, no accents, single spaces).
+  phrase     String   @db.VarChar(60)
+  categoryId String   @map("category_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  category   Category @relation(fields: [userId, categoryId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, phrase])
+  @@map("stead_category_rules")
+}
+
+/// BASE rows apply from `month` onward until a later BASE row; OVERRIDE rows apply to `month` only.
+/// A BASE row with a null limit means "no budget from this month".
+model BudgetLimit {
+  id         String          @id @default(uuid()) @map("limit_id") @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  categoryId String          @map("category_id") @db.Uuid
+  /// First day of the month, Europe/Rome calendar.
+  month      DateTime        @db.Date
+  kind       BudgetLimitKind
+  limitCents Int?            @map("limit_cents")
+  user       User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  category   Category        @relation(fields: [userId, categoryId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, categoryId, month, kind])
+  @@map("stead_budget_limits")
+}
+
+model RecurringTemplate {
+  id          String                @id @default(uuid()) @map("template_id") @db.Uuid
+  userId      String                @map("user_id") @db.Uuid
+  accountId   String                @map("account_id") @db.Uuid
+  categoryId  String?               @map("category_id") @db.Uuid
+  description Bytes                 @map("description_enc")
+  /// Expected expense as a positive amount in cents; the booked movement is its negation.
+  amountCents Int                   @map("amount_cents")
+  frequency   RecurrenceFrequency
+  /// First occurrence; monthly and yearly occurrences keep this day of the month.
+  startDate   DateTime              @map("start_date") @db.Date
+  endDate     DateTime?             @map("end_date") @db.Date
+  archivedAt  DateTime?             @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account     Account               @relation(fields: [userId, accountId], references: [userId, id], onDelete: Restrict)
+  category    Category?             @relation(fields: [userId, categoryId], references: [userId, id], onDelete: Restrict)
+  occurrences RecurringOccurrence[]
+
+  @@unique([userId, id])
+  @@map("stead_recurring_templates")
+}
+
+/// One resolution per (template, due date). The unique key is what makes a confirmation happen once.
+model RecurringOccurrence {
+  id         String            @id @default(uuid()) @map("occurrence_id") @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  templateId String            @map("template_id") @db.Uuid
+  dueDate    DateTime          @map("due_date") @db.Date
+  status     OccurrenceStatus
+  movementId String?           @map("movement_id") @db.Uuid
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  template   RecurringTemplate @relation(fields: [userId, templateId], references: [userId, id], onDelete: Restrict)
+  movement   Movement?         @relation(fields: [userId, movementId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([templateId, dueDate])
+  @@unique([userId, movementId])
+  @@map("stead_recurring_occurrences")
 }

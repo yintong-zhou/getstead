@@ -18,6 +18,11 @@ const paths = {
   electricity: "m13 2-8 12h6l-1 8 9-12h-6z",
   water: "M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z",
   subscription: "M4 5h16v12H4zm4 16h8",
+  budget: "M21 12a9 9 0 1 1-9-9v9z M16 3.6A9 9 0 0 1 20.4 8H16z",
+  recurring: "m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4m14-1v1a4 4 0 0 1-4 4H3",
+  accounts: "M3 21h18M5 21V11m4 10V11m6 10V11m4 10V11M2 10l10-7 10 7z",
+  plus: "M12 5v14M5 12h14",
+  check: "m5 12 5 5L20 7",
 } as const;
 
 type IconName = keyof typeof paths;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Locale } from "@/server/demo-dashboard";
+import type { Locale } from "@/server/locale";
 import { authCopy } from "./auth-copy";
 import "./auth.css";
 
