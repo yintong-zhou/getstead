@@ -24,4 +24,7 @@ GRANT SELECT, INSERT, DELETE ON public.stead_transfers, public.stead_recurring_o
 GRANT SELECT, INSERT, UPDATE (category_id), DELETE ON public.stead_category_rules TO stead_auth_app;
 GRANT SELECT, INSERT, UPDATE (limit_cents), DELETE ON public.stead_budget_limits TO stead_auth_app;
 
+-- Net worth (M2)
+GRANT SELECT, INSERT, UPDATE (balance_cents), DELETE ON public.stead_balance_checks TO stead_auth_app;
+
 COMMIT;

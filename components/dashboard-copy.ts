@@ -2,6 +2,7 @@ import type { Locale } from "@/server/locale";
 
 const en = {
   overview: "Overview",
+  netWorth: "Net worth",
   cashFlow: "Cash flow",
   budget: "Budget",
   recurring: "Recurring",
@@ -47,6 +48,7 @@ export const dashboardCopy: Record<Locale, DashboardCopy> = {
   en,
   it: {
     overview: "Panoramica",
+    netWorth: "Patrimonio",
     cashFlow: "Flussi di cassa",
     budget: "Budget",
     recurring: "Ricorrenti",

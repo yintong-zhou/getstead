@@ -66,6 +66,16 @@ node --env-file=.tmp/stead-auth-test.env --test server/cash-flow/postgres.integr
 
 To try the app against it, run `npm run build` and `node --env-file=.tmp/stead-auth-test.env node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3100`. Remove the database with `docker rm -f stead-test-pg`.
 
+## Net worth (M2)
+
+Open `/en/net-worth` or `/it/net-worth` to see assets, liabilities, net worth, the change since the previous month end, and a 12-month trend. Balances use signed integer EUR cents: amounts owed are negative, assets sum positive account balances, and liabilities show the magnitude of negative balances. Card and debt accounts default to an owed balance in the form; you can change that for credit balances.
+
+A balance check records an account's **end-of-day** balance. For a date D, Stead uses the latest check on or before D and adds non-voided movements strictly after the check date through D. Movements on the check date are already included. With no check, movements accumulate from zero. Transfer legs count toward account balances. A check for the same account and date replaces its balance; editing movements, replacing checks, or deleting checks recomputes history. No frozen snapshots are stored.
+
+The trend uses each month end for the last 12 months and today for the current month, following Europe/Rome. Archived accounts remain included; record a zero check when closing one. An archived account with a remaining balance is flagged. Investment valuation, property values, and CSV import are outside M2.
+
+The authenticated API is `/api/net-worth` (GET totals and history), `/api/net-worth/balances` (GET checks, POST a check), and `/api/net-worth/balances/:id` (DELETE). Mutations require the same-origin `Origin` header. After applying the M2 migration, run `db/grant-runtime.sql` again: the runtime role can read, insert, delete, and update only `balance_cents` on checks. The cash flow PostgreSQL integration suite also verifies M2 runtime grants, cross-user rejection, and historical recalculation.
+
 ## Cash flow and budget (M1)
 
 Pages live under `/en` and `/it`: overview, `cash-flow` (register, new movement, transfers), `budget`, `recurring` and `accounts` (accounts, categories, rules). The JSON API is under `/api/cash-flow/` (accounts, categories, movements, transfers, rules, budget, recurring, summary); every call needs the signed-in session, mutations need a same-origin `Origin` header, and responses are never cached. Amounts are integer euro cents, movement dates are calendar dates, and "today" and calendar months follow Europe/Rome. Movement and recurring descriptions are stored as AES-256-GCM ciphertext, with a key derived from `AUTH_ENCRYPTION_KEY`: keep that key stable, because rotating it makes stored descriptions unreadable.

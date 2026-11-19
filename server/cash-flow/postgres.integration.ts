@@ -24,6 +24,7 @@ import {
 import { createTemplate, listRecurring, occurrenceCandidates, resolveOccurrence, updateTemplate } from "./recurring.ts";
 import { monthSummary } from "./reports.ts";
 import { createRule, deleteRule, listRules, suggestForDescription } from "./rules.ts";
+import { deleteCheck, getNetWorth, listChecks, recordCheck } from "../net-worth/service.ts";
 
 let admin: PrismaClient;
 
@@ -68,6 +69,89 @@ async function rejectsMissing(promise: Promise<unknown>) {
     return (error instanceof ApiError && error.status === 404) || code === "P2025";
   });
 }
+
+test("balance checks upsert and delete under the runtime role, with user isolation and database constraints", async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  const checking = await account(a);
+  const other = await account(b);
+  const now = new Date("2026-11-19T10:00:00Z");
+  const input = { accountId: checking.id, asOf: "2026-11-18", balanceCents: 10_000 };
+  const first = await recordCheck(a, input, now);
+  const updated = await recordCheck(a, { ...input, balanceCents: -20_000 }, now);
+  assert.equal(updated.id, first.id, "same account and date replaces the existing check");
+  assert.equal((await listChecks(a)).length, 1);
+  assert.equal((await listChecks(a))[0].balanceCents, -20_000);
+  assert.deepEqual(await listChecks(b), []);
+  const empty = await getNetWorth(b, now);
+  assert.deepEqual([empty.assetsCents, empty.liabilitiesCents, empty.netCents], [0, 0, 0]);
+  assert.ok(empty.series.every((point) => point.netCents === 0));
+  await rejectsApi(recordCheck(b, input, now), 409, "conflict");
+  await rejectsMissing(deleteCheck(b, first.id));
+  assert.equal((await listChecks(a)).length, 1);
+
+  const insert = (userId: string, accountId: string, cents: number) => db().$executeRaw`
+    INSERT INTO stead_balance_checks (check_id, user_id, account_id, as_of, balance_cents)
+    VALUES (${randomUUID()}::uuid, ${userId}::uuid, ${accountId}::uuid, DATE '2026-11-01', ${cents})
+  `;
+  await assert.rejects(insert(b, checking.id, 0), /foreign key|violates/i);
+  await assert.rejects(insert(b, other.id, 1_000_000_001), /check constraint|violates/i);
+  await assert.rejects(insert(b, other.id, -1_000_000_001), /check constraint|violates/i);
+  const role = await db().$queryRaw<{ can_rekey: boolean }[]>`
+    SELECT has_column_privilege(current_user, 'stead_balance_checks', 'account_id', 'UPDATE') AS can_rekey
+  `;
+  assert.equal(role[0].can_rekey, false, "runtime cannot change a check's ownership or account");
+  await deleteCheck(a, first.id);
+  assert.deepEqual(await listChecks(a), []);
+  await recordCheck(a, { ...input, balanceCents: 0 }, now);
+  assert.equal((await listChecks(a))[0].balanceCents, 0);
+});
+
+test("net worth recalculates history from checks and movements, including archived balances and transfers", async () => {
+  const user = await newUser();
+  const checking = await account(user);
+  const card = await account(user, "Synthetic card", "CARD");
+  const now = new Date("2026-11-19T10:00:00Z");
+  const check = await recordCheck(user, { accountId: checking.id, asOf: "2026-09-30", balanceCents: 10_000 }, now);
+  await movement(user, checking.id, "2026-09-30", 99_999);
+  const expense = await movement(user, checking.id, "2026-10-31", -1_000);
+  const voided = await movement(user, checking.id, "2026-11-01", -2_000);
+  await updateMovement(user, voided.id, { voided: true });
+  await movement(user, checking.id, "2026-11-20", 99_999);
+  await createTransfer(user, { fromAccountId: checking.id, toAccountId: card.id, amountCents: 500, bookingDate: "2026-11-03", description: "Synthetic transfer" });
+  await recordCheck(user, { accountId: card.id, asOf: "2026-11-01", balanceCents: -3_000 }, now);
+  await updateAccount(user, card.id, { archived: true });
+
+  let data = await getNetWorth(user, now);
+  assert.deepEqual([data.assetsCents, data.liabilitiesCents, data.netCents, data.changeCents], [8_500, 2_500, 6_000, -3_000]);
+  assert.equal(data.series.length, 12);
+  assert.equal(data.series.at(-2)?.netCents, 9_000);
+  const archived = data.perAccount.find((row) => row.id === card.id)!;
+  assert.deepEqual([archived.archived, archived.balanceCents, archived.lastCheckDate], [true, -2_500, "2026-11-01"]);
+  assert.equal((await getDashboard(user, now)).netWorthCents, data.netCents);
+  await updateMovement(user, expense.id, { amountCents: -2_000 });
+  data = await getNetWorth(user, now);
+  assert.equal(data.series.at(-2)?.netCents, 8_000, "editing an old movement fixes historical month ends");
+  await recordCheck(user, { accountId: checking.id, asOf: check.asOf, balanceCents: 20_000 }, now);
+  assert.equal((await getNetWorth(user, now)).series.at(-2)?.netCents, 18_000);
+  await recordCheck(user, { accountId: checking.id, asOf: "2026-11-18", balanceCents: 0 }, now);
+  assert.equal((await getNetWorth(user, now)).netCents, -2_500);
+  await deleteCheck(user, check.id);
+  assert.equal((await getNetWorth(user, now)).series.at(-2)?.netCents, 97_999, "deleting a check also recomputes history");
+});
+
+test("balance validation uses Rome today, permits signed zero, and rejects extra or invalid fields", async () => {
+  const user = await newUser();
+  const checking = await account(user);
+  const now = new Date("2026-11-18T23:30:00Z"); // Already 19 November in Rome.
+  const input = { accountId: checking.id, asOf: "2026-11-19", balanceCents: 0 };
+  assert.equal((await recordCheck(user, input, now)).asOf, "2026-11-19");
+  assert.equal((await getNetWorth(user, now)).today, "2026-11-19");
+  for (const extra of [
+    { asOf: "2026-11-20" }, { asOf: "2026-02-30" }, { asOf: "1999-12-31" },
+    { balanceCents: 0.1 }, { balanceCents: "0" }, { balanceCents: 1_000_000_001 },
+    { accountId: "invalid" }, { userId: user },
+  ]) await rejectsApi(recordCheck(user, { ...input, ...extra }, now), 422, "validation");
+});
 
 test("every read and write is scoped to the authenticated user", async () => {
   const [a, b] = [await newUser(), await newUser()];

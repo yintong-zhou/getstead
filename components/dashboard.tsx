@@ -101,6 +101,13 @@ export function Dashboard({ locale, data }: { locale: Locale; data: DashboardDat
         </Link>
       )}
     >
+      <section className="card dashboard-worth" aria-labelledby="dashboard-worth-title">
+        <header className="card-head">
+          <h2 id="dashboard-worth-title">{copy.netWorth}</h2>
+          <Link className="text-link" href={`/${locale}/net-worth`}>{copy.seeAll}</Link>
+        </header>
+        <p className="amount">{formatEuros(data.netWorthCents, locale)}</p>
+      </section>
       {!data.hasAccounts ? (
         <section className="card onboarding" aria-labelledby="onboarding-title">
           <h2 id="onboarding-title">{copy.firstAccountTitle}</h2>
