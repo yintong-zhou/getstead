@@ -4,7 +4,7 @@ import { authCopy } from "@/components/auth/auth-copy";
 import { AuthShell, UnavailableNotice } from "@/components/auth/auth-shell";
 import { MfaForm } from "@/components/auth/mfa-form";
 import { readPageChallenge, readPageSession } from "@/server/auth/page-access";
-import { isLocale } from "@/server/demo-dashboard";
+import { isLocale } from "@/server/locale";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

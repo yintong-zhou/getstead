@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";
 import { appOrigin } from "./config.ts";
 
 export const sessionCookie = "stead_session";
@@ -18,7 +18,7 @@ export async function sameOrigin(request: Request, action: (secure: boolean) => 
   }
 }
 
-export async function readAuthBody(request: Request) {
+export async function readAuthBody(request: Request, maxBytes = 4_096) {
   if (request.headers.get("content-type")?.split(";")[0] !== "application/json" || !request.body) return null;
   const reader = request.body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -29,7 +29,7 @@ export async function readAuthBody(request: Request) {
       const chunk = await reader.read();
       if (chunk.done) break;
       size += chunk.value.byteLength;
-      if (size > 4_096) {
+      if (size > maxBytes) {
         await reader.cancel();
         return null;
       }

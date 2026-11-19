@@ -200,11 +200,7 @@ h1 {
 
 .nav-item:hover { background: var(--surface-alt); color: var(--ink); }
 
-.workspace:not(:has(#cash-flow:target, #net-worth:target, #investments:target, #home:target, #activity:target)) .nav-overview,
-.workspace:has(#cash-flow:target, #activity:target) .nav-cash-flow,
-.workspace:has(#net-worth:target) .nav-net-worth,
-.workspace:has(#investments:target) .nav-investments,
-.workspace:has(#home:target) .nav-home {
+.nav-item[aria-current="page"] {
   background: var(--brand-soft);
   color: var(--brand);
 }

@@ -1,6 +1,7 @@
 import { emitKeypressEvents, type Key } from "node:readline";
 import { createInterface } from "node:readline/promises";
-import { closePool } from "./database.ts";
+import { localPostgresUrl } from "./config.ts";
+import { disconnectDb } from "./database.ts";
 import { createOwner, resetOwner } from "./owner.ts";
 
 function askHidden(prompt: string) {
@@ -38,13 +39,7 @@ async function main() {
     throw new Error("Run auth:owner with create or reset in an interactive terminal.");
   }
 
-  const connect = process.env.ORACLE_CONNECT_STRING ?? "";
-  if (!/^(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/XEPDB1$/i.test(connect)) {
-    throw new Error("Owner commands require the local XEPDB1 service.");
-  }
-
-  process.env.ORACLE_USER = process.env.ORACLE_ADMIN_USER ?? "stead_auth_owner";
-  process.env.ORACLE_PASSWORD = process.env.ORACLE_ADMIN_PASSWORD ?? await askHidden("Oracle schema owner password: ");
+  process.env.DATABASE_URL = localPostgresUrl(process.env.DATABASE_ADMIN_URL).href;
 
   const prompts = createInterface({ input: process.stdin, output: process.stdout });
   const email = await prompts.question("Stead account email: ").finally(() => prompts.close());
@@ -66,11 +61,11 @@ try {
   await main();
 } catch (error) {
   if (error instanceof Error && "code" in error) {
-    console.error("Oracle could not complete the owner command:", error.code);
+    console.error("PostgreSQL could not complete the owner command:", error.code);
   } else {
     console.error(error instanceof Error ? error.message : "Owner command failed.");
   }
   process.exitCode = 1;
 } finally {
-  await closePool().catch(() => { process.exitCode = 1; });
+  await disconnectDb().catch(() => { process.exitCode = 1; });
 }

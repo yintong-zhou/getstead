@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { Locale } from "@/server/demo-dashboard";
+import type { Locale } from "@/server/locale";
 import { authCopy, errorKeyForStatus, postAuth, type AuthErrorKey } from "./auth-copy";
 
 export function LoginForm({ locale }: { locale: Locale }) {

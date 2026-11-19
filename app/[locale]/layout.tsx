@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { dashboardCopy } from "@/components/dashboard-copy";
-import { isLocale, locales } from "@/server/demo-dashboard";
+import { isLocale, locales } from "@/server/locale";
 import "../globals.css";
 
 const plusJakarta = localFont({

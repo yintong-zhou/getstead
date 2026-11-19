@@ -49,7 +49,7 @@ export function encryptSecret(key: Buffer, userId: string, secret: string) {
   return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]);
 }
 
-export function decryptSecret(key: Buffer, userId: string, encrypted: Buffer) {
+export function decryptSecret(key: Buffer, userId: string, encrypted: Uint8Array) {
   const decipher = createDecipheriv("aes-256-gcm", key, encrypted.subarray(0, 12));
   decipher.setAAD(Buffer.from(userId));
   decipher.setAuthTag(encrypted.subarray(12, 28));

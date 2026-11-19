@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Locale } from "@/server/demo-dashboard";
+import type { Locale } from "@/server/locale";
 import { authCopy, postAuth } from "./auth-copy";
 import "./auth.css";
 
