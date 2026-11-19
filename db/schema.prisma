@@ -1,0 +1,53 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String           @id @default(uuid()) @map("user_id") @db.Uuid
+  email        String           @unique @db.VarChar(254)
+  passwordHash String           @map("password_hash") @db.VarChar(180)
+  totpSecret   Bytes?           @map("totp_secret")
+  lastTotpStep Int?             @map("last_totp_step")
+  challenges   LoginChallenge[]
+  sessions     Session[]
+
+  @@map("stead_users")
+}
+
+model LoginChallenge {
+  tokenDigest   Bytes    @id @map("token_digest")
+  userId        String   @map("user_id") @db.Uuid
+  expiresAt     DateTime @map("expires_at") @db.Timestamptz(3)
+  pendingSecret Bytes?   @map("pending_secret")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("stead_login_challenges")
+}
+
+model Session {
+  tokenDigest Bytes    @id @map("token_digest")
+  userId      String   @map("user_id") @db.Uuid
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("stead_sessions")
+}
+
+model AuthLimit {
+  phase         String   @db.VarChar(8)
+  subjectDigest Bytes    @map("subject_digest")
+  attempts      Int      @db.SmallInt
+  windowUntil   DateTime @map("window_until") @db.Timestamptz(3)
+
+  @@id([phase, subjectDigest])
+  @@map("stead_auth_limits")
+}

@@ -30,7 +30,7 @@ Directives are living documents: improve them as you learn, but ask before creat
 - Next.js (App Router) as a fullstack app: TypeScript in strict mode, React, Tailwind CSS.
 - Business logic, data access and imports in `server/`. UI components never query the database directly.
 - REST API through route handlers in `app/api/`.
-- Database: Oracle or PostgreSQL, not decided yet. Ask before choosing, because the ORM depends on it.
+- Database: PostgreSQL with Prisma ORM. Keep the schema and migrations in `db/`.
 - Authentication: library not decided yet. Requirements: httpOnly cookie sessions and 2FA.
 - Hosting: Vercel. Database in an EU region (GDPR).
 - Python 3 only for `execution/` scripts.

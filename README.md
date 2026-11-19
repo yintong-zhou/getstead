@@ -4,34 +4,37 @@ Stead is a personal finance workspace. The first milestone includes a private si
 
 ## Run locally
 
-Use Node.js 22.18 or later on the 22.x line, or Node.js 24 or later.
+Use Node.js 22.18 or later on the 22.x line, or Node.js 24 or later, and a local PostgreSQL server.
+
+As a local PostgreSQL administrator, create two login roles with different passwords and a database owned by the migration role.
+
+```sql
+CREATE ROLE stead_auth_owner LOGIN;
+CREATE ROLE stead_auth_app LOGIN;
+CREATE DATABASE stead OWNER stead_auth_owner;
+```
+
+Set each role's password interactively with `\password stead_auth_owner` and `\password stead_auth_app` in `psql`.
+
+Copy `.env.example` to the ignored `.env.local`, fill in the runtime URL, and set `AUTH_ENCRYPTION_KEY` to 32 random bytes encoded in base64. Generate the key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and keep it stable. Percent-encode special characters in URL credentials.
+
+In the ignored `credentials/stead-postgres.env` file, set `DATABASE_ADMIN_URL=postgresql://stead_auth_owner:YOUR_OWNER_PASSWORD@127.0.0.1:5432/stead`.
 
 ```sh
 npm ci
+npm run db:migrate
+```
+
+Connect to the `stead` database in `psql` as `stead_auth_owner` and run `\i db/grant-runtime.sql` to grant the app role its authentication permissions. The runtime uses `DATABASE_URL`. Prisma Migrate and owner commands use `DATABASE_ADMIN_URL` for administrative access. Keep the administrative URL in the migration or provisioning environment when deploying the app.
+
+```sh
+npm run auth:owner -- create
 npm run dev
 ```
 
+Enter the Stead email and password in the interactive owner command. On the first sign-in, add the setup key to a time-based authenticator and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the Stead password, revokes sessions, and resets the authenticator enrollment.
+
 Open [Stead in English](http://127.0.0.1:3000/en) or [Stead in Italian](http://127.0.0.1:3000/it). Use the same loopback hostname as `APP_ORIGIN`.
-
-## Local Oracle setup
-
-In the local Oracle XE `XEPDB1` PDB, provision `stead_auth_owner` with `CREATE SESSION`, `CREATE TABLE`, and a quota on the development tablespace. Provision `stead_auth_app` with `CREATE SESSION`. Database login passwords in Oracle XE 21c can be at most 30 bytes.
-
-Apply `db/migrations/001-auth.sql` once to the empty owner schema through SQL*Plus. Then run `db/grant-local-auth.sql` as the provisioning administrator in the same PDB. Both steps are additive. If a statement fails, inspect the new schema before retrying. Oracle commits DDL statements individually.
-
-Set the following in the ignored `.env.local` file.
-
-| Variable | Local value |
-| --- | --- |
-| `APP_ORIGIN` | `http://127.0.0.1:3000` |
-| `ORACLE_CONNECT_STRING` | `127.0.0.1:1521/XEPDB1` |
-| `ORACLE_USER` | `stead_auth_app` |
-| `ORACLE_PASSWORD` | Password of the runtime database account |
-| `AUTH_ENCRYPTION_KEY` | 32 random bytes encoded in base64. Keep it stable across restarts. |
-
-Run `npm run auth:owner -- create` in an interactive terminal. Enter the schema owner's Oracle password when prompted, then choose the Stead email and password. The command can also read `ORACLE_ADMIN_USER` and `ORACLE_ADMIN_PASSWORD` from the ignored `credentials/stead-auth-owner.env` file. Keep schema-owner credentials out of `.env.local`.
-
-On the first sign-in, add the setup key manually to a time-based authenticator and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the Stead password, revokes sessions, and resets the authenticator enrollment.
 
 ## Verify
 
@@ -42,4 +45,4 @@ npm run test
 npm run build
 ```
 
-For integration tests, apply the same migration in a separate local schema named `stead_auth_test`, with the same owner privileges. Set its `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_CONNECT_STRING`, and a separate `AUTH_ENCRYPTION_KEY` in `.tmp/stead-auth-test.env`. Run `npm run test:oracle` to exercise the auth flow against that schema with synthetic accounts.
+For integration tests, create a separate local database named `stead_auth_test`. Set `DATABASE_ADMIN_URL` to its owner connection URL for the `npm run db:migrate` command. Put the same URL in `DATABASE_URL` and a separate `AUTH_ENCRYPTION_KEY` in `.tmp/stead-auth-test.env`. Run `npm run test:postgres` to exercise the auth flow with synthetic accounts.

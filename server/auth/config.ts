@@ -4,12 +4,21 @@ function required(name: string) {
   return value;
 }
 
-export function oracleConfig() {
-  return {
-    user: required("ORACLE_USER"),
-    password: required("ORACLE_PASSWORD"),
-    connectString: required("ORACLE_CONNECT_STRING"),
-  };
+export function databaseUrl() {
+  return required("DATABASE_URL");
+}
+
+export function localPostgresUrl(value: string | undefined) {
+  const url = URL.parse(value ?? "");
+  if (
+    !url ||
+    !["postgresql:", "postgres:"].includes(url.protocol) ||
+    !["127.0.0.1", "[::1]", "localhost"].includes(url.hostname) ||
+    url.searchParams.has("host")
+  ) {
+    throw new Error("This command requires a local PostgreSQL connection.");
+  }
+  return url;
 }
 
 export function appOrigin() {

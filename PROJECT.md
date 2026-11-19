@@ -85,7 +85,7 @@ A single Next.js app in TypeScript, frontend and backend together, hosted on Ver
 | -------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Frontend and backend | Full-stack Next.js (App Router) in TypeScript                                                       | One language, with types shared between UI and API                       |
 | Business logic       | server/ folder kept separate from the UI; REST API via route handlers                               | Rules and calculations in one place, reusable by a future mobile app     |
-| Database             | Oracle or PostgreSQL; ORM chosen to match the database (Prisma or Drizzle for PostgreSQL)           | Versioned migrations and typed data access                               |
+| Database             | PostgreSQL with Prisma ORM                                                                         | Versioned migrations and typed data access                               |
 | Amounts              | Integers in cents or a decimal library, never floating-point numbers                                | No rounding errors on money                                              |
 | Authentication       | Next.js authentication library, session in an httpOnly cookie, 2FA                                  | A single point decides who sees which data                               |
 | Data import          | TypeScript modules behind a common interface (CSV now, aggregator later)                            | Bank connections can be added without a rewrite                          |
@@ -163,9 +163,5 @@ The main risk is the project growing before it reaches a version I actually use.
 | Investment prices                                     | Manual in v1; automatic source to evaluate (API costs and licensing)             |
 | IP clauses in my employment contract                  | Check the contract before generating income                                      |
 
-
-Open questions:
-
-- Oracle or PostgreSQL: PostgreSQL recommended, since Prisma and Drizzle don't support Oracle
 
 **Next action (within 48 hours):** export the last 3 months of transactions from my main bank as CSV. That file defines the import format and the transaction data model.

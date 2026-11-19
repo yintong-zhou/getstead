@@ -1,8 +1,10 @@
 .env*
+!.env.example
 .tmp/
 credentials/
 credentials.json
 node_modules/
+db/generated/
 .next/
 next-env.d.ts
 *.tsbuildinfo

@@ -1,61 +1,48 @@
-import type { Connection } from "oracledb";
 import { generateSecret, verify } from "otplib";
+import type { Prisma, User } from "../../db/generated/client.ts";
 import { encryptionKey } from "./config.ts";
 import { decryptSecret, digestToken, encryptSecret, newToken, verifyPassword } from "./crypto.ts";
-import { inTransaction, one, withConnection } from "./database.ts";
+import { db } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 
-type User = {
-  USER_ID: string;
-  PASSWORD_HASH: string;
-  TOTP_SECRET: Buffer | null;
-  LAST_TOTP_STEP: number | null;
-};
-type Challenge = { USER_ID: string; PENDING_SECRET: Buffer | null };
-
-function getUserById(connection: Connection, id: string) {
-  return one<User>(connection, `
-    SELECT user_id, password_hash, totp_secret, last_totp_step FROM stead_users
-    WHERE user_id = :id FOR UPDATE
-  `, { id });
-}
-
-function getChallenge(connection: Connection, digest: Buffer) {
-  return one<Challenge>(connection, `
-    SELECT user_id, pending_secret FROM stead_login_challenges
-    WHERE token_digest = :digest AND expires_at > SYSTIMESTAMP
-  `, { digest });
+async function lockUser(tx: Prisma.TransactionClient, id: string) {
+  // The row lock serializes password changes, MFA enrollment, and TOTP verification.
+  const [user] = await tx.$queryRaw<Pick<User, "passwordHash" | "totpSecret" | "lastTotpStep">[]>`
+    SELECT password_hash AS "passwordHash", totp_secret AS "totpSecret", last_totp_step AS "lastTotpStep"
+    FROM stead_users WHERE user_id = ${id}::uuid FOR NO KEY UPDATE
+  `;
+  return user;
 }
 
 export async function signIn(email: string, password: string) {
-  const user = await withConnection((connection) => one<Pick<User, "USER_ID" | "PASSWORD_HASH">>(connection, `
-    SELECT user_id, password_hash FROM stead_users WHERE email = :email
-  `, { email }));
+  const user = await db().user.findUnique({ where: { email }, select: { id: true, passwordHash: true } });
 
   // Unknown addresses share a budget and cannot create unbounded limiter rows.
-  if (!await reserveAttempt("password", user?.USER_ID ?? "unknown-account")) {
+  if (!await reserveAttempt("password", user?.id ?? "unknown-account")) {
     return { status: "limited" } as const;
   }
 
-  if (!await verifyPassword(password, user?.PASSWORD_HASH ?? null) || !user) {
+  if (!await verifyPassword(password, user?.passwordHash ?? null) || !user) {
     return { status: "invalid" } as const;
   }
 
-  return inTransaction(async (connection) => {
-    const current = await getUserById(connection, user.USER_ID);
-    if (!current || current.PASSWORD_HASH !== user.PASSWORD_HASH) return { status: "invalid" } as const;
+  return db().$transaction(async (tx) => {
+    const current = await lockUser(tx, user.id);
+    if (!current || current.passwordHash !== user.passwordHash) return { status: "invalid" } as const;
 
     const token = newToken();
-    const pending = current.TOTP_SECRET
+    const pendingSecret = current.totpSecret
       ? null
-      : encryptSecret(encryptionKey(), user.USER_ID, generateSecret());
-    await connection.execute(`
-      DELETE FROM stead_login_challenges WHERE user_id = :id AND expires_at <= SYSTIMESTAMP
-    `, { id: user.USER_ID });
-    await connection.execute(`
-      INSERT INTO stead_login_challenges (token_digest, user_id, pending_secret, expires_at)
-      VALUES (:digest, :id, :pending, SYSTIMESTAMP + INTERVAL '5' MINUTE)
-    `, { digest: digestToken(token), id: user.USER_ID, pending });
+      : encryptSecret(encryptionKey(), user.id, generateSecret());
+    await tx.loginChallenge.deleteMany({ where: { userId: user.id, expiresAt: { lte: new Date() } } });
+    await tx.loginChallenge.create({
+      data: {
+        tokenDigest: digestToken(token)!,
+        userId: user.id,
+        pendingSecret,
+        expiresAt: new Date(Date.now() + 5 * 60_000),
+      },
+    });
 
     return { status: "ok", token } as const;
   });
@@ -65,64 +52,62 @@ export async function readChallenge(token: string | undefined) {
   const digest = digestToken(token);
   if (!digest) return { status: "anonymous" } as const;
 
-  return withConnection(async (connection) => {
-    const challenge = await one<Challenge & { TOTP_SECRET: Buffer | null }>(connection, `
-      SELECT c.user_id, c.pending_secret, u.totp_secret
-      FROM stead_login_challenges c JOIN stead_users u ON u.user_id = c.user_id
-      WHERE c.token_digest = :digest AND c.expires_at > SYSTIMESTAMP
-    `, { digest });
-    if (!challenge) return { status: "anonymous" } as const;
-    if (challenge.TOTP_SECRET) return { status: "verify" } as const;
-    if (!challenge.PENDING_SECRET) throw new Error("Missing enrollment key.");
-    return {
-      status: "enroll",
-      secret: decryptSecret(encryptionKey(), challenge.USER_ID, challenge.PENDING_SECRET),
-    } as const;
+  const challenge = await db().loginChallenge.findUnique({
+    where: { tokenDigest: digest, expiresAt: { gt: new Date() } },
+    select: { userId: true, pendingSecret: true, user: { select: { totpSecret: true } } },
   });
+  if (!challenge) return { status: "anonymous" } as const;
+  if (challenge.user.totpSecret) return { status: "verify" } as const;
+  if (!challenge.pendingSecret) throw new Error("Missing enrollment key.");
+  return {
+    status: "enroll",
+    secret: decryptSecret(encryptionKey(), challenge.userId, challenge.pendingSecret),
+  } as const;
 }
 
 export async function verifyMfa(token: string | undefined, code: string, epoch = Date.now() / 1000) {
   const digest = digestToken(token);
   if (!digest) return { status: "expired" } as const;
 
-  const active = await withConnection((connection) => getChallenge(connection, digest));
+  const active = await db().loginChallenge.findUnique({
+    where: { tokenDigest: digest, expiresAt: { gt: new Date() } },
+    select: { userId: true },
+  });
   if (!active) return { status: "expired" } as const;
-  if (!await reserveAttempt("mfa", active.USER_ID)) return { status: "limited" } as const;
+  if (!await reserveAttempt("mfa", active.userId)) return { status: "limited" } as const;
 
-  return inTransaction(async (connection) => {
-    // The user lock serializes successful verifications, enrollment, and owner recovery.
-    const user = await getUserById(connection, active.USER_ID);
-    const challenge = await getChallenge(connection, digest);
+  return db().$transaction(async (tx) => {
+    const { userId } = active;
+    const user = await lockUser(tx, userId);
+    const challenge = await tx.loginChallenge.findUnique({
+      where: { tokenDigest: digest, userId, expiresAt: { gt: new Date() } },
+      select: { pendingSecret: true },
+    });
     if (!user || !challenge) return { status: "expired" } as const;
 
-    const secret = user.TOTP_SECRET ?? challenge.PENDING_SECRET;
+    const secret = user.totpSecret ?? challenge.pendingSecret;
     if (!secret) throw new Error("Missing MFA key.");
     const result = await verify({
-      secret: decryptSecret(encryptionKey(), user.USER_ID, secret),
+      secret: decryptSecret(encryptionKey(), userId, secret),
       token: code,
       epoch,
       epochTolerance: [5, 0],
-      afterTimeStep: user.LAST_TOTP_STEP ?? undefined,
+      afterTimeStep: user.lastTotpStep ?? undefined,
     });
     if (!result.valid) return { status: "invalid" } as const;
     if (!("timeStep" in result)) throw new Error("Expected TOTP verification.");
 
     const session = newToken();
-    await connection.execute(`
-      UPDATE stead_users SET totp_secret = :secret, last_totp_step = :step WHERE user_id = :id
-    `, { secret, step: result.timeStep, id: user.USER_ID });
-    if (user.TOTP_SECRET) {
-      await connection.execute("DELETE FROM stead_login_challenges WHERE token_digest = :digest", { digest });
-    } else {
-      await connection.execute("DELETE FROM stead_login_challenges WHERE user_id = :id", { id: user.USER_ID });
-    }
-    await connection.execute(`
-      DELETE FROM stead_sessions WHERE user_id = :id AND expires_at <= SYSTIMESTAMP
-    `, { id: user.USER_ID });
-    await connection.execute(`
-      INSERT INTO stead_sessions (token_digest, user_id, expires_at)
-      VALUES (:digest, :id, SYSTIMESTAMP + INTERVAL '8' HOUR)
-    `, { digest: digestToken(session), id: user.USER_ID });
+    await tx.user.update({ where: { id: userId }, data: { totpSecret: secret, lastTotpStep: result.timeStep } });
+    await tx.loginChallenge.deleteMany({ where: user.totpSecret ? { tokenDigest: digest, userId } : { userId } });
+    await tx.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
+    await tx.session.create({
+      data: {
+        tokenDigest: digestToken(session)!,
+        userId,
+        expiresAt: new Date(Date.now() + 8 * 60 * 60_000),
+      },
+    });
 
     return { status: "ok", token: session } as const;
   });
@@ -131,10 +116,10 @@ export async function verifyMfa(token: string | undefined, code: string, epoch =
 export async function readSession(token: string | undefined) {
   const digest = digestToken(token);
   if (!digest) return null;
-  const session = await withConnection((connection) => one<{ USER_ID: string }>(connection, `
-    SELECT user_id FROM stead_sessions WHERE token_digest = :digest AND expires_at > SYSTIMESTAMP
-  `, { digest }));
-  return session ? { userId: session.USER_ID } : null;
+  return db().session.findUnique({
+    where: { tokenDigest: digest, expiresAt: { gt: new Date() } },
+    select: { userId: true },
+  });
 }
 
 export async function signOut(sessionToken: string | undefined, challengeToken: string | undefined) {
@@ -142,12 +127,8 @@ export async function signOut(sessionToken: string | undefined, challengeToken: 
   const challenge = digestToken(challengeToken);
   if (!session && !challenge) return;
 
-  await inTransaction(async (connection) => {
-    if (session) {
-      await connection.execute("DELETE FROM stead_sessions WHERE token_digest = :digest", { digest: session });
-    }
-    if (challenge) {
-      await connection.execute("DELETE FROM stead_login_challenges WHERE token_digest = :digest", { digest: challenge });
-    }
+  await db().$transaction(async (tx) => {
+    if (session) await tx.session.deleteMany({ where: { tokenDigest: session } });
+    if (challenge) await tx.loginChallenge.deleteMany({ where: { tokenDigest: challenge } });
   });
 }
