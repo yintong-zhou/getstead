@@ -25,6 +25,7 @@ model User {
   limits       BudgetLimit[]
   templates    RecurringTemplate[]
   occurrences  RecurringOccurrence[]
+  balanceChecks BalanceCheck[]
 
   @@map("stead_users")
 }
@@ -121,10 +122,27 @@ model Account {
   user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
   movements  Movement[]
   templates  RecurringTemplate[]
+  balanceChecks BalanceCheck[]
 
   @@unique([userId, id])
   @@unique([userId, name])
   @@map("stead_accounts")
+}
+
+model BalanceCheck {
+  id           String   @id @default(uuid()) @map("check_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  accountId    String   @map("account_id") @db.Uuid
+  /// End-of-day balance; movements on this date are already included.
+  asOf         DateTime @map("as_of") @db.Date
+  balanceCents Int      @map("balance_cents")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account      Account  @relation(fields: [userId, accountId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, accountId, asOf])
+  @@unique([userId, id])
+  @@map("stead_balance_checks")
 }
 
 model Category {

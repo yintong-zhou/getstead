@@ -100,6 +100,13 @@ export class Reader {
     return raw as number;
   }
 
+  /** Signed integer cents, including zero for balance checks. */
+  signedCents(key: string): number {
+    const raw = this.take(key);
+    if (!Number.isSafeInteger(raw) || Math.abs(raw as number) > MAX_CENTS) this.invalid(key);
+    return raw as number;
+  }
+
   /** A limit may be zero. */
   limit(key: string): number {
     const raw = this.take(key);

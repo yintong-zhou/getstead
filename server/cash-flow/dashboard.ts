@@ -1,6 +1,7 @@
 // Everything the overview page shows, for one authenticated user and the current Europe/Rome month.
 
 import { db } from "../auth/database.ts";
+import { getNetWorth } from "../net-worth/service.ts";
 import { getBudget } from "./budget.ts";
 import { listAccounts, listCategories } from "./catalog.ts";
 import { monthOf, romeToday, type IsoDate, type Month } from "./dates.ts";
@@ -14,7 +15,7 @@ export async function getDashboard(userId: string, now = new Date()) {
   const today = romeToday(now);
   const month: Month = monthOf(today);
 
-  const [accounts, categories, rows, months, budget, recurring] = await Promise.all([
+  const [accounts, categories, rows, months, budget, recurring, netWorth] = await Promise.all([
     listAccounts(userId, true),
     listCategories(userId, true),
     db().movement.findMany({
@@ -27,6 +28,7 @@ export async function getDashboard(userId: string, now = new Date()) {
     trend(userId, month, 6),
     getBudget(userId, month),
     listRecurring(userId, new URLSearchParams(), now),
+    getNetWorth(userId, now),
   ]);
 
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
@@ -42,6 +44,7 @@ export async function getDashboard(userId: string, now = new Date()) {
     incomeCents: current.incomeCents,
     expenseCents: current.expenseCents,
     monthlyNetCents: current.incomeCents - current.expenseCents,
+    netWorthCents: netWorth.netCents,
     trend: months,
     latest: rows.map((row) => {
       const movement = toMovementDto(userId, row);

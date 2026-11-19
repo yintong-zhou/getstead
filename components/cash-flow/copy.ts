@@ -57,6 +57,7 @@ const en = {
   } as Record<string, string>,
   fields: {
     name: "Name", description: "Description", amountCents: "Amount", bookingDate: "Date", accountId: "Account",
+    asOf: "Balance date", balanceCents: "Balance",
     categoryId: "Category", phrase: "Phrase", rememberPhrase: "Remembered phrase", limitCents: "Limit", startDate: "Start date",
     endDate: "End date", fromAccountId: "From account", toAccountId: "To account", inBookingDate: "Arrival date",
   } as Record<string, string>,
@@ -278,6 +279,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
     },
     fields: {
       name: "Nome", description: "Descrizione", amountCents: "Importo", bookingDate: "Data", accountId: "Conto",
+      asOf: "Data del saldo", balanceCents: "Saldo",
       categoryId: "Categoria", phrase: "Frase", rememberPhrase: "Frase da ricordare", limitCents: "Limite", startDate: "Data di inizio",
       endDate: "Data di fine", fromAccountId: "Conto di partenza", toAccountId: "Conto di arrivo", inBookingDate: "Data di arrivo",
     },

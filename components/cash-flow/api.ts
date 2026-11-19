@@ -4,10 +4,10 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; error: string; field?: string };
 
-/** One JSON call to /api/cash-flow. Never throws: a dropped connection is reported as `network`. */
-export async function call<T = unknown>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
+/** Never throws: a dropped connection is reported as `network`. */
+export async function call<T = unknown>(method: string, path: string, body?: unknown, base = "/api/cash-flow"): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(`/api/cash-flow${path}`, {
+    const response = await fetch(`${base}${path}`, {
       method,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
