@@ -11,6 +11,7 @@ import { sessionCookie } from "../auth/http.ts";
 import { api } from "../cash-flow/http.ts";
 import { db, disconnectDb } from "../auth/database.ts";
 import { createAccount, updateAccount } from "../cash-flow/catalog.ts";
+import { encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
 import { createInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio } from "./service.ts";
 
@@ -106,6 +107,30 @@ test("type change racing transaction create leaves a valid account relationship"
   const stored = await db().account.findUniqueOrThrow({ where: { userId_id: { userId, id: account.id } } });
   const count = await db().investmentTransaction.count({ where: { userId, accountId: account.id } });
   assert.equal(stored.type === "BROKERAGE" ? count : 0, count);
+});
+
+test("investment account locks do not wait for in-flight movement inserts (no transfer deadlock)", async () => {
+  const { userId, account, instrument } = await fixture();
+  const other = await createAccount(userId, { name: "Second synthetic broker", type: "BROKERAGE" });
+  await createTransaction(userId, buy(account.id, instrument.id));
+  await createTransaction(userId, buy(other.id, instrument.id));
+  let release!: () => void, inserted!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const ready = new Promise<void>((resolve) => { inserted = resolve; });
+  // An open transaction that inserted a movement into `other` holds KEY SHARE on that account row.
+  const open = db().$transaction(async (tx) => {
+    const id = randomUUID();
+    await tx.movement.create({ data: { id, userId, accountId: other.id, bookingDate: new Date("2026-11-03T00:00:00Z"), description: encryptText(userId, movementContext(id), "synthetic"), amountCents: 1 } });
+    inserted();
+    await held;
+  });
+  await ready;
+  const quote = recordQuote(userId, { instrumentId: instrument.id, asOf: "2026-11-03", unitPrice: "70" });
+  const outcome = await Promise.race([quote.then(() => "done"), new Promise((resolve) => setTimeout(() => resolve("blocked"), 3000))]);
+  release();
+  await open;
+  await quote;
+  assert.equal(outcome, "done");
 });
 
 test("quotes and restored history reject values over the holding cap; decimal and income validation", async () => {

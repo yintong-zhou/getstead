@@ -33,9 +33,12 @@ export type TransactionDto = ReturnType<typeof transactionDto>;
 async function userLock(client: Client, userId: string) {
   await client.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${userId}, 3))`;
 }
+// FOR NO KEY UPDATE, not FOR UPDATE: movement inserts hold KEY SHARE on the account row through the
+// foreign key, and FOR UPDATE would deadlock with a transfer that inserts its legs in the opposite
+// account order. NO KEY UPDATE still excludes updateAccount (catalog.ts, FOR UPDATE) and other investment writers.
 async function lockAccounts(client: Client, userId: string, ids: string[]) {
   for (const id of [...new Set(ids)].sort()) {
-    const rows = await client.$queryRaw<{ id: string }[]>`SELECT account_id AS id FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${id}::uuid FOR UPDATE`;
+    const rows = await client.$queryRaw<{ id: string }[]>`SELECT account_id AS id FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${id}::uuid FOR NO KEY UPDATE`;
     if (!rows.length) throw new ApiError(422, "validation", "accountId");
   }
 }
