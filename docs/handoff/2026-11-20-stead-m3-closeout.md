@@ -13,12 +13,12 @@ Close M3 (investments), then plan and build M4a (properties and condominium) wit
 
 ## Current state
 
-- Branch `feat/m3-investments`, HEAD `847799b`. Two files are modified and **not committed**: `server/investments/service.ts`, `server/investments/postgres.integration.ts`.
+- Branch `feat/m3-investments`, fix commit `843b0a7` (`server/investments/service.ts`, `server/investments/postgres.integration.ts`), on top of `847799b`.
 - Codex inspection (`gpt-6.1-sol`, high, read-only, base `9ec221f`):
   - Round 1: REVISE, one medium finding M3-001. Account locks used `FOR UPDATE`, which conflicts with the `KEY SHARE` that movement inserts take through the foreign key. A transfer inserting its legs B then A could deadlock with an investment quote update locking A then B (500, no retry). The transfer path takes no advisory lock, so the claim holds.
   - Fix: `lockAccounts` now uses `FOR NO KEY UPDATE`. It still excludes `updateAccount` (`catalog.ts`, `FOR UPDATE`) and other investment writers. Regression test "investment account locks do not wait for in-flight movement inserts": an open transaction inserts a movement into the second account, and `recordQuote` must finish within 3 s. Positive control: with `FOR UPDATE` it blocks and fails (3.2 s); with the fix it passes (0.25 s).
   - Round 2 (fresh session, tree including the fix): **APPROVED**, no findings. Limitation stated by Codex: static review only, it ran no tests.
-- Proof on the final tree (Claude): `lint`, `typecheck`, `test` 67/67, cash-flow + investments integration 45/45 on `stead_auth_test`, `build`. `git status` clean apart from the two files.
+- Proof on the final tree (Claude): `lint`, `typecheck`, `test` 67/67, cash-flow + investments integration 45/45 on `stead_auth_test`, `build`. Run before the commit; the commit changes only those two files and this handoff.
 - Pushed (`843b0a7`) and PR #6 opened against `main` (owner OK). **Not merged.**
 - Neon (`test_neondb`, eu-central-1), checked read-only with the owner's OK: `_prisma_migrations` already lists `20261122090000_profile`, `20261123090000_investments` and `20261123100000_investment_deductions` as finished, and the runtime role's table and column grants match `db/grant-runtime.sql` exactly. Nothing was applied or re-run; no write was needed. The earlier notes saying these were pending are out of date.
 
