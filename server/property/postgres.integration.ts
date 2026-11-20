@@ -122,7 +122,13 @@ test("a charge settles exactly once under concurrency; reopen leaves the movemen
 
 test("payable amounts stop at the movement limit: 1,000,000,000 settles, 1,000,000,001 is rejected", async () => {
   const { userId, checking, property } = await fixture();
-  await rejects(createCharge(userId, charge(property.id, { amountCents: 1_000_000_001 })), 422);
+  await rejects(createCharge(userId, charge(property.id, { amountCents: 1_000_000_001 })), 422, "value_out_of_range");
+  const table = await createTable(userId, { propertyId: property.id, label: "General", unitMillesimi: 85 });
+  await rejects(createCharge(userId, charge(property.id, { tableId: table.id, buildingTotalCents: 100_000_000_001 })), 422, "value_out_of_range");
+  const small = await createCharge(userId, charge(property.id, { tableId: table.id, buildingTotalCents: 100_000_000_000 }));
+  await rejects(updateCharge(userId, small.id, { amountCents: 1_000_000_001 }), 422, "value_out_of_range");
+  await rejects(updateCharge(userId, small.id, { buildingTotalCents: 100_000_000_001 }), 422, "value_out_of_range");
+  assert.equal((await updateCharge(userId, small.id, { amountCents: 1_000_000_000 }) as { amountCents: number }).amountCents, 1_000_000_000, "positive control: the cap itself is accepted on update"); 
   const edge = await createCharge(userId, charge(property.id, { amountCents: 1_000_000_000 }));
   assert.equal((await settle(userId, edge.id, checking.id)).charge.movementId !== null, true);
   await rejects(createCharge(userId, charge(property.id, { amountCents: 0 })), 422);

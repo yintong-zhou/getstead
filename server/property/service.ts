@@ -11,7 +11,7 @@ import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { lockMovements, movementSelect, toMovementDto } from "../cash-flow/movements.ts";
 import { createTemplate } from "../cash-flow/recurring.ts";
 import { chargeContext, decryptText, encryptText, movementContext, templateContext } from "../cash-flow/text-crypto.ts";
-import { Reader } from "../cash-flow/validate.ts";
+import { MAX_CENTS, Reader } from "../cash-flow/validate.ts";
 import { getNetWorth } from "../net-worth/service.ts";
 import { chargeKinds, equityCents, millesimiShareCents, propertiesAt, propertyKinds, votingWeight } from "./calc.ts";
 
@@ -43,6 +43,14 @@ async function lockCharge(client: Client, userId: string, id: string) {
 /** Range failures on money use the same stable code as investments. */
 function bounded(reader: Reader, field: string, min: number, max: number) {
   try { return reader.integer(field, min, max); }
+  catch (error) {
+    if (error instanceof ApiError) throw new ApiError(422, "value_out_of_range", field);
+    throw error;
+  }
+}
+/** Same as `bounded`, but a null clears the value and an absent key stays undefined. */
+function nullableBounded(reader: Reader, field: string, min: number, max: number) {
+  try { return reader.nullableInteger(field, min, max); }
   catch (error) {
     if (error instanceof ApiError) throw new ApiError(422, "value_out_of_range", field);
     throw error;
@@ -216,10 +224,10 @@ function chargeFields(reader: Reader, partial: boolean) {
   const kind = partial ? reader.optionalOneOf("kind", chargeKinds) : reader.oneOf("kind", chargeKinds);
   const title = partial ? reader.optionalText("title", 120) : reader.text("title", 120);
   const dueDate = partial ? reader.optionalDate("dueDate") : reader.date("dueDate");
-  const amountCents = partial ? reader.optionalCents("amountCents", true) : reader.cents("amountCents", true);
+  const amountCents = partial && !reader.has("amountCents") ? undefined : bounded(reader, "amountCents", 1, MAX_CENTS);
   const approvedOn = reader.nullableDate("approvedOn");
   const tableId = reader.nullableUuid("tableId");
-  const buildingTotalCents = reader.nullableInteger("buildingTotalCents", 1, MAX_BUILDING_CENTS);
+  const buildingTotalCents = nullableBounded(reader, "buildingTotalCents", 1, MAX_BUILDING_CENTS);
   return { kind, title, dueDate, amountCents, approvedOn, tableId, buildingTotalCents };
 }
 export async function createCharge(userId: string, input: Record<string, unknown>) {
