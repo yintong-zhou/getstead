@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Locale } from "@/server/locale";
-import { LogoutButton } from "./auth/logout-button";
+import type { Profile } from "@/server/profile/service";
+import { ProfileMenu } from "./profile/profile-menu";
 import { dashboardCopy } from "./dashboard-copy";
+import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
 import "./cash-flow/cash-flow.css";
 
-export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth";
+export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "profile";
 
 const sections = [
   { id: "overview", path: "", icon: "overview", label: "overview" },
@@ -18,6 +20,7 @@ const sections = [
 ] as const;
 
 type Props = {
+  profile: Profile;
   locale: Locale;
   current: Section;
   title: string;
@@ -28,18 +31,16 @@ type Props = {
   children: ReactNode;
 };
 
-/** Navigation, language switch and sign-out shared by every signed-in page. */
-export function AppShell({ locale, current, title, subtitle, action, query = "", children }: Props) {
+/** Navigation and profile menu shared by every signed-in page. */
+export function AppShell({ locale, current, title, subtitle, action, query = "", children, profile }: Props) {
   const copy = dashboardCopy[locale];
-  const alternativeLocale = locale === "en" ? "it" : "en";
-  const languageName = alternativeLocale === "it" ? "Italiano" : "English";
-  const currentPath = sections.find((section) => section.id === current)!.path;
+  const currentPath = current === "profile" ? "/profile" : sections.find((section) => section.id === current)!.path;
 
   return (
     <div className="workspace">
       <a className="skip-link" href="#main">{copy.skip}</a>
       <aside className="sidebar">
-        <div className="wordmark"><span className="brand-mark" aria-hidden="true">S</span><span>Stead</span></div>
+        <div className="wordmark"><BrandMark /><span>getstead</span></div>
         <nav className="navigation" aria-label={copy.navigation}>
           {sections.map(({ id, path, icon, label }) => (
             <Link
@@ -61,17 +62,8 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
         <div className="page">
           <header className="page-head">
             <div className="utility-bar">
-              <div className="wordmark mobile-wordmark"><span className="brand-mark" aria-hidden="true">S</span><span>Stead</span></div>
-              <Link
-                className="language-link utility-language"
-                href={`/${alternativeLocale}${currentPath}${query}`}
-                lang={alternativeLocale}
-                hrefLang={alternativeLocale}
-                aria-label={`${copy.language}: ${languageName}`}
-              >
-                {alternativeLocale.toUpperCase()}
-              </Link>
-              <LogoutButton locale={locale} />
+              <div className="wordmark mobile-wordmark"><BrandMark /><span>getstead</span></div>
+              <ProfileMenu locale={locale} profile={profile} currentPath={currentPath} query={query} />
             </div>
             <div className="page-title-row">
               <div>

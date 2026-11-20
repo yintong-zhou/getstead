@@ -144,10 +144,6 @@
 
 .setup-key-note { color: var(--brand-dark); font-size: 12px; line-height: 16px; }
 
-.signout-button { padding-inline: 12px; cursor: pointer; }
-.signout-button:disabled { opacity: .65; cursor: progress; }
-.signout-error { color: var(--negative); font-size: 12px; }
-.signout-error:empty { display: none; }
 
 @media (min-width: 768px) {
   .auth-page { justify-content: center; padding: 24px; }

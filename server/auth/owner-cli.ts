@@ -42,9 +42,9 @@ async function main() {
   process.env.DATABASE_URL = localPostgresUrl(process.env.DATABASE_ADMIN_URL).href;
 
   const prompts = createInterface({ input: process.stdin, output: process.stdout });
-  const email = await prompts.question("Stead account email: ").finally(() => prompts.close());
-  const password = await askHidden("Stead password: ");
-  const confirmation = await askHidden("Confirm Stead password: ");
+  const email = await prompts.question("getstead account email: ").finally(() => prompts.close());
+  const password = await askHidden("getstead password: ");
+  const confirmation = await askHidden("Confirm getstead password: ");
   if (password !== confirmation) throw new Error("Passwords must match.");
 
   if (action === "create") {

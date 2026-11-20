@@ -15,7 +15,7 @@ type Props = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return { title: `${netWorthCopy[locale].title} | Stead`, robots: { index: false } };
+  return { title: `${netWorthCopy[locale].title} | getstead`, robots: { index: false } };
 }
 
 export default async function NetWorthPage({ params }: Props) {
@@ -32,7 +32,7 @@ export default async function NetWorthPage({ params }: Props) {
     return <UnavailableNotice locale={locale} path="/net-worth" />;
   }
   const copy = netWorthCopy[locale];
-  return <AppShell locale={locale} current="net-worth" title={copy.title} subtitle={copy.intro}>
+  return <AppShell locale={locale} current="net-worth" title={copy.title} subtitle={copy.intro} profile={user.profile}>
     <NetWorthView locale={locale} {...loaded} />
   </AppShell>;
 }

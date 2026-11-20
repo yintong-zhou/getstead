@@ -10,6 +10,10 @@ export function validPasswordInput(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && Buffer.byteLength(value) <= 512;
 }
 
+export function validNewPassword(value: unknown): value is string {
+  return validPasswordInput(value) && [...value].length >= 15;
+}
+
 export function validTotpCode(value: unknown): value is string {
   return typeof value === "string" && /^[0-9]{6}$/.test(value);
 }

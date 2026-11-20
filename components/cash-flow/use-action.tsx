@@ -14,7 +14,7 @@ export type Notice = { kind: "ok" | "warn" | "error"; text: string } | null;
  * `success` is a message, or a function that inspects the result and picks the message (and kind).
  * A 401 means the session ended, so it sends the person to sign in instead of showing an error.
  */
-export function useAction(locale: Locale) {
+export function useAction(locale: Locale, failureText?: (result: Extract<ApiResult<unknown>, { ok: false }>) => string) {
   const router = useRouter();
   const copy = cashFlowCopy[locale];
   const [pending, setPending] = useState(false);
@@ -31,7 +31,7 @@ export function useAction(locale: Locale) {
         window.location.replace(`/${locale}/login`);
         return null;
       }
-      setNotice({ kind: "error", text: errorText(copy, result) });
+      setNotice({ kind: "error", text: failureText ? failureText(result) : errorText(copy, result) });
       return null;
     }
     if (typeof success === "function") setNotice(success(result.data));

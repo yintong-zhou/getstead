@@ -17,7 +17,7 @@ type Props = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return { title: `${cashFlowCopy[locale].recurringTitle} | Stead`, robots: { index: false } };
+  return { title: `${cashFlowCopy[locale].recurringTitle} | getstead`, robots: { index: false } };
 }
 
 export default async function RecurringPage({ params }: Props) {
@@ -42,7 +42,7 @@ export default async function RecurringPage({ params }: Props) {
   const copy = cashFlowCopy[locale];
   const { recurring } = data;
   return (
-    <AppShell locale={locale} current="recurring" title={copy.recurringTitle} subtitle={copy.recurringIntro}>
+    <AppShell locale={locale} current="recurring" title={copy.recurringTitle} subtitle={copy.recurringIntro} profile={user.profile}>
       <RecurringView
         locale={locale} today={recurring.today} accounts={data.accounts} categories={data.categories}
         templates={recurring.templates} due={recurring.due} upcoming={recurring.upcoming} skipped={recurring.skipped}

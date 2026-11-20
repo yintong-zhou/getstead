@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { DashboardData } from "@/server/cash-flow/dashboard";
+import type { Profile } from "@/server/profile/service";
 import { formatEuros, type Locale } from "@/server/locale";
 import { AppShell } from "./app-shell";
 import { dashboardCopy, type DashboardCopy } from "./dashboard-copy";
@@ -81,7 +82,7 @@ function ActivityRow({ item, locale, today, copy }: {
   );
 }
 
-export function Dashboard({ locale, data }: { locale: Locale; data: DashboardData }) {
+export function Dashboard({ locale, data, profile }: { locale: Locale; data: DashboardData; profile: Profile }) {
   const copy = dashboardCopy[locale];
   const summary = [
     { name: copy.income, cents: data.incomeCents, icon: "arrowDown", tone: "green" },
@@ -91,6 +92,7 @@ export function Dashboard({ locale, data }: { locale: Locale; data: DashboardDat
 
   return (
     <AppShell
+      profile={profile}
       locale={locale}
       current="overview"
       title={copy.overview}

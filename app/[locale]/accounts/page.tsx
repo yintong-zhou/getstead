@@ -17,7 +17,7 @@ type Props = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return { title: `${cashFlowCopy[locale].accountsTitle} | Stead`, robots: { index: false } };
+  return { title: `${cashFlowCopy[locale].accountsTitle} | getstead`, robots: { index: false } };
 }
 
 export default async function AccountsPage({ params }: Props) {
@@ -41,7 +41,7 @@ export default async function AccountsPage({ params }: Props) {
 
   const copy = cashFlowCopy[locale];
   return (
-    <AppShell locale={locale} current="accounts" title={copy.accountsTitle} subtitle={copy.accountsIntro}>
+    <AppShell locale={locale} current="accounts" title={copy.accountsTitle} subtitle={copy.accountsIntro} profile={user.profile}>
       <AccountsView locale={locale} {...data} />
     </AppShell>
   );

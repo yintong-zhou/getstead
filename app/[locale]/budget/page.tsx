@@ -17,7 +17,7 @@ type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ mont
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return { title: `${cashFlowCopy[locale].budgetTitle} | Stead`, robots: { index: false } };
+  return { title: `${cashFlowCopy[locale].budgetTitle} | getstead`, robots: { index: false } };
 }
 
 export default async function BudgetPage({ params, searchParams }: Props) {
@@ -38,7 +38,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
 
   const copy = cashFlowCopy[locale];
   return (
-    <AppShell locale={locale} current="budget" title={copy.budgetTitle} subtitle={copy.budgetIntro} query={`?month=${month}`}>
+    <AppShell locale={locale} current="budget" title={copy.budgetTitle} subtitle={copy.budgetIntro} query={`?month=${month}`} profile={user.profile}>
       <BudgetView locale={locale} month={month} currentMonth={currentMonth} rows={budget.rows} />
     </AppShell>
   );

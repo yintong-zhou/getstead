@@ -1,4 +1,4 @@
-﻿# Project brief â€“ Stead
+﻿# Project brief â€“ getstead
 
 Nov 18, 2026Â 
 
@@ -6,7 +6,7 @@ Nov 18, 2026Â 
 
 A web app that brings a person's cash flow, budget, investments, net worth and home (utility bills, subscriptions, property and condominium) together in one place. It starts as a tool for my own use, but is designed from day one to open up to other users and become a source of income.
 
-Name: Stead, from "stand you in good stead" (to be useful when it matters). 
+Name: getstead, from "stand you in good stead" (to be useful when it matters). 
 
 ## Language and localization
 
@@ -126,7 +126,7 @@ Decision: a private repository with a proprietary copyright notice (all rights r
 - A license can't protect an idea: copyright covers the code, not the concept. Execution and differentiation are what count.
 - While the repository is private, a LICENSE file with an "all rights reserved" notice is enough: nobody may use, copy or distribute the code.
 - If it goes public, the FSL lets anyone read the code and use it for themselves, but not build a competing product. Each version becomes Apache 2.0 or MIT after two years.
-- Ruled out: a public repository with no license (anyone can see and copy it in practice), and MIT or Apache now (anyone could resell Stead).
+- Ruled out: a public repository with no license (anyone can see and copy it in practice), and MIT or Apache now (anyone could resell getstead).
 - Employment check: review my employment contract for intellectual property clauses on personal projects before generating any income.
 - Before opening to other users: legal review of license, terms of use and GDPR.
 

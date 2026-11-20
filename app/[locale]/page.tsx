@@ -23,5 +23,5 @@ export default async function Overview({ params }: { params: Promise<{ locale: s
   } catch {
     return <UnavailableNotice locale={locale} path="" />;
   }
-  return <Dashboard locale={locale} data={data} />;
+  return <Dashboard locale={locale} data={data} profile={user.profile} />;
 }

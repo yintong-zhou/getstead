@@ -1,6 +1,8 @@
-# Stead
+<p align="center"><img src="public/brand/getstead-mark.png" width="96" alt="getstead mark: a glass drop with two eyes"></p>
 
-Stead is a personal finance workspace. It has a private sign-in with two-step verification and, from milestone M1, manual cash flow and budget: accounts, categories, movements, transfers, category rules, monthly budgets and recurring expenses. The overview shows the signed-in user's own month. English is the default language, with Italian available from the header. CSV and Excel import is not part of M1.
+# getstead
+
+getstead is a personal finance workspace. It has a private sign-in with two-step verification and, from milestone M1, manual cash flow and budget: accounts, categories, movements, transfers, category rules, monthly budgets and recurring expenses. The overview shows the signed-in user's own month. English is the default language, with Italian available from the header. CSV and Excel import is not part of M1.
 
 ## Run locally
 
@@ -32,9 +34,9 @@ npm run auth:owner -- create
 npm run dev
 ```
 
-Enter the Stead email and password in the interactive owner command. On the first sign-in, add the setup key to a time-based authenticator and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the Stead password, revokes sessions, and resets the authenticator enrollment.
+Enter the getstead email and password in the interactive owner command. On the first sign-in, add the setup key to a time-based authenticator and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the getstead password, revokes sessions, and resets the authenticator enrollment.
 
-Open [Stead in English](http://127.0.0.1:3000/en) or [Stead in Italian](http://127.0.0.1:3000/it). Use the same loopback hostname as `APP_ORIGIN`.
+Open [getstead in English](http://127.0.0.1:3000/en) or [getstead in Italian](http://127.0.0.1:3000/it). Use the same loopback hostname as `APP_ORIGIN`.
 
 ## Verify
 
@@ -66,11 +68,19 @@ node --env-file=.tmp/stead-auth-test.env --test server/cash-flow/postgres.integr
 
 To try the app against it, run `npm run build` and `node --env-file=.tmp/stead-auth-test.env node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3100`. Remove the database with `docker rm -f stead-test-pg`.
 
+## Naming
+
+The product and package are called **getstead** (interface, page titles, cookies `getstead_session` and `getstead_login_challenge`, package name, brand files). Some internal identifiers keep the original `stead` prefix on purpose, because changing them would need a data migration or would make stored data unreadable: the PostgreSQL tables, enums and roles (`stead_*`), the key-derivation and rate-limit context strings in `server/auth/crypto.ts` and `server/cash-flow/text-crypto.ts` (they protect encrypted text already in the database), and local development names such as `credentials/stead-postgres.env`, `.tmp/stead-auth-test.env` and the test database `stead_auth_test`. Renaming the cookies signs everyone out once.
+
+## Profile
+
+The person icon opens a menu with profile settings, language and sign-out. Open `/en/profile` or `/it/profile` to set an optional display name, change email or password, or switch language. Login still uses email, password and 2FA; email and password changes require the current password. A password change revokes other sessions and pending login challenges, keeping the requesting session. The authenticated API exposes `GET` and `PATCH /api/profile`, `POST /api/profile/email` and `POST /api/profile/password`. After applying the profile migration, rerun `db/grant-runtime.sql`: its three new runtime-role column grants allow updating only `email`, `password_hash` and `display_name`, alongside the existing MFA grants.
+
 ## Net worth (M2)
 
 Open `/en/net-worth` or `/it/net-worth` to see assets, liabilities, net worth, the change since the previous month end, and a 12-month trend. Balances use signed integer EUR cents: amounts owed are negative, assets sum positive account balances, and liabilities show the magnitude of negative balances. Card and debt accounts default to an owed balance in the form; you can change that for credit balances.
 
-A balance check records an account's **end-of-day** balance. For a date D, Stead uses the latest check on or before D and adds non-voided movements strictly after the check date through D. Movements on the check date are already included. With no check, movements accumulate from zero. Transfer legs count toward account balances. A check for the same account and date replaces its balance; editing movements, replacing checks, or deleting checks recomputes history. No frozen snapshots are stored.
+A balance check records an account's **end-of-day** balance. For a date D, getstead uses the latest check on or before D and adds non-voided movements strictly after the check date through D. Movements on the check date are already included. With no check, movements accumulate from zero. Transfer legs count toward account balances. A check for the same account and date replaces its balance; editing movements, replacing checks, or deleting checks recomputes history. No frozen snapshots are stored.
 
 The trend uses each month end for the last 12 months and today for the current month, following Europe/Rome. Archived accounts remain included; record a zero check when closing one. An archived account with a remaining balance is flagged. Investment valuation, property values, and CSV import are outside M2.
 

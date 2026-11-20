@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { challengeCookie, sessionCookie } from "./http.ts";
 import { readChallenge, readSession } from "./service.ts";
+import { getProfile } from "../profile/service.ts";
 
 export async function readPageSession() {
   try {
@@ -25,7 +26,9 @@ export async function readPageUser() {
   try {
     const token = (await cookies()).get(sessionCookie)?.value;
     const session = await readSession(token);
-    return session ? ({ status: "authenticated", userId: session.userId } as const) : ({ status: "anonymous" } as const);
+    if (!session) return { status: "anonymous" } as const;
+    const profile = await getProfile(session.userId);
+    return { status: "authenticated", userId: session.userId, profile } as const;
   } catch {
     return { status: "unavailable" } as const;
   }

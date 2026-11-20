@@ -12,6 +12,7 @@ const noStore = { "Cache-Control": "no-store" };
 
 export type ApiContext<P> = {
   userId: string;
+  sessionToken: string;
   url: URL;
   params: P;
   /** The JSON object body; rejects a missing, oversized or non-object body with 400. */
@@ -48,11 +49,13 @@ export function api<P = Record<string, never>>(
         return json({ error: "forbidden" }, 403);
       }
 
-      const session = await readSession(request.cookies.get(sessionCookie)?.value);
-      if (!session) return json({ error: "unauthenticated" }, 401);
+      const sessionToken = request.cookies.get(sessionCookie)?.value;
+      const session = await readSession(sessionToken);
+      if (!session || !sessionToken) return json({ error: "unauthenticated" }, 401);
 
       const result = await handler({
         userId: session.userId,
+        sessionToken,
         url: request.nextUrl,
         params: await route.params,
         body: async () => {

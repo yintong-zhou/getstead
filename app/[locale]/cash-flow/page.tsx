@@ -23,7 +23,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return { title: `${cashFlowCopy[locale].cashFlowTitle} | Stead`, robots: { index: false } };
+  return { title: `${cashFlowCopy[locale].cashFlowTitle} | getstead`, robots: { index: false } };
 }
 
 export default async function CashFlowPage({ params, searchParams }: Props) {
@@ -66,7 +66,7 @@ export default async function CashFlowPage({ params, searchParams }: Props) {
 
   const copy = cashFlowCopy[locale];
   return (
-    <AppShell locale={locale} current="cash-flow" title={copy.cashFlowTitle} subtitle={copy.cashFlowIntro} query={`?${filters}`}>
+    <AppShell locale={locale} current="cash-flow" title={copy.cashFlowTitle} subtitle={copy.cashFlowIntro} query={`?${filters}`} profile={user.profile}>
       <MovementsView locale={locale} month={month} today={today} {...data} accountId={accountId} categoryId={categoryId}
         pageIn={pageIn} pageOut={pageOut} pageTransfers={pageTransfers} />
     </AppShell>
