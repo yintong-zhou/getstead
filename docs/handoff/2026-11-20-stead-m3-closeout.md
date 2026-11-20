@@ -1,7 +1,7 @@
 ---
 type: handoff
 date: 2026-11-20
-status: M3 inspected by Codex (APPROVED) with one fix in the working tree, not committed, not pushed; M4a scope decided, not planned yet
+status: M3 inspected by Codex (APPROVED), fix committed and pushed, PR #6 open and not merged, Neon already up to date; M4a scope decided, not planned yet
 seq: 7
 prev: docs/handoff/2026-11-20-stead-m3-investments.md
 tags: [stead, m3, m4, codex, claude]
@@ -19,7 +19,8 @@ Close M3 (investments), then plan and build M4a (properties and condominium) wit
   - Fix: `lockAccounts` now uses `FOR NO KEY UPDATE`. It still excludes `updateAccount` (`catalog.ts`, `FOR UPDATE`) and other investment writers. Regression test "investment account locks do not wait for in-flight movement inserts": an open transaction inserts a movement into the second account, and `recordQuote` must finish within 3 s. Positive control: with `FOR UPDATE` it blocks and fails (3.2 s); with the fix it passes (0.25 s).
   - Round 2 (fresh session, tree including the fix): **APPROVED**, no findings. Limitation stated by Codex: static review only, it ran no tests.
 - Proof on the final tree (Claude): `lint`, `typecheck`, `test` 67/67, cash-flow + investments integration 45/45 on `stead_auth_test`, `build`. `git status` clean apart from the two files.
-- Not done: push, PR, merge, Neon migrations (`20261122090000_profile`, `20261123090000_investments`, `20261123100000_investment_deductions`, then `db/grant-runtime.sql`). All need the owner's explicit OK.
+- Pushed (`843b0a7`) and PR #6 opened against `main` (owner OK). **Not merged.**
+- Neon (`test_neondb`, eu-central-1), checked read-only with the owner's OK: `_prisma_migrations` already lists `20261122090000_profile`, `20261123090000_investments` and `20261123100000_investment_deductions` as finished, and the runtime role's table and column grants match `db/grant-runtime.sql` exactly. Nothing was applied or re-run; no write was needed. The earlier notes saying these were pending are out of date.
 
 ## Decisions
 
