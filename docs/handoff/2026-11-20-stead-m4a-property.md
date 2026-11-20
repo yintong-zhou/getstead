@@ -1,7 +1,7 @@
 ---
 type: handoff
 date: 2026-11-20
-status: M4a built and verified locally; committed on feat/m4-property, not pushed, no PR; last fix not independently inspected
+status: M4a merged into main and pushed (merge 47c1c8f, no PR for the build); local DB only, Neon not migrated; last fix not independently inspected
 seq: 8
 prev: docs/handoff/2026-11-20-stead-m3-closeout.md
 tags: [stead, m4a, property, condominium, codex, claude]
@@ -13,7 +13,7 @@ M4a (properties and condominium) per `docs/plans/2026-11-20-m4-property-condomin
 
 ## Current state
 
-- Branch `feat/m4-property`, stacked on `docs/m4-property-plan` (PR #7, plan only, **open, not merged**). Pre-build base `b67fe8b`. Commits: build `d04ddbc`, inspection fixes `04531d1`, plus the last small fix and this handoff. **Not pushed, no PR for the build.**
+- Merged into `main` and pushed with `git merge --no-ff feat/m4-property` (merge commit `47c1c8f`, owner's instruction: merge and push, no PR for the build). It carried the plan commit, so PR #7 (plan only) closes as merged. Pre-build base `b67fe8b`; commits: build `d04ddbc`, inspection fixes `04531d1`, last small fix and this handoff `69ab2e0`. The local branch `feat/m4-property` still exists, unpushed.
 - M3 is merged (PR #6, `edd2e6c`); `main` is aligned. Neon already had the three M3-era migrations and matching grants (checked read-only). **`20261124090000_property` is applied to the local test database only.**
 - Plan review: Codex round 1 REVISE (3 findings, accepted), round 2 APPROVED, hash-bound.
 - Build inspection by Codex (`gpt-6.1-sol`, base `b67fe8b`, Claude built):
@@ -44,10 +44,9 @@ M4a (properties and condominium) per `docs/plans/2026-11-20-m4-property-condomin
 
 ## Where we want to go
 
-1. Owner reviews the diff. Optional: one more fresh Codex inspection (base `b67fe8b`) to cover the last fix.
-2. Merge PR #7 (plan), then push `feat/m4-property`, open its PR and merge. Needs the owner's OK.
-3. Apply `20261124090000_property` to Neon and re-run `db/grant-runtime.sql`, only with the owner's explicit OK.
-4. Then M4b: bills, subscriptions and rental income (needs a decision on generalising `RecurringTemplate` to income), encrypted attachments, reminders.
+1. Optional: one more fresh Codex inspection (base `b67fe8b`) to cover the last fix, now on `main`.
+2. Apply `20261124090000_property` to Neon and re-run `db/grant-runtime.sql`, only with the owner's explicit OK.
+3. Then M4b: bills, subscriptions and rental income (needs a decision on generalising `RecurringTemplate` to income), encrypted attachments, reminders.
 
 ## Before changing anything
 
