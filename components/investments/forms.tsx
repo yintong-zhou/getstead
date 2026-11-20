@@ -168,7 +168,8 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
     {archived && <p className="hint">{copy.archivedParent}</p>}
     <NoticeLine notice={action.notice} />
     <div id={details} hidden={!editing}>
-      {editing && <TransactionForm {...props} transaction={row} />}
+      {/* key: remount when the server reassigns the ordinal, or the uncontrolled input keeps the stale value */}
+      {editing && <TransactionForm key={row.ordinal} {...props} transaction={row} />}
     </div>
   </li>;
 }
