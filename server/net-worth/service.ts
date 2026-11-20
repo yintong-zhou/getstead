@@ -4,6 +4,8 @@ import { fromDate, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { monthlySeries, netWorthAt } from "./calc.ts";
+import { quoteInput, transactionInput } from "../investments/service.ts";
+import { toSafeCents } from "../investments/calc.ts";
 
 const checkSelect = { id: true, accountId: true, asOf: true, balanceCents: true } as const;
 const RECENT_CHECK_LIMIT = 100;
@@ -48,7 +50,7 @@ export type CheckDto = Awaited<ReturnType<typeof listChecks>>[number];
 
 export async function getNetWorth(userId: string, now = new Date()) {
   const today = romeToday(now);
-  const [accounts, checks, rows] = await db().$transaction([
+  const [accounts, checks, rows, instruments, transactions, quotes] = await db().$transaction([
     db().account.findMany({
       where: { userId }, select: { id: true, name: true, type: true, archivedAt: true },
       orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -58,16 +60,21 @@ export async function getNetWorth(userId: string, now = new Date()) {
       where: { userId, voidedAt: null, bookingDate: { lte: toDate(today) } },
       select: { accountId: true, bookingDate: true, amountCents: true },
     }),
+    db().instrument.findMany({ where: { userId } }),
+    db().investmentTransaction.findMany({ where: { userId, tradeDate: { lte: toDate(today) } } }),
+    db().priceQuote.findMany({ where: { userId, asOf: { lte: toDate(today) } } }),
   ], { isolationLevel: "RepeatableRead" });
   const datedChecks = checks.map(checkDto);
   const movements = rows.map((row) => ({ ...row, bookingDate: fromDate(row.bookingDate) }));
-  const totals = netWorthAt(accounts, datedChecks, movements, today);
-  const series = monthlySeries(accounts, datedChecks, movements, today);
+  const investments = { instruments, transactions: transactions.map(transactionInput), quotes: quotes.map(quoteInput) };
+  const totals = netWorthAt(accounts, datedChecks, movements, today, investments);
+  const series = monthlySeries(accounts, datedChecks, movements, today, investments);
   const balances = new Map(totals.perAccount.map((row) => [row.accountId, row.balanceCents]));
   return {
     today,
     assetsCents: totals.assetsCents, liabilitiesCents: totals.liabilitiesCents, netCents: totals.netCents,
-    changeCents: totals.netCents - series.at(-2)!.netCents,
+    holdingsCents: totals.holdingsCents,
+    changeCents: toSafeCents(BigInt(totals.netCents) - BigInt(series.at(-2)!.netCents)),
     perAccount: accounts.map((account) => ({
       id: account.id, name: account.name, type: account.type, archived: account.archivedAt !== null,
       balanceCents: balances.get(account.id)!,

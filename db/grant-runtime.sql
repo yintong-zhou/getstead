@@ -30,4 +30,11 @@ GRANT SELECT, INSERT, UPDATE (limit_cents), DELETE ON public.stead_budget_limits
 -- Net worth (M2)
 GRANT SELECT, INSERT, UPDATE (balance_cents), DELETE ON public.stead_balance_checks TO stead_auth_app;
 
+-- Investments (M3): identity and ownership columns cannot be changed; history is voided.
+GRANT SELECT, INSERT ON public.stead_instruments, public.stead_investment_transactions, public.stead_price_quotes TO stead_auth_app;
+GRANT UPDATE (name, symbol, isin, kind, archived_at) ON public.stead_instruments TO stead_auth_app;
+GRANT UPDATE (account_id, instrument_id, type, trade_date, ordinal, quantity, amount_cents, fees_cents, tax_withheld_cents, voided_at)
+  ON public.stead_investment_transactions TO stead_auth_app;
+GRANT UPDATE (unit_price), DELETE ON public.stead_price_quotes TO stead_auth_app;
+
 COMMIT;

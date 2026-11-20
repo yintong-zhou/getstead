@@ -218,7 +218,7 @@ h1 {
   inset: auto 12px calc(12px + env(safe-area-inset-bottom));
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   padding: 8px;
   border: 0;
@@ -247,7 +247,9 @@ h1 {
 }
 
 .nav-item:hover { background: var(--surface-alt); color: var(--ink); }
-.nav-item > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-item > .nav-label-full { display: none; }
+.nav-item > .nav-label-short { white-space: nowrap; }
+.nav-item:focus-visible { outline-offset: -2px; }
 
 .nav-item[aria-current="page"] {
   background: var(--brand-soft);
@@ -551,6 +553,14 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   .nav-item { font-size: 9px; }
 }
 
+@media (width < 360px) {
+  .nav-item > .nav-label-short { display: none; }
+}
+
+@media (width < 768px) {
+  html { scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+}
+
 @media (max-width: 375px) {
   .utility-bar {
     display: grid;
@@ -591,14 +601,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   }
   .navigation { position: static; display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; border-radius: 0; background: transparent; backdrop-filter: none; box-shadow: none; }
   .nav-item { width: 48px; }
-  .nav-item > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+  .nav-item > .nav-label-short { display: none; }
   .page { padding: 24px; }
   .page-head { margin-bottom: 24px; }
   .utility-bar { margin-bottom: 12px; }
@@ -612,7 +615,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   .workspace { grid-template-columns: 248px minmax(0, 1fr); }
   .sidebar { align-items: stretch; gap: 32px; padding: 28px 16px; }
   .sidebar .wordmark { margin-inline: 12px; }
-  .sidebar .wordmark > span:last-child, .nav-item > span {
+  .sidebar .wordmark > span:last-child {
     position: static;
     width: auto;
     height: auto;
@@ -620,6 +623,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
     clip-path: none;
     white-space: normal;
   }
+  .nav-item > .nav-label-full { display: block; }
   .nav-item { width: auto; flex-direction: row; justify-content: start; gap: 12px; padding-inline: 12px; font-size: 14px; line-height: 20px; }
   .page { padding: 24px 32px 40px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }

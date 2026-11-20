@@ -3,6 +3,7 @@ import test from "node:test";
 import { balanceAt, monthlySeries, netWorthAt } from "./calc.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { addDays, addMonths, monthOf, monthStart } from "../cash-flow/dates.ts";
+import type { Transaction } from "../investments/calc.ts";
 
 const checks = [
   { accountId: "a", asOf: "2026-09-30", balanceCents: 10_000 },
@@ -40,7 +41,7 @@ test("signed balances classify assets and liabilities by balance, including arch
     { accountId: "stranger", bookingDate: "2026-11-02", amountCents: 99_999 },
   ], "2026-11-19");
   assert.deepEqual(result, {
-    assetsCents: 20_000, liabilitiesCents: 5_000, netCents: 15_000,
+    holdingsCents: 0, assetsCents: 20_000, liabilitiesCents: 5_000, netCents: 15_000,
     perAccount: [{ accountId: "a", balanceCents: 19_000 }, { accountId: "b", balanceCents: 1_000 }, { accountId: "c", balanceCents: -5_000 }],
   });
 });
@@ -105,4 +106,35 @@ test("signedCents accepts zero and both signed bounds, rejecting invalid amounts
     assert.throws(() => new Reader({ balanceCents: value }).signedCents("balanceCents"), { status: 422, field: "balanceCents" });
   }
   assert.throws(() => new Reader({ amountCents: 0 }).cents("amountCents"), { status: 422 });
+});
+
+test("investment effects use balance-check cutoff and holdings keep current and monthly totals in parity", () => {
+  const accounts = [{ id: "broker" }];
+  const transactions: Transaction[] = [
+    { id: "b", accountId: "broker", instrumentId: "etf", type: "BUY", tradeDate: "2026-10-02", ordinal: 1, quantity: "2", amountCents: 60_000n, feesCents: 0n, taxWithheldCents: 0n },
+    { id: "d", accountId: "broker", instrumentId: "etf", type: "DIVIDEND", tradeDate: "2026-11-02", ordinal: 1, quantity: null, amountCents: 1_000n, feesCents: 0n, taxWithheldCents: 260n },
+    { id: "void", accountId: "broker", instrumentId: "etf", type: "COUPON", tradeDate: "2026-11-03", ordinal: 1, quantity: null, amountCents: 999_999n, feesCents: 0n, taxWithheldCents: 0n, voidedAt: new Date() },
+  ];
+  const investments = { instruments: [{ id: "etf", name: "Synthetic ETF", kind: "ETF" as const }], transactions,
+    quotes: [{ instrumentId: "etf", asOf: "2026-11-01", unitPrice: "310" }] };
+  const historyChecks = [{ accountId: "broker", asOf: "2026-10-01", balanceCents: 100_000 }];
+  const today = "2026-11-20";
+  const series = monthlySeries(accounts, historyChecks, [], today, investments);
+  for (const [index, point] of series.entries()) {
+    const date = index === 11 ? today : addDays(monthStart(addMonths(point.month, 1)), -1);
+    const total = netWorthAt(accounts, historyChecks, [], date, investments);
+    assert.equal(point.netCents, total.netCents);
+    assert.equal(point.assetsCents, total.assetsCents);
+  }
+  assert.equal(series.at(-2)?.netCents, 100_000);
+  assert.equal(series.at(-1)?.netCents, 102_740);
+  assert.equal(netWorthAt(accounts, historyChecks, [], today, investments).perAccount[0].balanceCents, 40_740);
+  assert.equal(netWorthAt(accounts, [{ accountId: "broker", asOf: "2026-11-02", balanceCents: 40_740 }], [], today, investments).netCents, 102_740);
+});
+
+test("combined net worth overflow returns the typed range failure before currency formatting", () => {
+  const accounts = [{ id: "a" }, { id: "b" }];
+  const tooLarge = accounts.map(({ id }) => ({ accountId: id, asOf: "2026-01-01", balanceCents: Number.MAX_SAFE_INTEGER }));
+  assert.throws(() => netWorthAt(accounts, tooLarge, [], "2026-11-20"), { status: 422, code: "value_out_of_range" });
+  assert.throws(() => monthlySeries(accounts, tooLarge, [], "2026-11-20"), { status: 422, code: "value_out_of_range" });
 });

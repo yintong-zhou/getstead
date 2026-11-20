@@ -8,13 +8,14 @@ import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
 import "./cash-flow/cash-flow.css";
 
-export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "profile";
+export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "profile";
 
 const sections = [
   { id: "overview", path: "", icon: "overview", label: "overview" },
   { id: "cash-flow", path: "/cash-flow", icon: "cashFlow", label: "cashFlow" },
   { id: "budget", path: "/budget", icon: "budget", label: "budget" },
   { id: "net-worth", path: "/net-worth", icon: "netWorth", label: "netWorth" },
+  { id: "investments", path: "/investments", icon: "investments", label: "investments" },
   { id: "recurring", path: "/recurring", icon: "recurring", label: "recurring" },
   { id: "accounts", path: "/accounts", icon: "accounts", label: "accounts" },
 ] as const;
@@ -52,7 +53,8 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
               aria-current={id === current ? "page" : undefined}
             >
               <Icon name={icon} />
-              <span>{copy.nav[label]}</span>
+              <span className="nav-label-short" aria-hidden="true">{copy.shortNav[label]}</span>
+              <span className="nav-label-full" aria-hidden="true">{copy.nav[label]}</span>
             </Link>
           ))}
         </nav>
