@@ -36,3 +36,4 @@ export function decryptText(userId: string, context: string, encrypted: Uint8Arr
 
 export const movementContext = (id: string) => `movement:${id}`;
 export const templateContext = (id: string) => `template:${id}`;
+export const chargeContext = (id: string) => `charge:${id}`;

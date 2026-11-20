@@ -56,6 +56,15 @@ export class Reader {
     return raw as number;
   }
 
+  /** Explicit bounds, or null to clear; undefined when the key is absent. */
+  nullableInteger(key: string, min: number, max: number): number | null | undefined {
+    if (this.has(key) && this.body[key] === null) {
+      this.seen.add(key);
+      return null;
+    }
+    return this.has(key) ? this.integer(key, min, max) : undefined;
+  }
+
   optionalText(key: string, max: number): string | undefined {
     const raw = this.take(key);
     if (raw === undefined) return undefined;

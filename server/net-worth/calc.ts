@@ -1,11 +1,14 @@
 import { addDays, addMonths, monthOf, monthStart, type IsoDate } from "../cash-flow/dates.ts";
 import { cashEffects, holdingsValue, toSafeCents, type Instrument, type Transaction, type Quote } from "../investments/calc.ts";
+import { propertiesAt, type Property, type Valuation } from "../property/calc.ts";
 
 export type Check = { accountId: string; asOf: IsoDate; balanceCents: number };
 export type Movement = { accountId: string; bookingDate: IsoDate; amountCents: number; voidedAt?: Date | null };
 type Account = { id: string };
 export type Investments = { instruments: readonly Instrument[]; transactions: readonly Transaction[]; quotes: readonly Quote[] };
 const emptyInvestments: Investments = { instruments: [], transactions: [], quotes: [] };
+export type Properties = { properties: readonly Property[]; valuations: readonly Valuation[] };
+const emptyProperties: Properties = { properties: [], valuations: [] };
 const holdingCents = (investments: Investments, date: IsoDate) => holdingsValue(investments.instruments, investments.transactions, investments.quotes, date)
   .reduce((sum, row) => sum + BigInt(row.valueCents), 0n);
 
@@ -20,20 +23,21 @@ export function balanceAt(checks: readonly Check[], movements: readonly Movement
       ? balance + BigInt(movement.amountCents) : balance, BigInt(latest?.balanceCents ?? 0)));
 }
 
-export function netWorthAt(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], date: IsoDate, investments: Investments = emptyInvestments) {
+export function netWorthAt(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], date: IsoDate, investments: Investments = emptyInvestments, realEstate: Properties = emptyProperties) {
   const effects = cashEffects(investments.transactions);
   const perAccount = accounts.map(({ id }) => ({
     accountId: id,
     balanceCents: balanceAt(checks.filter((check) => check.accountId === id), movements.filter((movement) => movement.accountId === id), date, effects.filter((row) => row.accountId === id)),
   }));
   const holdings = holdingCents(investments, date);
-  const assets = perAccount.reduce((sum, { balanceCents }) => sum + BigInt(Math.max(0, balanceCents)), holdings);
+  const properties = BigInt(propertiesAt(realEstate.properties, realEstate.valuations, date).totalCents);
+  const assets = perAccount.reduce((sum, { balanceCents }) => sum + BigInt(Math.max(0, balanceCents)), holdings + properties);
   const liabilities = perAccount.reduce((sum, { balanceCents }) => sum + BigInt(Math.max(0, -balanceCents)), 0n);
-  return { holdingsCents: toSafeCents(holdings), assetsCents: toSafeCents(assets), liabilitiesCents: toSafeCents(liabilities), netCents: toSafeCents(assets - liabilities), perAccount };
+  return { holdingsCents: toSafeCents(holdings), propertiesCents: toSafeCents(properties), assetsCents: toSafeCents(assets), liabilitiesCents: toSafeCents(liabilities), netCents: toSafeCents(assets - liabilities), perAccount };
 }
 
 /** Historical months use their last calendar day; the current month stops at today. */
-export function monthlySeries(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], today: IsoDate, investments: Investments = emptyInvestments) {
+export function monthlySeries(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], today: IsoDate, investments: Investments = emptyInvestments, realEstate: Properties = emptyProperties) {
   const grouped = new Map(accounts.map(({ id }) => [id, {
     checks: [] as Check[], movements: [] as Movement[], checkIndex: 0, movementIndex: 0,
     latest: undefined as Check | undefined, balance: 0n,
@@ -50,7 +54,7 @@ export function monthlySeries(accounts: readonly Account[], checks: readonly Che
   return Array.from({ length: 12 }, (_, index) => {
     const month = addMonths(current, index - 11);
     const date = index === 11 ? today : addDays(monthStart(addMonths(month, 1)), -1);
-    let assetsCents = holdingCents(investments, date);
+    let assetsCents = holdingCents(investments, date) + BigInt(propertiesAt(realEstate.properties, realEstate.valuations, date).totalCents);
     let liabilitiesCents = 0n;
     for (const { id } of accounts) {
       const group = grouped.get(id)!;

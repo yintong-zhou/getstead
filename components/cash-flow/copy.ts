@@ -53,7 +53,7 @@ const en = {
     not_due: "This occurrence isn’t due yet.",
     frozen_month: "Past months are read-only.",
     forbidden: "The request was blocked. Reload the page and try again.",
-    linked: "This movement settles a recurring expense. Reopen that occurrence first, then change or void the movement.",
+    linked: "This movement settles a recurring expense or a condominium charge. Reopen that occurrence or charge first, then change or void the movement.",
   } as Record<string, string>,
   fields: {
     name: "Name", description: "Description", amountCents: "Amount", bookingDate: "Date", accountId: "Account",
@@ -207,6 +207,9 @@ const en = {
   reopened: "Reopened. The movement stays booked: void or adjust it, then match or confirm the occurrence again.",
   reopenedArchived: "Unlinked. That recurring expense is archived, so nothing becomes due and it stays archived. The movement stays booked: void or adjust it as needed.",
   linkedHint: "This movement settles a recurring expense, so its account and direction are fixed. Reopen the occurrence to change them.",
+  chargeBadge: "Condominium",
+  chargeLinkedHint: "This movement settles a condominium charge, so its account and direction are fixed. Reopen the charge in Property to change them.",
+  openProperty: "Open Property",
 
   // budget
   applyFrom: (month: string) => `Apply from ${month}`,
@@ -280,7 +283,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
       not_due: "Questa scadenza non è ancora arrivata.",
       frozen_month: "I mesi passati sono in sola lettura.",
       forbidden: "La richiesta è stata bloccata. Ricarica la pagina e riprova.",
-      linked: "Questo movimento salda una spesa ricorrente. Riapri prima quella scadenza, poi modifica o annulla il movimento.",
+      linked: "Questo movimento salda una spesa ricorrente o un addebito condominiale. Riapri prima quella scadenza o quell’addebito, poi modifica o annulla il movimento.",
     },
     fields: {
       name: "Nome", description: "Descrizione", amountCents: "Importo", bookingDate: "Data", accountId: "Conto",
@@ -429,6 +432,9 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
     reopened: "Riaperta. Il movimento resta registrato: annullalo o correggilo, poi abbina o conferma di nuovo la scadenza.",
     reopenedArchived: "Scollegato. Quella spesa ricorrente è archiviata, quindi non risulta nulla in scadenza e resta archiviata. Il movimento resta registrato: annullalo o correggilo se serve.",
     linkedHint: "Questo movimento salda una spesa ricorrente, quindi conto e direzione sono bloccati. Riapri la scadenza per cambiarli.",
+    chargeBadge: "Condominio",
+    chargeLinkedHint: "Questo movimento salda un addebito condominiale, quindi conto e direzione sono bloccati. Riapri l’addebito in Immobili per cambiarli.",
+    openProperty: "Apri Immobili",
 
     applyFrom: (month: string) => `Applica da ${month}`,
     applyOnlyFor: (month: string) => `Solo per ${month}`,

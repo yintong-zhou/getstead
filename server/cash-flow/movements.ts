@@ -24,6 +24,7 @@ export const movementSelect = {
   transferId: true,
   transferLeg: true,
   occurrence: { select: { templateId: true, dueDate: true } },
+  condoCharge: { select: { id: true } },
 } satisfies Prisma.MovementSelect;
 const select = movementSelect;
 type Row = Prisma.MovementGetPayload<{ select: typeof select }>;
@@ -40,6 +41,8 @@ export type MovementDto = {
   transferLeg: "OUT" | "IN" | null;
   /** The recurring occurrence this movement settles, if any. Edits that would break the link are refused. */
   linked: { templateId: string; dueDate: IsoDate } | null;
+  /** The condominium charge this movement settles, if any. Same protection as `linked`; reopen the charge to change it. */
+  chargeLinked: { chargeId: string } | null;
 };
 
 export function toMovementDto(userId: string, row: Row): MovementDto {
@@ -54,6 +57,7 @@ export function toMovementDto(userId: string, row: Row): MovementDto {
     transferId: row.transferId,
     transferLeg: row.transferLeg,
     linked: row.occurrence ? { templateId: row.occurrence.templateId, dueDate: fromDate(row.occurrence.dueDate) } : null,
+    chargeLinked: row.condoCharge ? { chargeId: row.condoCharge.id } : null,
   };
 }
 
@@ -198,7 +202,7 @@ async function setVoided(userId: string, id: string, voided: boolean) {
     // A paired leg must be unpaired first, otherwise its partner would stay excluded from nothing.
     if (current.transferId) throw conflict("paired");
     // A movement that settles a recurring occurrence must be reopened first, or the occurrence would keep a dead link.
-    if (voided && current.occurrence) throw conflict("linked");
+    if (voided && (current.occurrence || current.condoCharge)) throw conflict("linked");
     const row = await tx.movement.update({
       where: { userId_id: { userId, id } },
       data: { voidedAt: voided ? current.voidedAt ?? new Date() : null },
@@ -234,11 +238,16 @@ export async function updateMovement(userId: string, id: string, input: Record<s
     // Both legs were validated as equal and opposite when they were paired.
     if (current.transferId && (changesAccount || changesAmount)) throw conflict("paired");
     // A linked movement must stay an outflow in the occurrence's account.
-    if (current.occurrence && (changesAccount || (amountCents !== undefined && amountCents > 0))) throw conflict("linked");
+    if ((current.occurrence || current.condoCharge) && (changesAccount || (amountCents !== undefined && amountCents > 0))) throw conflict("linked");
 
     if (changesAccount) await activeAccount(tx, userId, accountId);
     if (categoryId && categoryId !== current.categoryId) await activeCategory(tx, userId, categoryId);
     const finalCategory = categoryId === undefined ? current.categoryId : categoryId;
+    // A movement that settles an occurrence or a charge is an expense: an INCOME category would turn it into negative income.
+    if (finalCategory && finalCategory !== current.categoryId && (current.occurrence || current.condoCharge)) {
+      const picked = await tx.category.findFirst({ where: { userId, id: finalCategory }, select: { kind: true } });
+      if (picked?.kind === "INCOME") throw conflict("linked");
+    }
     if (rememberPhrase !== undefined) {
       if (!finalCategory) throw new ApiError(422, "validation", "rememberPhrase");
       await rememberRule(tx, userId, rememberPhrase, finalCategory);
@@ -323,7 +332,7 @@ export async function pairMovements(userId: string, input: Record<string, unknow
 
     if (a.voidedAt || b.voidedAt) throw conflict("voided");
     if (a.transferId || b.transferId) throw conflict("already_paired");
-    if (a.occurrence || b.occurrence) throw conflict("linked");
+    if (a.occurrence || b.occurrence || a.condoCharge || b.condoCharge) throw conflict("linked");
     if (a.accountId === b.accountId) throw conflict("same_account");
     if (a.amountCents !== -b.amountCents) throw conflict("amount_mismatch");
 
@@ -373,7 +382,7 @@ export function candidatePaging(params: URLSearchParams) {
 }
 
 /**
- * Unvoided, unpaired movements that are not already settling a recurring occurrence, nearest
+ * Unvoided, unpaired movements that are not already settling a recurring occurrence or a condominium charge, nearest
  * date first. The whole history is reachable through `offset`, and `month` narrows it, so no
  * valid counterpart is hidden by an arbitrary cut-off.
  */
@@ -391,6 +400,9 @@ export async function nearestCandidates(query: CandidateQuery) {
       AND m.voided_at IS NULL AND m.transfer_id IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM stead_recurring_occurrences o WHERE o.user_id = m.user_id AND o.movement_id = m.movement_id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM stead_condo_charges c WHERE c.user_id = m.user_id AND c.movement_id = m.movement_id
       )
       AND (${from}::date IS NULL OR m.booking_date >= ${from}::date)
       AND (${to}::date IS NULL OR m.booking_date < ${to}::date)
@@ -416,7 +428,7 @@ export async function transferCandidates(userId: string, params: URLSearchParams
   if (!source) throw notFound();
   const empty = { pageSize: CANDIDATE_PAGE_SIZE, hasMore: false, movements: [] as MovementDto[] };
   // A voided, paired or recurring-linked movement cannot be paired, so it has no counterparts to offer.
-  if (source.voidedAt || source.transferId || source.occurrence) return empty;
+  if (source.voidedAt || source.transferId || source.occurrence || source.condoCharge) return empty;
 
   return nearestCandidates({
     userId, ...paging,

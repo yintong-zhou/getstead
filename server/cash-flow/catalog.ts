@@ -41,6 +41,8 @@ export async function updateAccount(userId: string, id: string, input: Record<st
     if (type && !["BROKERAGE", "CRYPTO"].includes(type) && await client.investmentTransaction.count({ where: { userId, accountId: id } })) {
       throw conflict("investment_account");
     }
+    // A property's mortgage link needs a DEBT account; the property writer locks this row too (FOR NO KEY UPDATE).
+    if (type && type !== "DEBT" && await client.property.count({ where: { userId, mortgageAccountId: id } })) throw conflict("mortgage_account");
     return client.account.update({
       where: { userId_id: { userId, id } },
       data: { name, type, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
