@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { db } from "../auth/database.ts";
 import { fromDate, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict } from "../cash-flow/errors.ts";
@@ -5,11 +6,12 @@ import { Reader } from "../cash-flow/validate.ts";
 import { monthlySeries, netWorthAt } from "./calc.ts";
 
 const checkSelect = { id: true, accountId: true, asOf: true, balanceCents: true } as const;
+const RECENT_CHECK_LIMIT = 100;
 const checkDto = (row: { id: string; accountId: string; asOf: Date; balanceCents: number }) => ({ ...row, asOf: fromDate(row.asOf) });
 
 export async function listChecks(userId: string) {
   const rows = await db().balanceCheck.findMany({
-    where: { userId }, select: checkSelect, orderBy: [{ asOf: "desc" }, { id: "desc" }],
+    where: { userId }, select: checkSelect, orderBy: [{ asOf: "desc" }, { id: "desc" }], take: RECENT_CHECK_LIMIT,
   });
   return rows.map(checkDto);
 }
@@ -22,11 +24,15 @@ export async function recordCheck(userId: string, input: Record<string, unknown>
   reader.done();
   if (asOf > romeToday(now)) throw new ApiError(422, "validation", "asOf");
   try {
-    return checkDto(await db().balanceCheck.upsert({
+    // One atomic upsert (INSERT ... ON CONFLICT), so a concurrent delete cannot turn a valid request into a 404.
+    // A row that carries the id we generated was created by this call; any other id means it was replaced.
+    const id = randomUUID();
+    const row = await db().balanceCheck.upsert({
       where: { userId_accountId_asOf: { userId, accountId, asOf: toDate(asOf) } },
-      create: { userId, accountId, asOf: toDate(asOf), balanceCents },
+      create: { id, userId, accountId, asOf: toDate(asOf), balanceCents },
       update: { balanceCents }, select: checkSelect,
-    }));
+    });
+    return { check: checkDto(row), created: row.id === id };
   } catch (error) {
     if ((error as { code?: string })?.code === "P2003") throw conflict();
     throw error;

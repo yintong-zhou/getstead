@@ -46,11 +46,12 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
               key={id}
               className="nav-item"
               href={`/${locale}${path}`}
-              title={copy[label]}
+              title={copy.nav[label]}
+              aria-label={copy.nav[label]}
               aria-current={id === current ? "page" : undefined}
             >
               <Icon name={icon} />
-              <span>{copy[label]}</span>
+              <span>{copy.nav[label]}</span>
             </Link>
           ))}
         </nav>

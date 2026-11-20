@@ -74,7 +74,7 @@ A balance check records an account's **end-of-day** balance. For a date D, Stead
 
 The trend uses each month end for the last 12 months and today for the current month, following Europe/Rome. Archived accounts remain included; record a zero check when closing one. An archived account with a remaining balance is flagged. Investment valuation, property values, and CSV import are outside M2.
 
-The authenticated API is `/api/net-worth` (GET totals and history), `/api/net-worth/balances` (GET checks, POST a check), and `/api/net-worth/balances/:id` (DELETE). Mutations require the same-origin `Origin` header. After applying the M2 migration, run `db/grant-runtime.sql` again: the runtime role can read, insert, delete, and update only `balance_cents` on checks. The cash flow PostgreSQL integration suite also verifies M2 runtime grants, cross-user rejection, and historical recalculation.
+The authenticated API is `/api/net-worth` (GET totals and history), `/api/net-worth/balances` (GET the most recent 100 checks, ordered by date then ID descending; POST a check, returning 201 on creation or 200 on replacement with the same check body), and `/api/net-worth/balances/:id` (DELETE). Mutations require the same-origin `Origin` header. After applying the M2 migration, run `db/grant-runtime.sql` again: the runtime role can read, insert, delete, and update only `balance_cents` on checks. The cash flow PostgreSQL integration suite also verifies M2 runtime grants, cross-user rejection, and historical recalculation.
 
 ## Cash flow and budget (M1)
 

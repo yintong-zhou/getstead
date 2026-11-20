@@ -61,6 +61,10 @@ export function api<P = Record<string, never>>(
           return body;
         },
       });
+      if (result instanceof NextResponse) {
+        result.headers.set("Cache-Control", noStore["Cache-Control"]);
+        return result;
+      }
       return result === undefined ? new NextResponse(null, { status: 204, headers: noStore }) : json(result, options.status ?? 200);
     } catch (error) {
       return failure(error);

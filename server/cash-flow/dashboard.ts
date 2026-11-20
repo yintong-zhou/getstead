@@ -40,6 +40,7 @@ export async function getDashboard(userId: string, now = new Date()) {
     today,
     month,
     hasAccounts: accounts.some((account) => !account.archived),
+    showNetWorth: accounts.length > 0,
     hasMovements: rows.length > 0,
     incomeCents: current.incomeCents,
     expenseCents: current.expenseCents,

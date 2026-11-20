@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test, { after, before } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { NextRequest } from "next/server.js";
+import { NextRequest, NextResponse } from "next/server.js";
 import { PrismaClient } from "../../db/generated/client.ts";
 import { localPostgresUrl } from "../auth/config.ts";
 import { digestToken, newToken } from "../auth/crypto.ts";
@@ -15,6 +15,7 @@ import { sessionCookie } from "../auth/http.ts";
 import { getBudget, setLimit, clearOverride } from "./budget.ts";
 import { addStarterCategories, createAccount, createCategory, listAccounts, listCategories, updateAccount, updateCategory } from "./catalog.ts";
 import { getDashboard } from "./dashboard.ts";
+import { addDays, toDate } from "./dates.ts";
 import { ApiError } from "./errors.ts";
 import { api } from "./http.ts";
 import {
@@ -79,7 +80,9 @@ test("balance checks upsert and delete under the runtime role, with user isolati
   const input = { accountId: checking.id, asOf: "2026-11-18", balanceCents: 10_000 };
   const first = await recordCheck(a, input, now);
   const updated = await recordCheck(a, { ...input, balanceCents: -20_000 }, now);
-  assert.equal(updated.id, first.id, "same account and date replaces the existing check");
+  assert.equal(first.created, true);
+  assert.equal(updated.created, false);
+  assert.equal(updated.check.id, first.check.id, "same account and date replaces the existing check");
   assert.equal((await listChecks(a)).length, 1);
   assert.equal((await listChecks(a))[0].balanceCents, -20_000);
   assert.deepEqual(await listChecks(b), []);
@@ -87,7 +90,7 @@ test("balance checks upsert and delete under the runtime role, with user isolati
   assert.deepEqual([empty.assetsCents, empty.liabilitiesCents, empty.netCents], [0, 0, 0]);
   assert.ok(empty.series.every((point) => point.netCents === 0));
   await rejectsApi(recordCheck(b, input, now), 409, "conflict");
-  await rejectsMissing(deleteCheck(b, first.id));
+  await rejectsMissing(deleteCheck(b, first.check.id));
   assert.equal((await listChecks(a)).length, 1);
 
   const insert = (userId: string, accountId: string, cents: number) => db().$executeRaw`
@@ -101,10 +104,38 @@ test("balance checks upsert and delete under the runtime role, with user isolati
     SELECT has_column_privilege(current_user, 'stead_balance_checks', 'account_id', 'UPDATE') AS can_rekey
   `;
   assert.equal(role[0].can_rekey, false, "runtime cannot change a check's ownership or account");
-  await deleteCheck(a, first.id);
+  await deleteCheck(a, first.check.id);
   assert.deepEqual(await listChecks(a), []);
   await recordCheck(a, { ...input, balanceCents: 0 }, now);
   assert.equal((await listChecks(a))[0].balanceCents, 0);
+});
+
+test("concurrent balance checks report exactly one creation for the same account and date", async () => {
+  const user = await newUser();
+  const checking = await account(user);
+  const input = { accountId: checking.id, asOf: "2026-11-18", balanceCents: 100 };
+  const results = await Promise.all(Array.from({ length: 4 }, () => recordCheck(user, input, new Date("2026-11-19T10:00:00Z"))));
+  assert.equal(results.filter((result) => result.created).length, 1);
+  assert.equal(new Set(results.map((result) => result.check.id)).size, 1);
+  assert.equal((await listChecks(user)).length, 1);
+});
+
+test("balance check history is limited to the newest 100 checks in date and id order", async () => {
+  const [user, otherUser] = [await newUser(), await newUser()];
+  const checking = await account(user);
+  const second = await account(user, "Synthetic savings");
+  const other = await account(otherUser);
+  const rows = Array.from({ length: 101 }, (_, index) => ({
+    id: randomUUID(), userId: user, accountId: checking.id,
+    asOf: toDate(addDays("2026-01-01", index)), balanceCents: index,
+  }));
+  rows.push({ id: randomUUID(), userId: user, accountId: second.id, asOf: rows.at(-1)!.asOf, balanceCents: 0 });
+  await db().balanceCheck.createMany({ data: rows });
+  await recordCheck(otherUser, { accountId: other.id, asOf: "2026-11-18", balanceCents: 0 }, new Date("2026-11-19T10:00:00Z"));
+  const listed = await listChecks(user);
+  const expected = [...rows].sort((a, b) => b.asOf.getTime() - a.asOf.getTime() || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)).slice(0, 100);
+  assert.equal(listed.length, 100);
+  assert.deepEqual(listed.map((row) => row.id), expected.map((row) => row.id));
 });
 
 test("net worth recalculates history from checks and movements, including archived balances and transfers", async () => {
@@ -112,7 +143,7 @@ test("net worth recalculates history from checks and movements, including archiv
   const checking = await account(user);
   const card = await account(user, "Synthetic card", "CARD");
   const now = new Date("2026-11-19T10:00:00Z");
-  const check = await recordCheck(user, { accountId: checking.id, asOf: "2026-09-30", balanceCents: 10_000 }, now);
+  const { check } = await recordCheck(user, { accountId: checking.id, asOf: "2026-09-30", balanceCents: 10_000 }, now);
   await movement(user, checking.id, "2026-09-30", 99_999);
   const expense = await movement(user, checking.id, "2026-10-31", -1_000);
   const voided = await movement(user, checking.id, "2026-11-01", -2_000);
@@ -138,6 +169,10 @@ test("net worth recalculates history from checks and movements, including archiv
   assert.equal((await getNetWorth(user, now)).netCents, -2_500);
   await deleteCheck(user, check.id);
   assert.equal((await getNetWorth(user, now)).series.at(-2)?.netCents, 97_999, "deleting a check also recomputes history");
+  await updateAccount(user, checking.id, { archived: true });
+  const dashboard = await getDashboard(user, now);
+  assert.equal(dashboard.hasAccounts, false);
+  assert.equal(dashboard.showNetWorth, true, "archived accounts with balances keep the net worth card visible");
 });
 
 test("balance validation uses Rome today, permits signed zero, and rejects extra or invalid fields", async () => {
@@ -145,7 +180,7 @@ test("balance validation uses Rome today, permits signed zero, and rejects extra
   const checking = await account(user);
   const now = new Date("2026-11-18T23:30:00Z"); // Already 19 November in Rome.
   const input = { accountId: checking.id, asOf: "2026-11-19", balanceCents: 0 };
-  assert.equal((await recordCheck(user, input, now)).asOf, "2026-11-19");
+  assert.equal((await recordCheck(user, input, now)).check.asOf, "2026-11-19");
   assert.equal((await getNetWorth(user, now)).today, "2026-11-19");
   for (const extra of [
     { asOf: "2026-11-20" }, { asOf: "2026-02-30" }, { asOf: "1999-12-31" },
@@ -178,6 +213,7 @@ test("every read and write is scoped to the authenticated user", async () => {
   assert.deepEqual((await getBudget(b, "2026-11")).rows, []);
   const empty = await getDashboard(b, new Date("2026-11-20T12:00:00Z"));
   assert.equal(empty.hasAccounts, false);
+  assert.equal(empty.showNetWorth, false);
   assert.equal(empty.latest.length, 0);
 
   // B cannot read or change A's rows by id.
@@ -713,6 +749,10 @@ test("route wrapper: session required, same-origin mutations, no-store JSON, no 
 
   const read = api(async ({ userId: id }) => ({ id }));
   const write = api(async ({ userId: id, body }) => ({ id, body: await body() }), { status: 201 });
+  const balanceWrite = api(async ({ userId: id, body }) => {
+    const result = await recordCheck(id, await body());
+    return NextResponse.json(result.check, { status: result.created ? 201 : 200 });
+  });
   const crash = api(async () => { throw new Error("secret amount 12345.67 for synthetic account"); });
   const reject = api(async () => { throw new ApiError(422, "validation", "amountCents"); });
   const call = (handler: typeof read, method: string, headers: Record<string, string> = {}, body?: string) =>
@@ -740,6 +780,18 @@ test("route wrapper: session required, same-origin mutations, no-store JSON, no 
   assert.equal((await call(write, "POST", { ...cookie, ...json, origin }, "[1]")).status, 400);
   assert.equal((await call(write, "POST", { ...cookie, ...json, origin }, JSON.stringify({ pad: "x".repeat(20_000) }))).status, 400);
   assert.equal((await call(write, "POST", { ...json, origin }, payload)).status, 401, "origin alone is not authentication");
+
+  const checking = await account(userId);
+  const balancePayload = JSON.stringify({ accountId: checking.id, asOf: "2026-11-18", balanceCents: 100 });
+  const balanceCreated = await call(balanceWrite, "POST", { ...cookie, ...json, origin }, balancePayload);
+  const balanceReplaced = await call(balanceWrite, "POST", { ...cookie, ...json, origin }, balancePayload);
+  assert.equal(balanceCreated.status, 201);
+  assert.equal(balanceReplaced.status, 200);
+  assert.equal(balanceCreated.headers.get("cache-control"), "no-store");
+  assert.equal(balanceReplaced.headers.get("cache-control"), "no-store");
+  const balanceBody = await balanceCreated.json();
+  assert.deepEqual(Object.keys(balanceBody).sort(), ["accountId", "asOf", "balanceCents", "id"]);
+  assert.deepEqual(await balanceReplaced.json(), balanceBody);
 
   const logged: unknown[][] = [];
   t.mock.method(console, "error", (...args: unknown[]) => { logged.push(args); });

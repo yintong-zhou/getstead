@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
+import { addDays } from "@/server/cash-flow/dates";
 import type { CheckDto, NetWorthData } from "@/server/net-worth/service";
 import { formatEuros, type Locale } from "@/server/locale";
 import { call } from "../cash-flow/api";
@@ -48,6 +49,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
   const shared = cashFlowCopy[locale];
   const action = useAction(locale);
   const [accountId, setAccountId] = useState(data.perAccount[0]?.id ?? "");
+  const [asOf, setAsOf] = useState(() => addDays(data.today, -1));
   const isLiability = (id: string) => data.perAccount.some((account) => account.id === id && (account.type === "CARD" || account.type === "DEBT"));
   const [owed, setOwed] = useState(() => isLiability(accountId));
   const names = new Map(data.perAccount.map((account) => [account.id, account.name]));
@@ -107,7 +109,10 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
           </div>
           <div className="form-field">
             <label htmlFor="worth-date">{shared.date}</label>
-            <input id="worth-date" className="field" name="asOf" type="date" min="2000-01-01" max={data.today} defaultValue={data.today} required />
+            <input id="worth-date" className="field" name="asOf" type="date" min="2000-01-01" max={data.today}
+              value={asOf} onChange={(event) => setAsOf(event.target.value)}
+              aria-describedby={asOf === data.today ? "worth-today-note" : undefined} required />
+            {asOf === data.today && <p id="worth-today-note" className="hint" role="note">{copy.todayWarning}</p>}
           </div>
           <div className="form-field">
             <label htmlFor="worth-amount">{shared.amount} (EUR)</label>
