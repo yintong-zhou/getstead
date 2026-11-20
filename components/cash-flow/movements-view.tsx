@@ -314,7 +314,7 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
         <div className="form-field">
           <label htmlFor={`${ids}category`}>{copy.category}</label>
           <Select id={`${ids}category`} value={categoryId} onChange={setCategoryId}
-            groups={categoryGroups({ copy, categories, current: movement.categoryId })} />
+            groups={categoryGroups({ copy, categories: linked ? categories.filter((item) => item.kind === "EXPENSE" || item.id === movement.categoryId) : categories, current: movement.categoryId })} />
         </div>
         {categoryId && (
           <div className="form-field">

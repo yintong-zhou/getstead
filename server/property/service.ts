@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type { CondoCharge, Prisma, Property } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
-import { fromDate, nextOccurrenceAfter, romeToday, toDate, type IsoDate } from "../cash-flow/dates.ts";
+import { fromDate, nextOccurrenceAfter, occurrencesThrough, romeToday, toDate, type IsoDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { lockMovements, movementSelect, toMovementDto } from "../cash-flow/movements.ts";
 import { createTemplate } from "../cash-flow/recurring.ts";
@@ -350,14 +350,16 @@ function chargeDto(userId: string, row: CondoCharge, table: { unitMillesimi: num
 
 export async function getOverview(userId: string, now = new Date()) {
   const today = romeToday(now);
-  const [properties, valuations, tables, schedules, charges, netWorth] = await Promise.all([
+  const [properties, valuations, tables, schedules, charges, netWorth, resolved] = await Promise.all([
     db().property.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }] }),
     db().propertyValuation.findMany({ where: { userId }, orderBy: [{ asOf: "desc" }, { id: "asc" }] }),
     db().condoTable.findMany({ where: { userId }, orderBy: [{ label: "asc" }, { id: "asc" }] }),
     db().condoSchedule.findMany({ where: { userId }, include: { template: true }, orderBy: { id: "asc" } }),
     db().condoCharge.findMany({ where: { userId }, orderBy: [{ dueDate: "asc" }, { id: "asc" }] }),
     getNetWorth(userId, now),
+    db().recurringOccurrence.findMany({ where: { userId, template: { condoSchedule: { isNot: null } } }, select: { templateId: true, dueDate: true } }),
   ]);
+  const resolvedKeys = new Set(resolved.map((item) => `${item.templateId}:${fromDate(item.dueDate)}`));
   const valuationInput = valuations.map((row) => ({ propertyId: row.propertyId, asOf: fromDate(row.asOf), valueCents: Number(row.valueCents) }));
   const at = propertiesAt(properties.map((row) => ({ id: row.id, ownershipBps: row.ownershipBps, soldOn: row.soldOn ? fromDate(row.soldOn) : null })), valuationInput, today);
   const byProperty = new Map(at.rows.map((row) => [row.id, row]));
@@ -381,7 +383,7 @@ export async function getOverview(userId: string, now = new Date()) {
           return {
             id: item.id, templateId: item.templateId, description: decryptText(userId, templateContext(item.templateId), item.template.description),
             amountCents: item.template.amountCents, frequency: item.template.frequency, archived: item.template.archivedAt !== null,
-            nextDue: item.template.archivedAt ? null : nextOccurrenceAfter(rule, addDaysBefore(today)),
+            nextDue: item.template.archivedAt ? null : nextUnresolved(item.templateId, rule, today, resolvedKeys),
           };
         }),
         charges: charges.filter((item) => item.propertyId === row.id).map((item) => chargeDto(userId, item, item.tableId ? tableById.get(item.tableId) ?? null : null)),
@@ -390,9 +392,17 @@ export async function getOverview(userId: string, now = new Date()) {
   };
 }
 export type Overview = Awaited<ReturnType<typeof getOverview>>;
-// nextOccurrenceAfter is exclusive; passing yesterday makes an instalment due today count as the next one.
-function addDaysBefore(date: IsoDate) {
-  const day = new Date(`${date}T00:00:00Z`);
-  day.setUTCDate(day.getUTCDate() - 1);
-  return day.toISOString().slice(0, 10);
+/** The earliest occurrence Recurring has not resolved (confirmed, matched or skipped): overdue ones first, else the next future one. */
+function nextUnresolved(templateId: string, rule: Parameters<typeof occurrencesThrough>[0], today: IsoDate, resolved: Set<string>) {
+  const open = occurrencesThrough(rule, today).find((date) => !resolved.has(`${templateId}:${date}`));
+  return open ?? nextOccurrenceAfter(rule, today);
+}
+
+export async function listValuations(userId: string) {
+  const rows = await db().propertyValuation.findMany({ where: { userId }, orderBy: [{ asOf: "desc" }, { id: "asc" }] });
+  return rows.map((row) => ({ id: row.id, propertyId: row.propertyId, asOf: fromDate(row.asOf), valueCents: Number(row.valueCents) }));
+}
+export async function listCharges(userId: string) {
+  const rows = await db().condoCharge.findMany({ where: { userId }, include: { table: true }, orderBy: [{ dueDate: "asc" }, { id: "asc" }] });
+  return rows.map((row) => chargeDto(userId, row, row.table));
 }

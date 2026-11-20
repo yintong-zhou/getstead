@@ -302,12 +302,19 @@ function ChargeRow({ locale, charge, accounts, today }: { locale: Locale; charge
 
 export function Charges({ locale, property, accounts, today }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string }) {
   const copy = propertyCopy[locale];
+  // Pending first by due date (the service orders by due date), then what was settled, most recent first, then voided.
+  const groups = [
+    { label: copy.pending, rows: property.charges.filter((charge) => !charge.settled && !charge.voided) },
+    { label: copy.settled, rows: property.charges.filter((charge) => charge.settled && !charge.voided).reverse() },
+    { label: copy.voidedLabel, rows: property.charges.filter((charge) => charge.voided) },
+  ];
   return <div className="property-block">
     <h4>{copy.chargesTitle}</h4>
     <p className="hint">{copy.chargesHint}</p>
-    {property.charges.length === 0 ? <p className="empty-inline">{copy.noCharges}</p> : <ul className="rows">
-      {property.charges.map((charge) => <ChargeRow key={charge.id} locale={locale} charge={charge} accounts={accounts} today={today} />)}
-    </ul>}
+    {property.charges.length === 0 ? <p className="empty-inline">{copy.noCharges}</p> : groups.map(({ label, rows }) => rows.length > 0 && <div key={label}>
+      <h5 className="property-group">{label}</h5>
+      <ul className="rows">{rows.map((charge) => <ChargeRow key={charge.id} locale={locale} charge={charge} accounts={accounts} today={today} />)}</ul>
+    </div>)}
     <ChargeForm locale={locale} property={property} today={today} />
   </div>;
 }

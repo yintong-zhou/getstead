@@ -75,7 +75,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
       <section className="card" aria-labelledby="worth-accounts-title">
         <h2 id="worth-accounts-title">{copy.accounts}</h2>
         <p className="hint">{copy.closingHint}</p>
-        {data.perAccount.length === 0 ? (
+        {data.perAccount.length === 0 && data.holdingsCents === 0 && data.propertiesCents === 0 ? (
           <div className="empty-inline"><p>{shared.noAccountsBody}</p><Link className="text-link" href={`/${locale}/accounts`}>{shared.goToAccounts}</Link></div>
         ) : <ul className="rows">{data.perAccount.map((account) => (
           <li className="manage-row worth-account" key={account.id}>

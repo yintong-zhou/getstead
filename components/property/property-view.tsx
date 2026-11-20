@@ -47,6 +47,8 @@ function PropertyCard({ locale, property, accounts, today }: { locale: Locale; p
 
 export function PropertyView({ locale, data, accounts }: ViewProps) {
   const copy = propertyCopy[locale];
+  const active = data.properties.filter((property) => !property.archived);
+  const archived = data.properties.filter((property) => property.archived);
   return <div className="stack property-view">
     <section className="card hero" aria-labelledby="property-total-title">
       <h2 id="property-total-title" className="hero-label">{copy.totalValue}</h2>
@@ -54,7 +56,13 @@ export function PropertyView({ locale, data, accounts }: ViewProps) {
       <p className="hero-note">{copy.totalNote}</p>
     </section>
     {data.properties.length === 0 ? <p className="card empty-inline">{copy.noProperties}</p>
-      : data.properties.map((property) => <PropertyCard key={property.id} locale={locale} property={property} accounts={accounts} today={data.today} />)}
+      : active.map((property) => <PropertyCard key={property.id} locale={locale} property={property} accounts={accounts} today={data.today} />)}
+    {archived.length > 0 && <details className="card property-archived">
+      <summary>{copy.archivedSection} ({archived.length})</summary>
+      <div className="stack">
+        {archived.map((property) => <PropertyCard key={property.id} locale={locale} property={property} accounts={accounts} today={data.today} />)}
+      </div>
+    </details>}
     <section className="card" aria-labelledby="property-add-title">
       <h2 id="property-add-title">{copy.addProperty}</h2>
       <PropertyForm locale={locale} accounts={accounts} />

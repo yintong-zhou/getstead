@@ -11,6 +11,8 @@
 .property-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .property-charge { padding-block: 8px; border-top: 1px solid var(--glass-hairline); }
 .property-charge:first-child { border-top: 0; }
+.property-group { margin-top: 12px; color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .3px; text-transform: uppercase; }
+.property-archived > summary { cursor: pointer; font-weight: 750; min-height: 44px; display: flex; align-items: center; }
 .property-details { margin-top: 16px; border-top: 1px solid var(--glass-hairline); padding-top: 12px; }
 .property-details > summary { cursor: pointer; font-weight: 750; min-height: 44px; display: flex; align-items: center; }
 @media (min-width: 768px) {

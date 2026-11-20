@@ -169,4 +169,4 @@ ALTER TABLE "stead_condo_charges" ADD CONSTRAINT "stead_condo_charges_dates_chec
   AND (approved_on IS NULL OR approved_on BETWEEN DATE '2000-01-01' AND DATE '2100-12-31'));
 ALTER TABLE "stead_condo_charges" ADD CONSTRAINT "stead_condo_charges_building_check" CHECK (
   (table_id IS NULL AND building_total_cents IS NULL)
-  OR (table_id IS NOT NULL AND building_total_cents BETWEEN 1 AND 100000000000 AND building_total_cents >= amount_cents));
+  OR (table_id IS NOT NULL AND building_total_cents IS NOT NULL AND building_total_cents BETWEEN 1 AND 100000000000 AND building_total_cents >= amount_cents));

@@ -9,14 +9,15 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../db/generated/client.ts";
 import { localPostgresUrl } from "../auth/config.ts";
 import { db, disconnectDb } from "../auth/database.ts";
-import { createAccount, updateAccount } from "../cash-flow/catalog.ts";
+import { createAccount, createCategory, updateAccount } from "../cash-flow/catalog.ts";
+import { getDashboard } from "../cash-flow/dashboard.ts";
 import { createMovement, pairMovements, transferCandidates, updateMovement } from "../cash-flow/movements.ts";
 import { resolveOccurrence } from "../cash-flow/recurring.ts";
 import { chargeContext, encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
 import {
   createCharge, createProperty, createSchedule, createTable, createValuation, deleteTable, deleteValuation, getOverview,
-  updateCharge, updateProperty,
+  listCharges, listValuations, updateCharge, updateProperty,
 } from "./service.ts";
 
 let admin: PrismaClient;
@@ -88,7 +89,7 @@ test("constraints and runtime privileges: the database rejects what the service 
   const table = await admin.condoTable.create({ data: { userId, propertyId: other.id, label: "General", unitMillesimi: 85, totalMillesimi: 1000 } });
   await admin.condoCharge.create({ data: row({ propertyId: other.id, tableId: table.id, buildingTotalCents: 1_000_000_000n }) }); // positive control
   await assert.rejects(admin.condoCharge.create({ data: row({ tableId: table.id, buildingTotalCents: 1_000_000_000n }) }), "a table of another property is refused by the composite key");
-  await assert.rejects(admin.condoCharge.create({ data: row({ tableId: table.id }) }), "table without a building total");
+  await assert.rejects(admin.condoCharge.create({ data: row({ propertyId: other.id, tableId: table.id }) }), "a same-property table without a building total is refused by the CHECK, not by the foreign key");
   await assert.rejects(admin.condoCharge.create({ data: row({ buildingTotalCents: 5n }) }), "building total without a table");
   await assert.rejects(admin.condoTable.create({ data: { userId, propertyId: property.id, label: "Bad", unitMillesimi: 1001, totalMillesimi: 1000 } }));
   await admin.condoTable.create({ data: { userId, propertyId: property.id, label: "Edge", unitMillesimi: 1000, totalMillesimi: 1000 } });
@@ -136,6 +137,10 @@ test("a settling movement is protected until the charge is reopened, and cannot 
   await rejects(updateMovement(userId, movement.id, { voided: true }), 409, "linked");
   await rejects(updateMovement(userId, movement.id, { accountId: savings.id }), 409, "linked");
   await rejects(updateMovement(userId, movement.id, { amountCents: 500 }), 409, "linked");
+  const income = await createCategory(userId, { name: "Synthetic income", kind: "INCOME" });
+  const expense = await createCategory(userId, { name: "Synthetic expense", kind: "EXPENSE" });
+  await rejects(updateMovement(userId, movement.id, { categoryId: income.id }), 409, "linked");
+  assert.equal((await updateMovement(userId, movement.id, { categoryId: expense.id })).categoryId, expense.id, "positive control: an expense category is allowed");
   const counterpart = await createMovement(userId, { accountId: savings.id, bookingDate: "2026-11-05", description: "Synthetic counterpart", amountCents: 12_345, categoryId: null });
   await rejects(pairMovements(userId, { movementIds: [movement.id, counterpart.id] }), 409, "linked");
   assert.equal((await transferCandidates(userId, new URLSearchParams({ movementId: movement.id }))).movements.length, 0);
@@ -213,11 +218,13 @@ test("a schedule creates its template and link atomically, and instalments confi
   const created = await createSchedule(userId, { ...bad, amountCents: 5_000, startDate: "2026-11-05" });
   const listed = (await getOverview(userId, new Date("2026-11-20T12:00:00Z"))).properties.find((item) => item.id === property.id)!;
   assert.equal(listed.schedules[0].description, "Instalment");
-  assert.equal(listed.schedules[0].nextDue, "2026-12-05");
+  assert.equal(listed.schedules[0].nextDue, "2026-11-05", "the unresolved 5 November instalment is overdue and shown first");
   const confirm = () => resolveOccurrence(userId, { action: "confirm", templateId: created.template.id, dueDate: "2026-11-05" }, new Date("2026-11-20T12:00:00Z"));
   const results = await Promise.allSettled([confirm(), confirm()]);
   assert.equal(results.filter((item) => item.status === "fulfilled").length, 1);
   assert.equal(await movementsOf(userId), 1);
+  const after = (await getOverview(userId, new Date("2026-11-20T12:00:00Z"))).properties.find((item) => item.id === property.id)!;
+  assert.equal(after.schedules[0].nextDue, "2026-12-05", "once confirmed, the next one is next month");
 });
 
 test("a property write that locks an account does not wait for an in-flight movement insert (no transfer deadlock)", async () => {
@@ -262,4 +269,37 @@ test("net worth adds the owner's value share, leaves the mortgage as the only li
   assert.equal((await getNetWorth(userId, now)).propertiesCents, 15_000_000, "the earlier valuation applies again");
   await updateProperty(userId, property.id, { soldOn: "2026-11-10" });
   assert.equal((await getNetWorth(userId, now)).propertiesCents, 0, "sold properties drop out");
+});
+
+test("next due skips instalments that Recurring has confirmed, matched or skipped, and shows overdue ones first", async () => {
+  const { userId, checking, property } = await fixture();
+  const now = new Date("2026-11-20T12:00:00Z");
+  const make = (description: string) => createSchedule(userId, { propertyId: property.id, accountId: checking.id, description, amountCents: 5_000, frequency: "MONTHLY", startDate: "2026-11-20" });
+  const nextDue = async (description: string) => (await getOverview(userId, now)).properties[0].schedules.find((row) => row.description === description)!.nextDue;
+  const confirmed = await make("Confirmed"), skipped = await make("Skipped"), matched = await make("Matched");
+  for (const name of ["Confirmed", "Skipped", "Matched"]) assert.equal(await nextDue(name), "2026-11-20", "unresolved today is the next due date");
+  await resolveOccurrence(userId, { action: "confirm", templateId: confirmed.template.id, dueDate: "2026-11-20" }, now);
+  await resolveOccurrence(userId, { action: "skip", templateId: skipped.template.id, dueDate: "2026-11-20" }, now);
+  const payment = await createMovement(userId, { accountId: checking.id, bookingDate: "2026-11-20", description: "Synthetic payment", amountCents: -5_000, categoryId: null });
+  await resolveOccurrence(userId, { action: "match", templateId: matched.template.id, dueDate: "2026-11-20", movementId: payment.id }, now);
+  for (const name of ["Confirmed", "Skipped", "Matched"]) assert.equal(await nextDue(name), "2026-12-20", `${name}: resolved today moves to the next month`);
+  await resolveOccurrence(userId, { action: "reopen", templateId: confirmed.template.id, dueDate: "2026-11-20" }, now);
+  assert.equal(await nextDue("Confirmed"), "2026-11-20", "reopened, it is due again");
+});
+
+test("property value shows in net worth and on the dashboard even with no accounts, and the collection reads are scoped", async () => {
+  const { id: userId } = await admin.user.create({ data: { email: `m4-${randomUUID()}@example.test`, passwordHash: "synthetic" } });
+  const other = await fixture();
+  const home = await createProperty(userId, { name: "Account-free flat", kind: "OTHER" });
+  await createValuation(userId, { propertyId: home.id, asOf: "2026-01-01", valueCents: 20_000_000 });
+  const dashboard = await getDashboard(userId, new Date("2026-11-20T12:00:00Z"));
+  assert.equal(dashboard.hasAccounts, false);
+  assert.equal(dashboard.showNetWorth, true, "a valued property is enough to show net worth");
+  assert.equal(dashboard.netWorthCents, 20_000_000);
+  assert.equal((await getDashboard(other.userId, new Date("2026-11-20T12:00:00Z"))).showNetWorth, true, "positive control: accounts also show it");
+  await createCharge(userId, charge(home.id));
+  assert.equal((await listValuations(userId)).length, 1);
+  assert.equal((await listCharges(userId)).length, 1);
+  assert.equal((await listValuations(other.userId)).length, 0, "another user's reads are empty");
+  assert.equal((await listCharges(other.userId)).length, 0);
 });

@@ -243,6 +243,11 @@ export async function updateMovement(userId: string, id: string, input: Record<s
     if (changesAccount) await activeAccount(tx, userId, accountId);
     if (categoryId && categoryId !== current.categoryId) await activeCategory(tx, userId, categoryId);
     const finalCategory = categoryId === undefined ? current.categoryId : categoryId;
+    // A movement that settles an occurrence or a charge is an expense: an INCOME category would turn it into negative income.
+    if (finalCategory && finalCategory !== current.categoryId && (current.occurrence || current.condoCharge)) {
+      const picked = await tx.category.findFirst({ where: { userId, id: finalCategory }, select: { kind: true } });
+      if (picked?.kind === "INCOME") throw conflict("linked");
+    }
     if (rememberPhrase !== undefined) {
       if (!finalCategory) throw new ApiError(422, "validation", "rememberPhrase");
       await rememberRule(tx, userId, rememberPhrase, finalCategory);
