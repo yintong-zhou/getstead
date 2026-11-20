@@ -30,6 +30,11 @@ model User {
   instruments Instrument[]
   investmentTransactions InvestmentTransaction[]
   priceQuotes PriceQuote[]
+  properties Property[]
+  propertyValuations PropertyValuation[]
+  condoTables CondoTable[]
+  condoSchedules CondoSchedule[]
+  condoCharges CondoCharge[]
 
   @@map("stead_users")
 }
@@ -128,6 +133,7 @@ model Account {
   templates  RecurringTemplate[]
   balanceChecks BalanceCheck[]
   investmentTransactions InvestmentTransaction[]
+  mortgageProperties Property[]
 
   @@unique([userId, id])
   @@unique([userId, name])
@@ -200,6 +206,7 @@ model Movement {
   category    Category?            @relation(fields: [userId, categoryId], references: [userId, id], onDelete: Restrict)
   transfer    Transfer?            @relation(fields: [userId, transferId], references: [userId, id], onDelete: Restrict)
   occurrence  RecurringOccurrence?
+  condoCharge CondoCharge?
 
   @@unique([userId, id])
   @@unique([transferId, transferLeg])
@@ -258,6 +265,7 @@ model RecurringTemplate {
   account     Account               @relation(fields: [userId, accountId], references: [userId, id], onDelete: Restrict)
   category    Category?             @relation(fields: [userId, categoryId], references: [userId, id], onDelete: Restrict)
   occurrences RecurringOccurrence[]
+  condoSchedule CondoSchedule?
 
   @@unique([userId, id])
   @@map("stead_recurring_templates")
@@ -354,4 +362,120 @@ model PriceQuote {
   @@unique([userId, id])
   @@unique([userId, instrumentId, asOf])
   @@map("stead_price_quotes")
+}
+
+enum PropertyKind {
+  PRIMARY_RESIDENCE
+  SECOND_HOME
+  RENTAL
+  LAND
+  OTHER
+
+  @@map("stead_property_kind")
+}
+
+enum CondoChargeKind {
+  BALANCING
+  EXTRAORDINARY
+
+  @@map("stead_condo_charge_kind")
+}
+
+/// M4a. `ownershipBps` is the owner's share of the property (10000 = 100%); condominium millesimi live in CondoTable.
+model Property {
+  id String @id @default(uuid()) @map("property_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  name String @db.VarChar(80)
+  kind PropertyKind
+  ownershipBps Int @default(10000) @map("ownership_bps")
+  /// Informational link to a DEBT account: the loan is already a liability in net worth.
+  mortgageAccountId String? @map("mortgage_account_id") @db.Uuid
+  soldOn DateTime? @map("sold_on") @db.Date
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  mortgageAccount Account? @relation(fields: [userId, mortgageAccountId], references: [userId, id], onDelete: Restrict)
+  valuations PropertyValuation[]
+  tables CondoTable[]
+  schedules CondoSchedule[]
+  charges CondoCharge[]
+
+  @@unique([userId, id])
+  @@unique([userId, name])
+  @@unique([userId, mortgageAccountId])
+  @@map("stead_properties")
+}
+
+/// Estimated value of 100% of the property on a date (the owner's own estimate).
+model PropertyValuation {
+  id String @id @default(uuid()) @map("valuation_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  asOf DateTime @map("as_of") @db.Date
+  valueCents BigInt @map("value_cents")
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@unique([userId, propertyId, asOf])
+  @@map("stead_property_valuations")
+}
+
+/// One millesimal table (for example General, Stairs, Lift): the unit's thousandths out of the building total.
+model CondoTable {
+  id String @id @default(uuid()) @map("table_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  label String @db.VarChar(60)
+  unitMillesimi Int @map("unit_millesimi")
+  totalMillesimi Int @default(1000) @map("total_millesimi")
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
+  charges CondoCharge[]
+
+  @@unique([userId, id])
+  @@unique([userId, propertyId, id])
+  @@unique([userId, propertyId, label])
+  @@map("stead_condo_tables")
+}
+
+/// Links an existing expense RecurringTemplate (condominium instalments) to a property.
+model CondoSchedule {
+  id String @id @default(uuid()) @map("schedule_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  templateId String @map("template_id") @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
+  template RecurringTemplate @relation(fields: [userId, templateId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@unique([userId, templateId])
+  @@map("stead_condo_schedules")
+}
+
+/// A dated one-off charge (balancing payment or approved extraordinary works). Settling books one expense movement.
+model CondoCharge {
+  id String @id @default(uuid()) @map("charge_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  kind CondoChargeKind
+  /// AES-256-GCM envelope of the title (see server/cash-flow/text-crypto.ts).
+  title Bytes @map("title_enc")
+  dueDate DateTime @map("due_date") @db.Date
+  /// What the owner pays; at most the movement limit because settling books it as one movement.
+  amountCents Int @map("amount_cents")
+  approvedOn DateTime? @map("approved_on") @db.Date
+  tableId String? @map("table_id") @db.Uuid
+  buildingTotalCents BigInt? @map("building_total_cents")
+  voidedAt DateTime? @map("voided_at") @db.Timestamptz(3)
+  movementId String? @map("movement_id") @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
+  table CondoTable? @relation(fields: [userId, propertyId, tableId], references: [userId, propertyId, id], onDelete: Restrict)
+  movement Movement? @relation(fields: [userId, movementId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@unique([userId, movementId])
+  @@index([userId, propertyId, dueDate])
+  @@map("stead_condo_charges")
 }

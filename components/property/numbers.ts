@@ -1,0 +1,30 @@
+// Form-side helpers for property: euros, percentages and the millesimi share, all in integers.
+
+/** Positive euros ("1200000", "1.200,50" is not accepted) to integer cents within `maxCents`, else null. */
+export function parseEurosUpTo(text: string, maxCents: number): number | null {
+  const match = /^(\d{1,11})(?:[.,](\d{1,2}))?$/.exec(text.trim());
+  if (!match) return null;
+  const cents = BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
+  return cents > 0n && cents <= BigInt(maxCents) ? Number(cents) : null;
+}
+export const MAX_VALUE_CENTS = 1_000_000_000_000;
+export const MAX_BUILDING_CENTS = 100_000_000_000;
+export const MAX_PAYABLE_CENTS = 1_000_000_000;
+
+/** A percentage with up to two decimals ("50", "33,33") to basis points 1..10000, else null. */
+export function parseOwnership(text: string): number | null {
+  const match = /^(\d{1,3})(?:[.,](\d{1,2}))?$/.exec(text.trim());
+  if (!match) return null;
+  const bps = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0") || "0");
+  return bps >= 1 && bps <= 10_000 ? bps : null;
+}
+export function ownershipText(bps: number, separator: "." | ",") {
+  const fraction = String(bps % 100).padStart(2, "0").replace(/0+$/, "");
+  return `${Math.floor(bps / 100)}${fraction ? separator + fraction : ""}`;
+}
+
+/** Same rounding as `millesimiShareCents` in server/property/calc.ts (a parity test keeps them equal). */
+export function millesimiShare(totalCents: number, unit: number, total: number): number {
+  const divisor = BigInt(total);
+  return Number((BigInt(totalCents) * BigInt(unit) * 2n + divisor) / (divisor * 2n));
+}

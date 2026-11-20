@@ -258,7 +258,7 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
   const ids = useId();
   const { pending, notice, run, setNotice } = useAction(locale);
   const paired = movement.transferId !== null;
-  const linked = movement.linked !== null;
+  const linked = movement.linked !== null || movement.chargeLinked !== null;
   // Paired amounts and accounts are fixed; a linked movement stays an outflow in its account.
   const fixedAccount = paired || linked;
   const [kind, setKind] = useState<"EXPENSE" | "INCOME">(movement.amountCents < 0 ? "EXPENSE" : "INCOME");
@@ -284,7 +284,7 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
 
   return (
     <form className="movement-form edit-form" onSubmit={submit}>
-      {linked && <p className="hint">{copy.linkedHint}</p>}
+      {linked && <p className="hint">{movement.chargeLinked ? copy.chargeLinkedHint : copy.linkedHint}</p>}
       <div className="form-grid">
         {!paired && !linked && (
           <Segmented
@@ -429,6 +429,7 @@ function Row({ locale, movement, accounts, categories, today }: {
   const category = categories.find((item) => item.id === movement.categoryId);
   const paired = movement.transferId !== null;
   const linked = movement.linked;
+  const chargeLinked = movement.chargeLinked;
   const refund = !paired && movement.amountCents > 0 && category?.kind === "EXPENSE";
   const tone = paired ? "blue" : movement.amountCents > 0 ? "green" : "red";
   const icon = paired ? "cashFlow" : movement.amountCents > 0 ? "arrowDown" : "arrowUp";
@@ -446,6 +447,7 @@ function Row({ locale, movement, accounts, categories, today }: {
             {paired && <span className="badge badge-blue">{copy.transferBadge}</span>}
             {refund && <span className="badge badge-green">{copy.refundBadge}</span>}
             {linked && <span className="badge badge-amber">{copy.recurringBadge}</span>}
+            {chargeLinked && <span className="badge badge-amber">{copy.chargeBadge}</span>}
           </p>
           <span>{subtitle}</span>
         </div>
@@ -456,7 +458,7 @@ function Row({ locale, movement, accounts, categories, today }: {
       {mode === "view" && (
         <div className="row-actions">
           {!movement.voided && <button className="button button-quiet" type="button" onClick={() => setMode("edit")}>{copy.edit}</button>}
-          {!paired && !movement.voided && !linked && <button className="button button-quiet" type="button" onClick={() => setMode("pair")}>{copy.pair}</button>}
+          {!paired && !movement.voided && !linked && !chargeLinked && <button className="button button-quiet" type="button" onClick={() => setMode("pair")}>{copy.pair}</button>}
           {paired && (
             <button
               className="button button-quiet" type="button" disabled={pending}
@@ -476,7 +478,8 @@ function Row({ locale, movement, accounts, categories, today }: {
               {copy.reopen}
             </button>
           )}
-          {!paired && !linked && (
+          {chargeLinked && <Link className="button button-quiet" href={`/${locale}/property`}>{copy.openProperty}</Link>}
+          {!paired && !linked && !chargeLinked && (
             <button
               className="button button-quiet" type="button" disabled={pending}
               onClick={() => run(() => call("PATCH", `/movements/${movement.id}`, { voided: !movement.voided }), movement.voided ? copy.restoredDone : copy.voidedDone)}

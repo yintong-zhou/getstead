@@ -41,7 +41,7 @@ test("signed balances classify assets and liabilities by balance, including arch
     { accountId: "stranger", bookingDate: "2026-11-02", amountCents: 99_999 },
   ], "2026-11-19");
   assert.deepEqual(result, {
-    holdingsCents: 0, assetsCents: 20_000, liabilitiesCents: 5_000, netCents: 15_000,
+    holdingsCents: 0, propertiesCents: 0, assetsCents: 20_000, liabilitiesCents: 5_000, netCents: 15_000,
     perAccount: [{ accountId: "a", balanceCents: 19_000 }, { accountId: "b", balanceCents: 1_000 }, { accountId: "c", balanceCents: -5_000 }],
   });
 });
@@ -137,4 +137,31 @@ test("combined net worth overflow returns the typed range failure before currenc
   const tooLarge = accounts.map(({ id }) => ({ accountId: id, asOf: "2026-01-01", balanceCents: Number.MAX_SAFE_INTEGER }));
   assert.throws(() => netWorthAt(accounts, tooLarge, [], "2026-11-20"), { status: 422, code: "value_out_of_range" });
   assert.throws(() => monthlySeries(accounts, tooLarge, [], "2026-11-20"), { status: 422, code: "value_out_of_range" });
+});
+
+test("properties add their value share to assets in the total and the series, and a mortgage leaves liabilities unchanged", () => {
+  const accounts = [{ id: "cash" }, { id: "mortgage" }];
+  const accountChecks = [{ accountId: "cash", asOf: "2026-01-01", balanceCents: 1_000_000 }, { accountId: "mortgage", asOf: "2026-01-01", balanceCents: -12_000_000 }];
+  const realEstate = {
+    properties: [{ id: "home", ownershipBps: 5_000, soldOn: null }, { id: "flat", ownershipBps: 10_000, soldOn: "2026-10-15" }, { id: "plot", ownershipBps: 10_000, soldOn: null }],
+    valuations: [
+      { propertyId: "home", asOf: "2026-01-01", valueCents: 30_000_000 }, { propertyId: "home", asOf: "2026-11-01", valueCents: 32_000_000 },
+      { propertyId: "flat", asOf: "2026-01-01", valueCents: 10_000_000 },
+    ],
+  };
+  const today = "2026-11-20";
+  const without = netWorthAt(accounts, accountChecks, [], today);
+  const total = netWorthAt(accounts, accountChecks, [], today, undefined, realEstate);
+  assert.equal(total.propertiesCents, 16_000_000, "latest valuation of the 50% home; the flat is sold and the plot has no valuation");
+  assert.equal(total.liabilitiesCents, without.liabilitiesCents, "the loan is already a liability, so the property link changes nothing");
+  assert.equal(total.netCents, without.netCents + 16_000_000);
+  const series = monthlySeries(accounts, accountChecks, [], today, undefined, realEstate);
+  for (const [index, point] of series.entries()) {
+    const date = index === 11 ? today : addDays(monthStart(addMonths(point.month, 1)), -1);
+    assert.equal(point.netCents, netWorthAt(accounts, accountChecks, [], date, undefined, realEstate).netCents);
+  }
+  assert.equal(series.at(-1)?.netCents, total.netCents, "the last point equals the current total");
+  const september = series.find((point) => point.month === "2026-09")!;
+  const october = series.find((point) => point.month === "2026-10")!;
+  assert.equal(september.assetsCents - october.assetsCents, 10_000_000, "the flat drops out once it is sold on 2026-10-15");
 });

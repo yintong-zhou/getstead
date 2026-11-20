@@ -8,7 +8,7 @@ import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
 import "./cash-flow/cash-flow.css";
 
-export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "profile";
+export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile";
 
 const sections = [
   { id: "overview", path: "", icon: "overview", label: "overview" },
@@ -16,6 +16,7 @@ const sections = [
   { id: "budget", path: "/budget", icon: "budget", label: "budget" },
   { id: "net-worth", path: "/net-worth", icon: "netWorth", label: "netWorth" },
   { id: "investments", path: "/investments", icon: "investments", label: "investments" },
+  { id: "property", path: "/property", icon: "home", label: "property" },
   { id: "recurring", path: "/recurring", icon: "recurring", label: "recurring" },
   { id: "accounts", path: "/accounts", icon: "accounts", label: "accounts" },
 ] as const;

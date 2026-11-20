@@ -94,6 +94,14 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
             </div>
             <span className="amount">{formatEuros(data.holdingsCents, locale)}</span>
           </li>
+        )}{data.propertiesCents > 0 && (
+          <li className="manage-row worth-account">
+            <div className="row-text">
+              <p>{copy.properties}</p>
+              <Link className="text-link" href={`/${locale}/property`}>{copy.propertiesLink}</Link>
+            </div>
+            <span className="amount">{formatEuros(data.propertiesCents, locale)}</span>
+          </li>
         )}</ul>}
       </section>
 

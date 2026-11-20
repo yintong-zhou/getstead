@@ -64,7 +64,8 @@ async function activeAccount(client: Client, userId: string, id: string) {
   if (account.archivedAt) throw conflict("archived");
 }
 
-export async function createTemplate(userId: string, input: Record<string, unknown>) {
+/** `client` lets a caller (condominium schedules) create the template inside its own transaction. */
+export async function createTemplate(userId: string, input: Record<string, unknown>, client?: Client) {
   const reader = new Reader(input);
   const accountId = reader.uuid("accountId");
   const categoryId = reader.nullableUuid("categoryId") ?? null;
@@ -76,7 +77,7 @@ export async function createTemplate(userId: string, input: Record<string, unkno
   reader.done();
   if (endDate && endDate < startDate) throw new ApiError(422, "validation", "endDate");
 
-  return db().$transaction(async (tx) => {
+  const create = async (tx: Client) => {
     await activeAccount(tx, userId, accountId);
     if (categoryId) await expenseCategory(tx, userId, categoryId);
     const id = randomUUID();
@@ -89,7 +90,8 @@ export async function createTemplate(userId: string, input: Record<string, unkno
       },
     });
     return templateDto(userId, row);
-  });
+  };
+  return client ? create(client) : db().$transaction(create);
 }
 
 /** The schedule (frequency, start date) is fixed: changing it would re-time every resolved occurrence. */
@@ -259,13 +261,14 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
       await lockMovements(tx, userId, [movementId!]);
       const movement = await tx.movement.findUniqueOrThrow({
         where: { userId_id: { userId, id: movementId! } },
-        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, occurrence: { select: { id: true } } },
+        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, occurrence: { select: { id: true } }, condoCharge: { select: { id: true } } },
       });
       if (movement.accountId !== template.accountId) throw conflict("account_mismatch");
       if (movement.amountCents >= 0) throw conflict("sign_mismatch");
       if (movement.voidedAt) throw conflict("voided");
       if (movement.transferId) throw conflict("paired");
-      if (movement.occurrence) throw conflict("already_linked");
+      // A movement settles at most one thing: an occurrence or a condominium charge (checked under the movement lock).
+      if (movement.occurrence || movement.condoCharge) throw conflict("already_linked");
       await tx.recurringOccurrence.create({ data: { ...base, status: "MATCHED", movementId } });
       return { occurrence: { templateId, dueDate, status: "MATCHED", movementId: movementId! } };
     }
