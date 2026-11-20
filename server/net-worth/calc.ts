@@ -27,11 +27,41 @@ export function netWorthAt(accounts: readonly Account[], checks: readonly Check[
 
 /** Historical months use their last calendar day; the current month stops at today. */
 export function monthlySeries(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], today: IsoDate) {
+  const grouped = new Map(accounts.map(({ id }) => [id, {
+    checks: [] as Check[], movements: [] as Movement[], checkIndex: 0, movementIndex: 0,
+    latest: undefined as Check | undefined, balance: 0,
+  }]));
+  for (const check of checks) grouped.get(check.accountId)?.checks.push(check);
+  for (const movement of movements) {
+    if (!movement.voidedAt) grouped.get(movement.accountId)?.movements.push(movement);
+  }
+  for (const group of grouped.values()) {
+    group.checks.sort((a, b) => a.asOf < b.asOf ? -1 : a.asOf > b.asOf ? 1 : 0);
+    group.movements.sort((a, b) => a.bookingDate < b.bookingDate ? -1 : a.bookingDate > b.bookingDate ? 1 : 0);
+  }
   const current = monthOf(today);
   return Array.from({ length: 12 }, (_, index) => {
     const month = addMonths(current, index - 11);
     const date = index === 11 ? today : addDays(monthStart(addMonths(month, 1)), -1);
-    const { assetsCents, liabilitiesCents, netCents } = netWorthAt(accounts, checks, movements, date);
-    return { month, netCents, assetsCents, liabilitiesCents };
+    let assetsCents = 0;
+    let liabilitiesCents = 0;
+    for (const { id } of accounts) {
+      const group = grouped.get(id)!;
+      while (group.checkIndex < group.checks.length && group.checks[group.checkIndex].asOf <= date) {
+        const check = group.checks[group.checkIndex++];
+        // Stable sorting preserves balanceAt's first-check-wins rule for equal dates.
+        if (!group.latest || check.asOf > group.latest.asOf) {
+          group.latest = check;
+          group.balance = check.balanceCents;
+        }
+      }
+      while (group.movementIndex < group.movements.length && group.movements[group.movementIndex].bookingDate <= date) {
+        const movement = group.movements[group.movementIndex++];
+        if (!group.latest || movement.bookingDate > group.latest.asOf) group.balance += movement.amountCents;
+      }
+      assetsCents += Math.max(0, group.balance);
+      liabilitiesCents += Math.max(0, -group.balance);
+    }
+    return { month, netCents: assetsCents - liabilitiesCents, assetsCents, liabilitiesCents };
   });
 }
