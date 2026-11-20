@@ -1,6 +1,6 @@
 .worth-view .hero-amount { overflow-wrap: anywhere; white-space: normal; }
 .worth-change { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; }
-.worth-change .trend-chip { background: var(--brand-soft); color: var(--brand-dark); }
+.worth-change .trend-chip { background: #e3eafdcc; color: var(--brand-dark); }
 .worth-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .worth-totals dt { color: var(--muted); font-size: 12px; }
 .worth-totals dd { margin-top: 8px; font-size: 20px; font-weight: 750; white-space: normal; overflow-wrap: anywhere; }

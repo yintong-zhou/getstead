@@ -9,6 +9,7 @@ import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { formatMonth } from "../format";
 import { parseLimit } from "../money";
+import { Select } from "../select";
 import { netWorthCopy } from "./copy";
 import "./net-worth.css";
 
@@ -101,9 +102,8 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
         }}>
           <div className="form-field">
             <label htmlFor="worth-account">{shared.account}</label>
-            <select id="worth-account" className="field" value={accountId} onChange={(event) => { setAccountId(event.target.value); setOwed(isLiability(event.target.value)); }}>
-              {data.perAccount.map((account) => <option key={account.id} value={account.id}>{account.name}{account.archived ? ` · ${shared.archivedSuffix}` : ""}</option>)}
-            </select>
+            <Select id="worth-account" value={accountId} onChange={(value) => { setAccountId(value); setOwed(isLiability(value)); }}
+              options={data.perAccount.map((account) => ({ value: account.id, label: `${account.name}${account.archived ? ` · ${shared.archivedSuffix}` : ""}` }))} />
           </div>
           <div className="form-field">
             <label htmlFor="worth-date">{shared.date}</label>

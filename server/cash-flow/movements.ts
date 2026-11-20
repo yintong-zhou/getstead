@@ -88,13 +88,25 @@ function registerWhere(userId: string, params: URLSearchParams): Prisma.Movement
   const accountId = queryUuid(params.get("accountId"), "accountId");
   const rawCategory = params.get("categoryId");
   const categoryId = rawCategory === "none" ? null : queryUuid(rawCategory, "categoryId");
+  const direction = params.get("direction");
+  if (direction !== null && !Object.hasOwn(directionWhere, direction)) throw new ApiError(422, "validation", "direction");
   return {
     userId,
     ...(month ? { bookingDate: { gte: toDate(monthStart(month)), lt: toDate(monthStart(addMonths(month, 1))) } } : {}),
     ...(accountId ? { accountId } : {}),
     ...(categoryId !== undefined ? { categoryId } : {}),
+    ...(direction ? directionWhere[direction as keyof typeof directionWhere] : {}),
   };
 }
+
+// Same split as incomeOf/expenseOf in calc.ts, so each column's rows add up to the month totals:
+// the category kind decides (a refund is a positive EXPENSE row), the sign only when uncategorised.
+// Transfers are neither. The three sets partition the register.
+const directionWhere = {
+  in: { transferId: null, OR: [{ category: { kind: "INCOME" } }, { categoryId: null, amountCents: { gt: 0 } }] },
+  out: { transferId: null, OR: [{ category: { kind: "EXPENSE" } }, { categoryId: null, amountCents: { lt: 0 } }] },
+  transfers: { transferId: { not: null } },
+} satisfies Record<string, Prisma.MovementWhereInput>;
 
 // One total order, so pages never overlap or skip rows: date, then insertion time, then id.
 const registerOrder = [{ bookingDate: "desc" }, { createdAt: "desc" }, { id: "desc" }] satisfies Prisma.MovementOrderByWithRelationInput[];

@@ -9,6 +9,7 @@ import type { MovementDto } from "@/server/cash-flow/movements";
 import { formatEuros, type Locale } from "@/server/locale";
 import { addMonths, formatDay, formatMonth } from "../format";
 import { Icon } from "../icon";
+import { Select, type SelectGroup } from "../select";
 import { editableEuros, parseEuros } from "../money";
 import { call } from "./api";
 import { cashFlowCopy, type CashFlowCopy } from "./copy";
@@ -16,6 +17,8 @@ import { currentSuggestion, movementBody, type Suggestion } from "./movement-bod
 import { NoticeLine, useAction } from "./use-action";
 
 type Kind = "EXPENSE" | "INCOME" | "REFUND" | "TRANSFER";
+type RegisterPage = { movements: MovementDto[]; hasMore: boolean };
+type PageKey = "pageIn" | "pageOut" | "pageTransfers";
 
 type Props = {
   locale: Locale;
@@ -23,32 +26,32 @@ type Props = {
   today: string;
   accounts: AccountDto[];
   categories: CategoryDto[];
-  movements: MovementDto[];
+  incoming: RegisterPage;
+  outgoing: RegisterPage;
+  transfers: RegisterPage;
   summary: { incomeCents: number; expenseCents: number; netCents: number };
   accountId?: string;
   categoryId?: string;
-  page: number;
-  hasMore: boolean;
+  pageIn: number;
+  pageOut: number;
+  pageTransfers: number;
 };
 
 const days = (locale: Locale) => (locale === "it" ? { today: "Oggi", yesterday: "Ieri" } : { today: "Today", yesterday: "Yesterday" });
 
-function CategoryOptions({ copy, categories, current, only }: {
+function categoryGroups({ copy, categories, current, only }: {
   copy: CashFlowCopy; categories: CategoryDto[]; current?: string | null; only?: "EXPENSE";
-}) {
+}): SelectGroup[] {
   const usable = categories.filter((category) => (!category.archived || category.id === current) && (!only || category.kind === only));
-  return (
-    <>
-      <option value="">{only ? "—" : copy.noCategory}</option>
-      {(only ? ([only] as const) : (["EXPENSE", "INCOME"] as const)).map((kind) => (
-        <optgroup key={kind} label={copy.kinds[kind]}>
-          {usable.filter((category) => category.kind === kind).map((category) => (
-            <option key={category.id} value={category.id}>{category.name}{category.archived ? ` (${copy.archivedSuffix})` : ""}</option>
-          ))}
-        </optgroup>
-      ))}
-    </>
-  );
+  return [
+    { label: "", options: [{ value: "", label: only ? "—" : copy.noCategory }] },
+    ...(only ? ([only] as const) : (["EXPENSE", "INCOME"] as const)).map((kind) => ({
+      label: copy.kinds[kind],
+      options: usable.filter((category) => category.kind === kind).map((category) => ({
+        value: category.id, label: `${category.name}${category.archived ? ` (${copy.archivedSuffix})` : ""}`,
+      })),
+    })),
+  ];
 }
 
 function Segmented({ legend, value, options, onChange }: {
@@ -161,9 +164,7 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
   const accountSelect = (id: string, value: string, onChange: (value: string) => void, label: string) => (
     <div className="form-field">
       <label htmlFor={`${ids}${id}`}>{label}</label>
-      <select id={`${ids}${id}`} className="field" value={value} onChange={(event) => onChange(event.target.value)} required>
-        {active.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-      </select>
+      <Select id={`${ids}${id}`} value={value} onChange={onChange} options={active.map((account) => ({ value: account.id, label: account.name }))} />
     </div>
   );
 
@@ -217,13 +218,11 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
             <>
               <div className="form-field">
                 <label htmlFor={`${ids}category`}>{refund ? copy.refundCategory : copy.category}</label>
-                <select
-                  id={`${ids}category`} className="field" value={categoryId} required={refund}
-                  onChange={(event) => setManual(event.target.value)}
+                <Select
+                  id={`${ids}category`} value={categoryId} onChange={setManual}
                   aria-describedby={!touched && suggested ? `${ids}suggested` : undefined}
-                >
-                  <CategoryOptions copy={copy} categories={categories} only={refund ? "EXPENSE" : undefined} />
-                </select>
+                  groups={categoryGroups({ copy, categories, only: refund ? "EXPENSE" : undefined })}
+                />
                 {!touched && suggested && <span id={`${ids}suggested`} className="hint">{copy.suggestedCategory}</span>}
               </div>
               {categoryId && (
@@ -297,11 +296,8 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
         )}
         <div className="form-field">
           <label htmlFor={`${ids}account`}>{copy.account}</label>
-          <select id={`${ids}account`} className="field" value={accountId} disabled={fixedAccount} onChange={(event) => setAccountId(event.target.value)}>
-            {accounts.filter((account) => !account.archived || account.id === movement.accountId).map((account) => (
-              <option key={account.id} value={account.id}>{account.name}</option>
-            ))}
-          </select>
+          <Select id={`${ids}account`} value={accountId} disabled={fixedAccount} onChange={setAccountId}
+            options={accounts.filter((account) => !account.archived || account.id === movement.accountId).map((account) => ({ value: account.id, label: account.name }))} />
         </div>
         <div className="form-field">
           <label htmlFor={`${ids}date`}>{copy.date}</label>
@@ -317,9 +313,8 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
         </div>
         <div className="form-field">
           <label htmlFor={`${ids}category`}>{copy.category}</label>
-          <select id={`${ids}category`} className="field" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-            <CategoryOptions copy={copy} categories={categories} current={movement.categoryId} />
-          </select>
+          <Select id={`${ids}category`} value={categoryId} onChange={setCategoryId}
+            groups={categoryGroups({ copy, categories, current: movement.categoryId })} />
         </div>
         {categoryId && (
           <div className="form-field">
@@ -397,13 +392,10 @@ function PairPanel({ locale, movement, accounts, today, onDone }: {
         <div className="form-grid">
           <div className="form-field wide">
             <label htmlFor={`${ids}partner`}>{copy.pair}</label>
-            <select id={`${ids}partner`} className="field" value={partner} onChange={(event) => setPartner(event.target.value)}>
-              {list.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {names.get(candidate.accountId)} · {formatDay(candidate.bookingDate, locale, today, days(locale))} {candidate.bookingDate.slice(0, 4)} · {formatEuros(candidate.amountCents, locale, { showPlus: true })} · {candidate.description}
-                </option>
-              ))}
-            </select>
+            <Select id={`${ids}partner`} value={partner} onChange={setPartner} options={list.map((candidate) => ({
+              value: candidate.id,
+              label: `${names.get(candidate.accountId)} · ${formatDay(candidate.bookingDate, locale, today, days(locale))} ${candidate.bookingDate.slice(0, 4)} · ${formatEuros(candidate.amountCents, locale, { showPlus: true })} · ${candidate.description}`,
+            }))} />
           </div>
         </div>
       )}
@@ -510,18 +502,23 @@ function Step({ href, label, symbol, disabledLabel }: { href: string | null; lab
 }
 
 export function MovementsView(props: Props) {
-  const { locale, month, today, accounts, categories, movements, summary, accountId, categoryId, page, hasMore } = props;
+  const { locale, month, today, accounts, categories, incoming, outgoing, transfers, summary, accountId, categoryId, pageIn, pageOut, pageTransfers } = props;
   const copy = cashFlowCopy[locale];
   const router = useRouter();
+  const filtered = Boolean(accountId || categoryId);
 
-  /** Filters and month always travel with every link; only the page number is optional. */
-  const link = (target: string, targetPage = 1) => {
+  /** A pager preserves the other columns; changing month or filters resets all pages. */
+  const link = (target: string, pages: Partial<Record<PageKey, number>> = {}) => {
     const query = new URLSearchParams({ month: target });
     if (accountId) query.set("accountId", accountId);
     if (categoryId) query.set("categoryId", categoryId);
-    if (targetPage > 1) query.set("page", String(targetPage));
+    const next = { pageIn: 1, pageOut: 1, pageTransfers: 1, ...pages };
+    for (const key of ["pageIn", "pageOut", "pageTransfers"] as const) {
+      if (next[key] > 1) query.set(key, String(next[key]));
+    }
     return `/${locale}/cash-flow?${query}`;
   };
+  const pageLink = (key: PageKey, page: number) => link(month, { pageIn, pageOut, pageTransfers, [key]: page });
   const filter = (key: "accountId" | "categoryId", value: string) => {
     const query = new URLSearchParams({ month });
     const next = { accountId, categoryId, [key]: value || undefined };
@@ -536,7 +533,7 @@ export function MovementsView(props: Props) {
   ];
 
   return (
-    <div className="stack">
+    <div className="stack cash-flow-view">
       <NewMovement locale={locale} today={today} accounts={accounts} categories={categories} />
 
       <section className="card" aria-labelledby="register-title">
@@ -563,42 +560,73 @@ export function MovementsView(props: Props) {
         <div className="filters" role="group" aria-label={copy.filters}>
           <div className="form-field">
             <label htmlFor="filter-account">{copy.account}</label>
-            <select id="filter-account" className="field" value={accountId ?? ""} onChange={(event) => filter("accountId", event.target.value)}>
-              <option value="">{copy.allAccounts}</option>
-              {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.archived ? ` (${copy.archivedSuffix})` : ""}</option>)}
-            </select>
+            <Select id="filter-account" value={accountId ?? ""} onChange={(value) => filter("accountId", value)} options={[
+              { value: "", label: copy.allAccounts },
+              ...accounts.map((account) => ({ value: account.id, label: `${account.name}${account.archived ? ` (${copy.archivedSuffix})` : ""}` })),
+            ]} />
           </div>
           <div className="form-field">
             <label htmlFor="filter-category">{copy.category}</label>
-            <select id="filter-category" className="field" value={categoryId ?? ""} onChange={(event) => filter("categoryId", event.target.value)}>
-              <option value="">{copy.allCategories}</option>
-              <option value="none">{copy.noCategory}</option>
-              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}{category.archived ? ` (${copy.archivedSuffix})` : ""}</option>)}
-            </select>
+            <Select id="filter-category" value={categoryId ?? ""} onChange={(value) => filter("categoryId", value)} options={[
+              { value: "", label: copy.allCategories }, { value: "none", label: copy.noCategory },
+              ...categories.map((category) => ({ value: category.id, label: `${category.name}${category.archived ? ` (${copy.archivedSuffix})` : ""}` })),
+            ]} />
           </div>
         </div>
-
-        {movements.length === 0 ? (
-          <div className="empty-inline">
-            <p><strong>{copy.noMovementsTitle}</strong></p>
-            <p>{copy.noMovementsBody}</p>
-          </div>
-        ) : (
-          <ul className="rows movement-list">
-            {movements.map((movement) => (
-              <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
-            ))}
-          </ul>
-        )}
-
-        {(page > 1 || hasMore) && (
-          <nav className="pagination" aria-label={copy.pagination}>
-            <Step href={page > 1 ? link(month, page - 1) : null} label={copy.previousPage} symbol="‹" />
-            <span className="pagination-label" aria-current="page">{copy.pageLabel(page)}</span>
-            <Step href={hasMore ? link(month, page + 1) : null} label={copy.nextPage} symbol="›" />
-          </nav>
-        )}
       </section>
+      <div className="flow-columns">
+        {([
+          { key: "pageIn", title: copy.income, empty: filtered ? copy.noIncomeMatches : pageIn > 1 ? copy.emptyPage : copy.noIncome, cents: summary.incomeCents, register: incoming, page: pageIn },
+          { key: "pageOut", title: copy.expenses, empty: filtered ? copy.noExpensesMatches : pageOut > 1 ? copy.emptyPage : copy.noExpenses, cents: -summary.expenseCents, register: outgoing, page: pageOut },
+        ] as const).map((column) => (
+          <section key={column.key} className="card" aria-labelledby={`${column.key}-title`}>
+            <h2 id={`${column.key}-title`}>{column.title}</h2>
+            <p className={`flow-total amount${column.cents > 0 ? " positive" : ""}`}>
+              {formatEuros(column.cents, locale, { showPlus: true })}
+            </p>
+            {column.register.movements.length === 0 ? (
+              <div className="empty-inline">
+                <p>{column.empty}</p>
+                {column.page > 1 && <Link className="text-link" href={pageLink(column.key, 1)}>{copy.backToFirstPage}</Link>}
+              </div>
+            ) : (
+              <ul className="rows movement-list">{column.register.movements.map((movement) => (
+                <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
+              ))}</ul>
+            )}
+            <Pager copy={copy} title={column.title} page={column.page} hasMore={column.register.hasMore} href={(page) => pageLink(column.key, page)} />
+          </section>
+        ))}
+      </div>
+      {(transfers.movements.length > 0 || pageTransfers > 1) && (
+        <section className="card" aria-labelledby="transfers-title">
+          <h2 id="transfers-title">{copy.transfersTitle}</h2>
+          {transfers.movements.length === 0 ? (
+            <div className="empty-inline">
+              <p>{copy.emptyPage}</p>
+              {pageTransfers > 1 && <Link className="text-link" href={pageLink("pageTransfers", 1)}>{copy.backToFirstPage}</Link>}
+            </div>
+          ) : (
+            <ul className="rows movement-list">{transfers.movements.map((movement) => (
+              <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
+            ))}</ul>
+          )}
+          <Pager copy={copy} title={copy.transfersTitle} page={pageTransfers} hasMore={transfers.hasMore} href={(page) => pageLink("pageTransfers", page)} />
+        </section>
+      )}
     </div>
+  );
+}
+
+function Pager({ copy, title, page, hasMore, href }: {
+  copy: CashFlowCopy; title: string; page: number; hasMore: boolean; href: (page: number) => string;
+}) {
+  if (page === 1 && !hasMore) return null;
+  return (
+    <nav className="pagination" aria-label={`${title}: ${copy.pagination}`}>
+      <Step href={page > 1 ? href(page - 1) : null} label={`${title}: ${copy.previousPage}`} symbol="‹" />
+      <span className="pagination-label" aria-current="page">{copy.pageLabel(page)}</span>
+      <Step href={hasMore ? href(page + 1) : null} label={`${title}: ${copy.nextPage}`} symbol="›" />
+    </nav>
   );
 }
