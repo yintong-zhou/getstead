@@ -9,6 +9,7 @@ import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import { formatDay } from "../format";
 import { editableEuros, parseEuros } from "../money";
 import { Icon } from "../icon";
+import { Select } from "../select";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction } from "./use-action";
@@ -84,13 +85,10 @@ function MatchPanel({ locale, template, dueDate, onDone }: { locale: Locale; tem
       {list === null ? <p className="hint">…</p> : list.length === 0 ? <p className="hint">{copy.matchNone}</p> : (
         <div className="form-field">
           <label className="visually-hidden" htmlFor={id}>{copy.matchTitle}</label>
-          <select id={id} className="field" value={choice} onChange={(event) => setChoice(event.target.value)}>
-            {list.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {formatDay(candidate.bookingDate, locale)} {candidate.bookingDate.slice(0, 4)} · {formatEuros(candidate.amountCents, locale)} · {candidate.description}
-              </option>
-            ))}
-          </select>
+          <Select id={id} value={choice} onChange={setChoice} options={list.map((candidate) => ({
+            value: candidate.id,
+            label: `${formatDay(candidate.bookingDate, locale)} ${candidate.bookingDate.slice(0, 4)} · ${formatEuros(candidate.amountCents, locale)} · ${candidate.description}`,
+          }))} />
         </div>
       )}
       <div className="form-actions">
@@ -198,16 +196,13 @@ function NewTemplate({ locale, today, accounts, categories }: Pick<Props, "local
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}account`}>{copy.account}</label>
-            <select id={`${ids}account`} name="accountId" className="field">
-              {active.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-            </select>
+            <Select id={`${ids}account`} name="accountId" options={active.map((account) => ({ value: account.id, label: account.name }))} />
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}category`}>{copy.category}</label>
-            <select id={`${ids}category`} name="categoryId" className="field">
-              <option value="">{copy.noCategory}</option>
-              {expense.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-            </select>
+            <Select id={`${ids}category`} name="categoryId" options={[
+              { value: "", label: copy.noCategory }, ...expense.map((category) => ({ value: category.id, label: category.name })),
+            ]} />
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}amount`}>{copy.expectedAmount} (€)</label>
@@ -215,9 +210,9 @@ function NewTemplate({ locale, today, accounts, categories }: Pick<Props, "local
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}frequency`}>{copy.frequency}</label>
-            <select id={`${ids}frequency`} name="frequency" className="field" defaultValue="MONTHLY">
-              {(["WEEKLY", "MONTHLY", "YEARLY"] as const).map((value) => <option key={value} value={value}>{copy.frequencies[value]}</option>)}
-            </select>
+            <Select id={`${ids}frequency`} name="frequency" defaultValue="MONTHLY" options={
+              (["WEEKLY", "MONTHLY", "YEARLY"] as const).map((value) => ({ value, label: copy.frequencies[value] }))
+            } />
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}start`}>{copy.startDate}</label>

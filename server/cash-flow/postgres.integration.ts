@@ -20,6 +20,7 @@ import { api } from "./http.ts";
 import {
   createMovement, createTransfer, getMovement, listMovements, listMovementsPage, pairMovements, transferCandidates,
   unpairTransfer, updateMovement,
+  type MovementDto,
 } from "./movements.ts";
 import { createTemplate, listRecurring, occurrenceCandidates, resolveOccurrence, updateTemplate } from "./recurring.ts";
 import { monthSummary } from "./reports.ts";
@@ -300,6 +301,58 @@ test("descriptions are encrypted at rest, bound to their row, and never need pla
   // Moving the ciphertext to another row breaks authentication instead of leaking text.
   await db().$executeRaw`UPDATE stead_movements SET description_enc = ${stored} WHERE movement_id = ${second.id}::uuid`;
   await assert.rejects(getMovement(user, second.id));
+});
+
+test("register directions partition history by category, isolate users, and keep refunds in expenses", async () => {
+  const user = await newUser();
+  const stranger = await newUser();
+  const checking = await account(user);
+  const savings = await account(user, "Synthetic savings");
+  const other = await account(stranger);
+  const income = await category(user, "Synthetic income", "INCOME");
+  const expense = await category(user, "Synthetic expense");
+  const salary = await movement(user, checking.id, "2026-11-01", 100_000, { categoryId: income.id });
+  const reversal = await movement(user, checking.id, "2026-11-02", -1_000, { categoryId: income.id });
+  const purchase = await movement(user, checking.id, "2026-11-03", -5_000, { categoryId: expense.id });
+  const refund = await movement(user, checking.id, "2026-11-04", 2_000, { categoryId: expense.id });
+  const positive = await movement(user, checking.id, "2026-11-05", 3_000);
+  const negative = await movement(user, checking.id, "2026-11-06", -4_000);
+  const voided = await movement(user, checking.id, "2026-11-07", -9_000);
+  await updateMovement(user, voided.id, { voided: true });
+  await createTransfer(user, {
+    fromAccountId: checking.id, toAccountId: savings.id, amountCents: 6_000,
+    bookingDate: "2026-11-08", description: "Synthetic transfer",
+  });
+  const foreign = await movement(stranger, other.id, "2026-11-01", 7_000);
+  await movement(user, checking.id, "2026-10-31", 8_000);
+  const query = (direction?: string) => new URLSearchParams({ month: "2026-11", ...(direction === undefined ? {} : { direction }) });
+  const full = await listMovementsPage(user, query());
+  const incoming = await listMovementsPage(user, query("in"));
+  const outgoing = await listMovementsPage(user, query("out"));
+  const transfers = await listMovementsPage(user, query("transfers"));
+  const ids = (rows: MovementDto[]) => rows.map((row) => row.id).sort();
+  assert.deepEqual(ids(incoming.movements), [salary.id, reversal.id, positive.id].sort());
+  assert.deepEqual(ids(outgoing.movements), [purchase.id, refund.id, negative.id, voided.id].sort());
+  assert.equal(transfers.movements.length, 2);
+  assert.ok(transfers.movements.every((row) => row.transferId !== null));
+  const combined = [...incoming.movements, ...outgoing.movements, ...transfers.movements];
+  assert.equal(new Set(ids(combined)).size, combined.length, "directions never overlap");
+  assert.deepEqual(ids(combined), ids(full.movements), "directions cover the entire register, including voided rows");
+  assert.ok(!combined.some((row) => row.id === foreign.id));
+  const totals = await monthSummary(user, "2026-11");
+  const sum = (rows: MovementDto[]) => rows.filter((row) => !row.voided).reduce((total, row) => total + row.amountCents, 0);
+  assert.equal(sum(incoming.movements), totals.incomeCents);
+  assert.equal(-sum(outgoing.movements), totals.expenseCents);
+  const filtered = await listMovementsPage(user, new URLSearchParams({ ...Object.fromEntries(query("out")), categoryId: expense.id, accountId: checking.id }));
+  assert.deepEqual(ids(filtered.movements), [purchase.id, refund.id].sort());
+  for (const direction of ["invalid", "", "IN", "toString"]) {
+    await assert.rejects(listMovementsPage(user, query(direction)), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 422);
+      assert.equal(error.field, "direction");
+      return true;
+    });
+  }
 });
 
 test("registering, editing and voiding movements, with listing by month, account and category", async () => {

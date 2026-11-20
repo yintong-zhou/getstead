@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
+import { Select } from "../select";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction } from "./use-action";
@@ -111,9 +112,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           </div>
           <div className="form-field">
             <label htmlFor="account-type">{copy.accountType}</label>
-            <select id="account-type" name="type" className="field" defaultValue="CHECKING">
-              {accountTypes.map((type) => <option key={type} value={type}>{copy.accountTypes[type]}</option>)}
-            </select>
+            <Select id="account-type" name="type" defaultValue="CHECKING" options={accountTypes.map((type) => ({ value: type, label: copy.accountTypes[type] }))} />
           </div>
           <button className="button form-submit" type="submit" disabled={accountsAction.pending}>{copy.addAccount}</button>
         </form>
@@ -164,10 +163,9 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           </div>
           <div className="form-field">
             <label htmlFor="category-kind">{copy.categoryKind}</label>
-            <select id="category-kind" name="kind" className="field" defaultValue="EXPENSE">
-              <option value="EXPENSE">{copy.kinds.EXPENSE}</option>
-              <option value="INCOME">{copy.kinds.INCOME}</option>
-            </select>
+            <Select id="category-kind" name="kind" defaultValue="EXPENSE" options={[
+              { value: "EXPENSE", label: copy.kinds.EXPENSE }, { value: "INCOME", label: copy.kinds.INCOME },
+            ]} />
           </div>
           <button className="button form-submit" type="submit" disabled={categoriesAction.pending}>{copy.addCategory}</button>
         </form>
@@ -215,9 +213,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
             </div>
             <div className="form-field">
               <label htmlFor="rule-category">{copy.category}</label>
-              <select id="rule-category" name="categoryId" className="field">
-                {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-              </select>
+              <Select id="rule-category" name="categoryId" options={activeCategories.map((category) => ({ value: category.id, label: category.name }))} />
             </div>
             <button className="button form-submit" type="submit" disabled={rulesAction.pending}>{copy.addRule}</button>
           </form>

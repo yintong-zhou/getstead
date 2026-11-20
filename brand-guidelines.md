@@ -65,9 +65,9 @@ The palette is restrained: light, neutral backgrounds, a confident blue as the l
 | color/bg             | #F5F6FA                                         | Page background                                     |
 | color/surface        | #FFFFFF                                         | Cards, navigation bars                              |
 | color/surface-alt    | #EEF1F7                                         | Progress tracks, segmented controls                 |
-| color/border         | #E2E8F0                                         | Card borders and dividers                           |
+| color/border         | #E2E8F0                                         | Opaque fallback and form or legacy dividers; cards have no border, and dividers use glass/hairline |
 | color/text-primary   | #0F172A                                         | Titles, amounts                                     |
-| color/text-secondary | #64748B                                         | Labels, dates, inactive icons                       |
+| color/text-secondary | #536277                                         | Labels, dates, inactive icons; AA contrast on glass |
 | color/positive       | #16A34A                                         | Income, positive returns                            |
 | color/positive-soft  | #DCFCE7                                         | Income element backgrounds                          |
 | color/negative       | #DC2626                                         | Expenses, exceeded budget, losses                   |
@@ -120,7 +120,7 @@ Spacing follows a 4 px scale; radii are generous for a soft, reassuring look.
 | space/xl    | 24 px  | Between cards on desktop, hero card padding |
 | radius/sm   | 8 px   | Chips, control segments                     |
 | radius/md   | 12 px  | Buttons, fields, icon containers            |
-| radius/lg   | 20 px  | Cards (24 px for hero cards)                |
+| radius/lg   | 24 px  | Cards (28 px for hero cards)                |
 | radius/full | 999 px | Avatars, change chips, "+" button           |
 
 
@@ -129,7 +129,7 @@ Spacing follows a 4 px scale; radii are generous for a soft, reassuring look.
 
 | Device  | Width       | Navigation                                         | Grid                                                 |
 | ------- | ----------- | -------------------------------------------------- | ---------------------------------------------------- |
-| Mobile  | < 768 px    | 5-item bottom bar + floating "+" button            | 1 column, 16 margins, 16 gap                         |
+| Mobile  | < 768 px    | Floating glass navigation pill, 12 px from edges and safe area | 1 column, 16 margins, 16 gap               |
 | Tablet  | 768–1279 px | Icon-only sidebar (72 px)                          | 2 columns, 24 margins, 20 gap                        |
 | Desktop | ≥ 1280 px   | Expanded 248 px sidebar with Pro panel and profile | Fluid area + fixed 360 px column, 32 margins, 24 gap |
 
@@ -172,8 +172,8 @@ The components already exist in Figma in the "Componenti" section; every new scr
 
 | Component               | Structure                                                                                                       | Where it's used                                    |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Card                    | Surface background, 1 px border, 20 radius, 16 padding (mobile) / 20 (desktop); header with title + blue action | Everywhere                                         |
-| Hero card               | Brand-dark background, 24 radius, overline + Display amount + change chip + chart                               | Net worth, Portfolio                               |
+| Card                    | Glass surface, no 1 px border, inset highlight and stroke, soft shadow, 24 radius, 16 padding (mobile) / 20 (desktop); header with title + blue action | Everywhere |
+| Hero card               | Brand-dark glass at 85%, 28 radius, overline + Display amount + change chip + chart                              | Net worth, Portfolio                               |
 | Transaction Row         | Icon in 40 px container · title + subtitle · amount on the right                                                | Transactions, due dates, recurring items, accounts |
 | Budget Row              | Color dot · category · spent / limit · 8 px bar                                                                 | Budget                                             |
 | Holding Row             | Ticker badge · name + quantity · value + return                                                                 | Investments                                        |
@@ -188,33 +188,39 @@ The components already exist in Figma in the "Componenti" section; every new scr
 - Outgoing amounts carry "−"; incoming amounts carry "+" and are green. Expenses stay text-primary so lists don't turn entirely red.
 - One primary action per screen.
 
-## Liquid Glass mode
+## Liquid Glass
 
-Liquid Glass mode is an alternative theme: cards, buttons and dropdown menus become sheets of translucent glass that let the background show through, in line with the style Apple introduced with iOS 26. It is turned on from Settings → Appearance and lives alongside the standard theme, which remains the default.
+Liquid Glass is the application's only style: cards, buttons and dropdown menus are sheets of translucent glass that let the background show through. It is always on, with no Settings page or appearance toggle. Standard opaque surfaces are retained only as the automatic reduced-transparency or no-blur fallback.
 
-**Principle.** Glass only makes sense if there is something to see beneath it. In this mode the page background is no longer the flat gray bg, but a soft low-saturation gradient of brand, chart-2 and chart-4 that gives the glass depth.
+**Principle.** Glass needs something beneath it. A soft low-saturation gradient of brand, chart-2 and chart-4 gives the glass depth, painted on a fixed background layer rather than `background-attachment: fixed` so it works on iOS.
 
-**Additional tokens** (new "Glass" mode of the Tokens collection)
+**Glass tokens** (the default Tokens collection; dark values are reserved for a future dark theme)
 
 
 | Token             | Light                                | Dark                  | Use                                        |
 | ----------------- | ------------------------------------ | --------------------- | ------------------------------------------ |
 | glass/fill        | white 55%                            | #0F172A 45%           | Fill of glass surfaces                     |
-| glass/fill-strong | white 72%                            | #0F172A 60%           | Dropdown menus and sheets over other glass |
+| glass/fill-strong | white 72%                            | #0F172A 60%           | Long-list cards and sheets over other glass |
+| glass/popup-fill  | white 94%                            | To be defined        | Legible dropdown menus over other content   |
 | glass/stroke      | white 70%, 1 px inner                | white 18%, 1 px inner | Luminous edge that defines the shape       |
 | glass/highlight   | white gradient 60% → 0% from the top | white 25% → 0%        | Reflection on the top edge                 |
 | glass/shadow      | 0 8 32 #1B2B5E 12%                   | 0 8 32 black 40%      | Separation from the background             |
 | glass/blur        | 24 px                                | 24 px                 | Background blur (16 px on small controls)  |
 | glass/saturate    | 180%                                 | 160%                  | Keeps colors vivid as they show through    |
-| glass/tint-brand  | #2F5BEA 70%                          | #2F5BEA 65%           | Tinted-glass primary button                |
+| glass/tint-brand  | #2F5BEA at least 90%                 | To be verified        | Tinted-glass primary button with AA text   |
+| glass/hairline    | #0F172A 6%                          | To be defined         | Quiet row dividers, replacing border      |
 
 
 **Where it applies**
 
-- **Cards:** summary cards, KPIs and hero cards become glass (the hero card uses a brand-dark tint at 70%). Radii grow by 4 px (card 24, hero 28) for a softer look.
-- **Buttons:** the primary button is brand-tinted glass with on-brand text; secondary buttons and circular icon buttons (notifications, "+") are clear glass. On press the glass brightens (+10% fill) and scales to 97%.
-- **Dropdown menus:** panel in glass/fill-strong, 16 radius, 24 px blur, items separated by 1 px of glass/stroke; the selected item has a brand-soft pill at 60%.
+- **Cards:** summary cards, KPIs and hero cards become glass (the hero card uses a brand-dark tint at 85%). Radii grow by 4 px (card 24, hero 28) for a softer look.
+- **Hero-tint deviation:** increase brand-dark from 70% to 85% because the 11–12 px `#d0dcff` captions reached only about 3.9–4.05:1 over the lightest backdrop, below AA's 4.5:1. At 85% over `#f5f6fa`, the computed caption contrast is 6.36:1 (6.38:1 for the actual `#d9` alpha), so captions retain their existing color.
+- **Buttons:** the primary button is brand-tinted glass at least 90% with on-brand text. This deliberately increases the original 70% tint: white 12–14 px text at 70% has about 3.1:1 contrast, while 90% gives about 4.6:1. Keep white reflections at the edge of primary controls so they do not lighten the text surface. Secondary and icon buttons are clear glass. On press glass brightens and scales to 97%; primary controls brighten their edge rather than their text surface to preserve contrast. Reduced motion removes the scale.
+- **Dropdown menus:** panel in near-opaque glass/popup-fill (94% white), 16 radius, 24 px blur, items separated by 1 px of glass/hairline; the selected item has a brand-soft pill at 60%.
 - **Navigation:** on mobile the bottom bar becomes a floating glass pill, 12 px from the edges; the desktop sidebar stays opaque.
+- **Fields and nested panels:** fields use a recessed translucent fill and inset shadow. Segments, statistics, edit panels and badges use translucent fills without additional blur.
+- **Scrollbars:** thin app-styled scrollbars, rounded translucent thumb, transparent track, with a Safari fallback.
+- **Pickers:** dropdowns use the accessible in-house Select, including keyboard navigation, type-ahead and upward opening near the mobile navigation. Date/month popup pickers remain native; only their fields are restyled.
 
 **Legibility rules**
 
@@ -225,18 +231,19 @@ Liquid Glass mode is an alternative theme: cards, buttons and dropdown menus bec
 
 **CSS reference**
 
+The app's Lightning CSS build adds the `-webkit-` prefix, so source CSS must contain only unprefixed `backdrop-filter`; when copying this sample outside that build, add `-webkit-backdrop-filter: blur(24px) saturate(180%);`.
+
 ```css
 .glass {
   background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-radius: 24px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
     inset 0 0 0 1px rgba(255, 255, 255, 0.35),
     0 8px 32px rgba(27, 43, 94, 0.12);
 }
-.glass--primary { background: rgba(47, 91, 234, 0.7); color: #fff; }
+.glass--primary { background: rgba(47, 91, 234, 0.9); color: #fff; }
 
 @media (prefers-reduced-transparency: reduce) {
   .glass { background: #fff; backdrop-filter: none; }
