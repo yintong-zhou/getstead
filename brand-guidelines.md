@@ -4,8 +4,6 @@ Nov 18, 2026
 
 This is the first version of the brand guidelines, derived from the UI draft in Figma (mobile Dashboard and Cash Flow & Budget, desktop Dashboard). It keeps upcoming screens consistent and, later on, the website and launch materials.
 
-"Bilancio" is a working name: every rule applies even if the name changes. The reference file is [Finanza Personale – Bozza UI](https://www.figma.com/design/IrAuzq6JdfbXWrHkvfsEeM), where colors, spacing and type are already saved as tokens and styles.
-
 ## Brand essence
 
 Bilancio brings all of a person's money into one place: cash flow, budget, investments, net worth and home. The promise is simple: **always know where you stand, effortlessly**.
