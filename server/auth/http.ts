@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server.js";
 import { appOrigin } from "./config.ts";
 
-export const sessionCookie = "stead_session";
-export const challengeCookie = "stead_login_challenge";
+export const sessionCookie = "getstead_session";
+export const challengeCookie = "getstead_login_challenge";
 
 export function authResponse(status: number) {
   return new NextResponse(null, { status, headers: { "Cache-Control": "no-store" } });

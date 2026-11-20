@@ -12,6 +12,7 @@ datasource db {
 model User {
   id           String           @id @default(uuid()) @map("user_id") @db.Uuid
   email        String           @unique @db.VarChar(254)
+  displayName  String?          @map("display_name") @db.VarChar(60)
   passwordHash String           @map("password_hash") @db.VarChar(180)
   totpSecret   Bytes?           @map("totp_secret")
   lastTotpStep Int?             @map("last_totp_step")

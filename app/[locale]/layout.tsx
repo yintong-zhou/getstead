@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: LocaleParams): Promise<Metada
 
   const copy = dashboardCopy[locale];
   return {
-    title: `${copy.overview} | Stead`,
+    title: `${copy.overview} | getstead`,
     description: copy.description,
   };
 }

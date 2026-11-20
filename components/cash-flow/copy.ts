@@ -35,7 +35,7 @@ const en = {
   kinds: { EXPENSE: "Expense", INCOME: "Income" },
   errors: {
     generic: "Something went wrong. Try again.",
-    network: "Can’t reach Stead. Check your connection and try again.",
+    network: "Can’t reach getstead. Check your connection and try again.",
     unauthenticated: "Your session has ended. Sign in again.",
     validation: "Check the entered values.",
     not_found: "This item no longer exists.",
@@ -262,7 +262,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
     kinds: { EXPENSE: "Uscita", INCOME: "Entrata" },
     errors: {
       generic: "Qualcosa è andato storto. Riprova.",
-      network: "Stead non è raggiungibile. Controlla la connessione e riprova.",
+      network: "getstead non è raggiungibile. Controlla la connessione e riprova.",
       unauthenticated: "La sessione è terminata. Accedi di nuovo.",
       validation: "Controlla i valori inseriti.",
       not_found: "Questo elemento non esiste più.",

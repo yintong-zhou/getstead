@@ -116,14 +116,10 @@ a, summary { -webkit-tap-highlight-color: transparent; }
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--brand);
-  color: white;
-  font-weight: 800;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  object-fit: contain;
 }
 
 .demo-label, .language-link, .period {
@@ -558,7 +554,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 @media (max-width: 375px) {
   .utility-bar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
   .utility-bar .demo-label {
     grid-row: 2;
@@ -566,7 +562,6 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
     justify-self: start;
     margin-inline-start: 0;
   }
-  .utility-bar .signout-error { grid-column: 1 / -1; }
 }
 
 @media (min-width: 768px) {

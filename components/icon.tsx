@@ -1,4 +1,5 @@
 const paths = {
+  user: "M20 21v-2a6 6 0 0 0-6-6h-4a6 6 0 0 0-6 6v2 M16 5a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   cashFlow: "M3 7h17m-4-4 4 4-4 4M21 17H4m4-4-4 4 4 4",
   netWorth: "M3 20h18M6 16v-4m6 4V8m6 8V4",

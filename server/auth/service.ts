@@ -5,7 +5,7 @@ import { decryptSecret, digestToken, encryptSecret, newToken, verifyPassword } f
 import { db } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 
-async function lockUser(tx: Prisma.TransactionClient, id: string) {
+export async function lockUser(tx: Prisma.TransactionClient, id: string) {
   // The row lock serializes password changes, MFA enrollment, and TOTP verification.
   const [user] = await tx.$queryRaw<Pick<User, "passwordHash" | "totpSecret" | "lastTotpStep">[]>`
     SELECT password_hash AS "passwordHash", totp_secret AS "totpSecret", last_totp_step AS "lastTotpStep"

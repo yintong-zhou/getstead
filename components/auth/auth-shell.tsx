@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Locale } from "@/server/locale";
+import { BrandMark } from "../brand-mark";
 import { authCopy } from "./auth-copy";
 import "./auth.css";
 
@@ -13,7 +14,7 @@ export function AuthShell({ locale, path, children }: { locale: Locale; path: st
   return (
     <main className="auth-page">
       <div className="auth-bar">
-        <div className="wordmark"><span className="brand-mark" aria-hidden="true">S</span><span>Stead</span></div>
+        <div className="wordmark"><BrandMark /><span>getstead</span></div>
         <Link className="language-link" href={`/${alternative}${path}`} lang={alternative} hrefLang={alternative} aria-label={`${copy.language}: ${languageName}`}>
           {alternative.toUpperCase()}
         </Link>

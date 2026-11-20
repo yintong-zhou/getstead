@@ -8,6 +8,9 @@ GRANT UPDATE (totp_secret, last_totp_step) ON public.stead_users TO stead_auth_a
 GRANT SELECT, INSERT, DELETE ON public.stead_login_challenges, public.stead_sessions TO stead_auth_app;
 GRANT SELECT, INSERT, UPDATE ON public.stead_auth_limits TO stead_auth_app;
 
+-- Profile (M0 follow-up)
+GRANT UPDATE (email, password_hash, display_name) ON public.stead_users TO stead_auth_app;
+
 -- Cash flow and budget (M1). Least privilege: no table is TRUNCATE-able, rows that carry history
 -- are never DELETEd (accounts, categories, movements, templates are archived or voided instead),
 -- and UPDATE is limited to the columns the services actually change.

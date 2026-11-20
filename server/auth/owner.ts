@@ -1,11 +1,11 @@
 import { encryptionKey } from "./config.ts";
 import { digestRateLimitSubject, hashPassword } from "./crypto.ts";
 import { db } from "./database.ts";
-import { normalizeEmail, validPasswordInput } from "./inputs.ts";
+import { normalizeEmail, validNewPassword } from "./inputs.ts";
 
 function validatedOwner(emailInput: string, password: string) {
   const email = normalizeEmail(emailInput);
-  if (!email || !validPasswordInput(password) || [...password].length < 15) {
+  if (!email || !validNewPassword(password)) {
     throw new Error("Enter a valid email and a password of at least 15 characters and at most 512 bytes.");
   }
   return email;

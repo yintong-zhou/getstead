@@ -8,8 +8,8 @@ import test, { after, before } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { NextRequest, NextResponse } from "next/server.js";
 import { PrismaClient } from "../../db/generated/client.ts";
-import { localPostgresUrl } from "../auth/config.ts";
-import { digestToken, newToken } from "../auth/crypto.ts";
+import { encryptionKey, localPostgresUrl } from "../auth/config.ts";
+import { digestRateLimitSubject, digestToken, hashPassword, newToken, verifyPassword } from "../auth/crypto.ts";
 import { db, disconnectDb } from "../auth/database.ts";
 import { sessionCookie } from "../auth/http.ts";
 import { getBudget, setLimit, clearOverride } from "./budget.ts";
@@ -27,6 +27,7 @@ import { createTemplate, listRecurring, occurrenceCandidates, resolveOccurrence,
 import { monthSummary } from "./reports.ts";
 import { createRule, deleteRule, listRules, suggestForDescription } from "./rules.ts";
 import { deleteCheck, getNetWorth, listChecks, recordCheck } from "../net-worth/service.ts";
+import { changeEmail, changePassword, getProfile, updateDisplayName } from "../profile/service.ts";
 
 let admin: PrismaClient;
 
@@ -49,6 +50,126 @@ async function newUser() {
   });
   return user.id;
 }
+
+const profilePassword = "synthetic current password";
+async function profileUser() {
+  const id = await newUser();
+  await admin.user.update({ where: { id }, data: { passwordHash: await hashPassword(profilePassword) } });
+  return id;
+}
+
+async function profileSession(userId: string) {
+  const token = newToken();
+  await db().session.create({ data: { userId, tokenDigest: digestToken(token)!, expiresAt: new Date(Date.now() + 60_000) } });
+  return token;
+}
+
+test("profile display names set, normalize, clear and enforce limits under column-only runtime grants", async () => {
+  const [a, b] = [await newUser(), await newUser()];
+  const beforeB = await getProfile(b);
+  assert.equal((await updateDisplayName(a, "  Jose\u0301  ")).displayName, "Jos\u00e9");
+  assert.equal((await getProfile(a)).displayName, "Jos\u00e9");
+  assert.equal((await updateDisplayName(a, "\ud83d\ude00".repeat(60))).displayName, "\ud83d\ude00".repeat(60));
+  await rejectsApi(updateDisplayName(a, "x".repeat(61)), 422, "validation");
+  await rejectsApi(updateDisplayName(a, "a\nb"), 422, "validation");
+  assert.equal((await updateDisplayName(a, "  ")).displayName, null);
+  assert.deepEqual(await getProfile(b), beforeB);
+  await assert.rejects(db().$executeRaw`UPDATE stead_users SET display_name = ' ' WHERE user_id = ${a}::uuid`, /check constraint|violates/i);
+  await assert.rejects(db().$executeRaw`UPDATE stead_users SET display_name = repeat('x', 61) WHERE user_id = ${a}::uuid`, /too long|varying/i);
+  await db().$executeRaw`UPDATE stead_users SET totp_secret = NULL, last_totp_step = NULL WHERE user_id = ${a}::uuid`;
+  await assert.rejects(db().$executeRaw`UPDATE stead_users SET user_id = user_id WHERE user_id = ${a}::uuid`, /permission denied/i);
+  const [rights] = await db().$queryRaw<{ can_insert: boolean; can_delete: boolean; can_update_table: boolean }[]>`
+    SELECT has_table_privilege(current_user, 'stead_users', 'INSERT') AS can_insert,
+      has_table_privilege(current_user, 'stead_users', 'DELETE') AS can_delete,
+      has_table_privilege(current_user, 'stead_users', 'UPDATE') AS can_update_table
+  `;
+  assert.deepEqual(rights, { can_insert: false, can_delete: false, can_update_table: false });
+});
+
+test("profile email changes normalize, allow same-email success, and map duplicates to conflict without changing another user", async () => {
+  const [a, b] = [await profileUser(), await newUser()];
+  const beforeB = await getProfile(b);
+  const email = `profile-${randomUUID()}@example.test`;
+  await rejectsApi(changeEmail(a, { currentPassword: profilePassword, email: "invalid" }), 422, "validation");
+  assert.deepEqual(await changeEmail(a, { currentPassword: profilePassword, email: ` ${email.toUpperCase()} ` }), { email });
+  assert.deepEqual(await changeEmail(a, { currentPassword: profilePassword, email }), { email });
+  await rejectsApi(changeEmail(a, { currentPassword: profilePassword, email: beforeB.email }), 409, "conflict");
+  assert.equal((await getProfile(a)).email, email);
+  assert.deepEqual(await getProfile(b), beforeB);
+});
+
+test("profile wrong passwords share the auth limiter across email and password changes and stop at five attempts", async () => {
+  const a = await profileUser();
+  const before = await getProfile(a);
+  for (let index = 0; index < 5; index++) {
+    const request = index % 2 === 0
+      ? changeEmail(a, { currentPassword: "wrong password", email: "synthetic@example.test" })
+      : changePassword(a, { currentPassword: "wrong password", newPassword: "synthetic replacement password" }, newToken());
+    await rejectsApi(request, 403, "invalid");
+  }
+  const limit = await admin.authLimit.findUniqueOrThrow({
+    where: { phase_subjectDigest: { phase: "password", subjectDigest: digestRateLimitSubject(encryptionKey(), a) } },
+  });
+  assert.equal(limit.attempts, 5);
+  await rejectsApi(changeEmail(a, { currentPassword: profilePassword, email: before.email }), 429, "limited");
+  await rejectsApi(changePassword(a, { currentPassword: profilePassword, newPassword: "synthetic replacement password" }, newToken()), 429, "limited");
+  assert.deepEqual(await getProfile(a), before);
+});
+
+test("profile password change rejects reuse, keeps the active session, revokes other sessions and challenges, and isolates users", async () => {
+  const [a, b] = [await profileUser(), await profileUser()];
+  const beforeB = await admin.user.findUniqueOrThrow({ where: { id: b } });
+  const keep = await profileSession(a);
+  await profileSession(a);
+  const other = await profileSession(b);
+  for (const userId of [a, b]) await db().loginChallenge.create({
+    data: { userId, tokenDigest: digestToken(newToken())!, expiresAt: new Date(Date.now() + 60_000) },
+  });
+  await rejectsApi(changePassword(a, { currentPassword: profilePassword, newPassword: profilePassword }, keep), 422, "same_password");
+  await rejectsApi(changePassword(a, { currentPassword: profilePassword, newPassword: "short" }, keep), 422, "validation");
+  await rejectsApi(changePassword(a, { currentPassword: profilePassword, newPassword: "synthetic replacement password" }, other), 401, "unauthenticated");
+  assert.equal(await db().session.count({ where: { userId: a } }), 2);
+  assert.equal(await db().loginChallenge.count({ where: { userId: a } }), 1);
+  await changePassword(a, { currentPassword: profilePassword, newPassword: "synthetic replacement password" }, keep);
+  const changed = await admin.user.findUniqueOrThrow({ where: { id: a } });
+  assert.equal(await verifyPassword("synthetic replacement password", changed.passwordHash), true);
+  assert.equal(await verifyPassword(profilePassword, changed.passwordHash), false);
+  const sessions = await db().session.findMany({ where: { userId: a } });
+  assert.equal(sessions.length, 1);
+  assert.deepEqual(Buffer.from(sessions[0].tokenDigest), digestToken(keep));
+  assert.equal(await db().loginChallenge.count({ where: { userId: a } }), 0);
+  assert.deepEqual(await admin.user.findUniqueOrThrow({ where: { id: b } }), beforeB);
+  assert.equal(await db().session.count({ where: { userId: b } }), 1);
+  assert.equal(await db().loginChallenge.count({ where: { userId: b } }), 1);
+});
+
+test("profile concurrent password changes cannot both authorize with the old hash", async () => {
+  const a = await profileUser();
+  const tokens = [await profileSession(a), await profileSession(a)];
+  const results = await Promise.allSettled(tokens.map((token) => changePassword(a, {
+    currentPassword: profilePassword, newPassword: "synthetic concurrent password",
+  }, token)));
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  const rejected = results.find((result) => result.status === "rejected")!;
+  assert.ok(rejected.reason instanceof ApiError && rejected.reason.status === 403);
+  assert.equal(await db().session.count({ where: { userId: a } }), 1);
+});
+
+test("profile API context preserves the cookie token, 512-byte passwords fit the wrapper, and password success is no-store 204", async () => {
+  const a = await profileUser();
+  const token = await profileSession(a);
+  const handler = api(async ({ userId, sessionToken, body }) => changePassword(userId, await body(), sessionToken));
+  const response = await handler(new NextRequest("http://127.0.0.1/api/profile/password", {
+    method: "POST",
+    headers: { origin: process.env.APP_ORIGIN!, cookie: `${sessionCookie}=${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ currentPassword: profilePassword, newPassword: "\u0000".repeat(512) }),
+  }), { params: Promise.resolve({}) });
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(await response.text(), "");
+  const changed = await admin.user.findUniqueOrThrow({ where: { id: a } });
+  assert.equal(await verifyPassword("\u0000".repeat(512), changed.passwordHash), true);
+});
 
 const account = (userId: string, name = "Synthetic checking", type = "CHECKING") => createAccount(userId, { name, type });
 const category = (userId: string, name: string, kind = "EXPENSE") => createCategory(userId, { name, kind });

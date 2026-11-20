@@ -14,7 +14,7 @@ type Props = { params: Promise<{ locale: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return { title: `${authCopy[locale].signInTitle} | Stead`, robots: { index: false } };
+  return { title: `${authCopy[locale].signInTitle} | getstead`, robots: { index: false } };
 }
 
 export default async function LoginPage({ params }: Props) {

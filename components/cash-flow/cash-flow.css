@@ -1,7 +1,5 @@
 /* Cash flow, budget, recurring and accounts screens. Tokens come from app/globals.css. */
 
-.utility-language { margin-inline-start: auto; }
-
 .visually-hidden {
   position: absolute;
   width: 1px;

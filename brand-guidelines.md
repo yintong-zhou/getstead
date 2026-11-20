@@ -42,13 +42,15 @@ Bilancio speaks like a knowledgeable friend: direct, warm, never technical witho
 
 ## Logo and name
 
-The current mark is a placeholder: a Brand-blue square (32 × 32 px, 10 px radius) with the initial in white, followed by the name in Title/M. It must be replaced before the app opens to other users.
+The mark is a glass drop with two round eyes and a curled tip, in a blue-to-violet gradient with a soft highlight, so it matches the Liquid Glass style. It sits before the name in Title/M, at 36 × 36 px (the sidebar, the mobile bar and the sign-in page). It is the one multicolor shape in the product: it is a logo, not an icon, so the "no multicolor icons" rule below does not apply to it.
 
-- **Clear space:** at least half the symbol's side on every side.
-- **Versions:** full color on light backgrounds; white on Brand Dark or Brand.
-- **Don't:** change the colors, add shadows or outlines, distort the symbol, set the name in another typeface.
+- **Files:** `docs/brand/getstead-mark.png` is the master (transparent, 811 × 811 px). `public/brand/getstead-mark.png` (128 px) feeds the in-app mark through `components/brand-mark.tsx`; `app/icon.png` (192 px, transparent) is the favicon and `app/apple-icon.png` (180 px, on the light page color) is the home-screen icon. The mark is a raster image; a vector version is still to be drawn.
+- **Clear space:** at least a quarter of the mark's width on every side.
+- **Backgrounds:** light backgrounds and glass surfaces. On Brand Dark use it with a light page-color circle behind it, never directly on dark blue.
+- **Minimum size:** 24 px wide. Below that, show the name only.
+- **Don't:** recolor the gradient, add shadows or outlines, distort, rotate or crop the mark, add other faces, or set the name in another typeface.
 
-**To decide:** final name (checking domain and trademark availability) and a real symbol, ideally tied to the idea of balance or home.
+**To decide:** final name (checking domain and trademark availability) and a vector version of the mark.
 
 ## Color
 
@@ -278,7 +280,7 @@ The app follows Italian conventions at launch; when it opens to other countries,
 
 **Next steps**
 
-- Choose the final name and design the logo
+- Choose the final name and draw a vector version of the logo
 - Define the dark theme as a second token mode
 - Complete the Investments, Home and Net worth screens with these components
 - Check contrast with a dedicated tool
