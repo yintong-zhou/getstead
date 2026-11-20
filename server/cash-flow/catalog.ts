@@ -3,6 +3,7 @@
 import type { Account, Category } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
 import { Reader } from "./validate.ts";
+import { conflict, notFound } from "./errors.ts";
 
 export const accountTypes = ["CHECKING", "CARD", "BROKERAGE", "CRYPTO", "CASH", "DEBT"] as const;
 export const categoryKinds = ["EXPENSE", "INCOME"] as const;
@@ -34,9 +35,16 @@ export async function updateAccount(userId: string, id: string, input: Record<st
   const type = reader.optionalOneOf("type", accountTypes);
   const archived = reader.optionalBool("archived");
   reader.done();
-  const row = await db().account.update({
-    where: { userId_id: { userId, id } },
-    data: { name, type, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
+  const row = await db().$transaction(async (client) => {
+    const locked = await client.$queryRaw<{ id: string }[]>`SELECT account_id AS id FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${id}::uuid FOR UPDATE`;
+    if (!locked.length) throw notFound();
+    if (type && !["BROKERAGE", "CRYPTO"].includes(type) && await client.investmentTransaction.count({ where: { userId, accountId: id } })) {
+      throw conflict("investment_account");
+    }
+    return client.account.update({
+      where: { userId_id: { userId, id } },
+      data: { name, type, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
+    });
   });
   return accountDto(row);
 }

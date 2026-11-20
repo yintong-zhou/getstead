@@ -27,6 +27,9 @@ model User {
   templates    RecurringTemplate[]
   occurrences  RecurringOccurrence[]
   balanceChecks BalanceCheck[]
+  instruments Instrument[]
+  investmentTransactions InvestmentTransaction[]
+  priceQuotes PriceQuote[]
 
   @@map("stead_users")
 }
@@ -124,6 +127,7 @@ model Account {
   movements  Movement[]
   templates  RecurringTemplate[]
   balanceChecks BalanceCheck[]
+  investmentTransactions InvestmentTransaction[]
 
   @@unique([userId, id])
   @@unique([userId, name])
@@ -275,4 +279,79 @@ model RecurringOccurrence {
   @@unique([templateId, dueDate])
   @@unique([userId, movementId])
   @@map("stead_recurring_occurrences")
+}
+
+enum InstrumentKind {
+  STOCK
+  ETF
+  FUND
+  IT_GOV_BOND
+  BOND
+  CRYPTO
+  OTHER
+
+  @@map("stead_instrument_kind")
+}
+
+enum InvestmentTransactionType {
+  BUY
+  SELL
+  DIVIDEND
+  COUPON
+
+  @@map("stead_investment_transaction_type")
+}
+
+model Instrument {
+  id String @id @default(uuid()) @map("instrument_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  name String @db.VarChar(120)
+  symbol String? @db.VarChar(24)
+  isin String? @db.VarChar(12)
+  kind InstrumentKind
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  transactions InvestmentTransaction[]
+  quotes PriceQuote[]
+
+  @@unique([userId, id])
+  @@unique([userId, name])
+  @@map("stead_instruments")
+}
+
+model InvestmentTransaction {
+  id String @id @default(uuid()) @map("transaction_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  instrumentId String @map("instrument_id") @db.Uuid
+  type InvestmentTransactionType
+  tradeDate DateTime @map("trade_date") @db.Date
+  ordinal Int
+  quantity Decimal? @db.Decimal(28, 10)
+  amountCents BigInt @map("amount_cents")
+  feesCents BigInt @map("fees_cents")
+  taxWithheldCents BigInt @map("tax_withheld_cents")
+  voidedAt DateTime? @map("voided_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account Account @relation(fields: [userId, accountId], references: [userId, id], onDelete: Restrict)
+  instrument Instrument @relation(fields: [userId, instrumentId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@index([userId, instrumentId, tradeDate, ordinal])
+  @@index([userId, accountId, tradeDate])
+  @@map("stead_investment_transactions")
+}
+
+model PriceQuote {
+  id String @id @default(uuid()) @map("quote_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  instrumentId String @map("instrument_id") @db.Uuid
+  asOf DateTime @map("as_of") @db.Date
+  unitPrice Decimal @map("unit_price") @db.Decimal(18, 8)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  instrument Instrument @relation(fields: [userId, instrumentId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@unique([userId, instrumentId, asOf])
+  @@map("stead_price_quotes")
 }

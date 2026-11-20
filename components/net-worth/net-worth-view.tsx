@@ -53,6 +53,8 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
   const isLiability = (id: string) => data.perAccount.some((account) => account.id === id && (account.type === "CARD" || account.type === "DEBT"));
   const [owed, setOwed] = useState(() => isLiability(accountId));
   const names = new Map(data.perAccount.map((account) => [account.id, account.name]));
+  const checkType = data.perAccount.find((account) => account.id === accountId)?.type;
+  const investmentCheck = checkType === "BROKERAGE" || checkType === "CRYPTO";
 
   return (
     <div className="stack worth-view">
@@ -84,13 +86,23 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
             </div>
             <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{formatEuros(account.balanceCents, locale)}</span>
           </li>
-        ))}</ul>}
+        ))}{data.holdingsCents > 0 && (
+          <li className="manage-row worth-account">
+            <div className="row-text">
+              <p>{copy.holdings}</p>
+              <Link className="text-link" href={`/${locale}/investments`}>{copy.holdingsLink}</Link>
+            </div>
+            <span className="amount">{formatEuros(data.holdingsCents, locale)}</span>
+          </li>
+        )}</ul>}
       </section>
 
       {data.perAccount.length > 0 && <section className="card" aria-labelledby="worth-record-title">
         <h2 id="worth-record-title">{copy.record}</h2>
         <p className="hint" id="worth-rule">{copy.rule}</p>
-        <form className="form-grid" aria-labelledby="worth-record-title" aria-describedby="worth-rule" onSubmit={async (event) => {
+        {investmentCheck && <p className="hint" id="worth-investment-cash-note">{copy.investmentCashWarning}</p>}
+        <form className="form-grid" aria-labelledby="worth-record-title"
+          aria-describedby={investmentCheck ? "worth-rule worth-investment-cash-note" : "worth-rule"} onSubmit={async (event) => {
           event.preventDefault();
           const form = new FormData(event.currentTarget);
           const cents = parseLimit(String(form.get("amount") ?? ""));

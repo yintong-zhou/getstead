@@ -41,6 +41,21 @@ export class Reader {
     return value;
   }
 
+  nullableText(key: string, max: number): string | null | undefined {
+    if (this.has(key) && this.body[key] === null) {
+      this.seen.add(key);
+      return null;
+    }
+    return this.optionalText(key, max);
+  }
+
+  /** Explicit bounds for domains whose integer limits differ from cash flow. */
+  integer(key: string, min: number, max: number): number {
+    const raw = this.take(key);
+    if (!Number.isSafeInteger(raw) || (raw as number) < min || (raw as number) > max) this.invalid(key);
+    return raw as number;
+  }
+
   optionalText(key: string, max: number): string | undefined {
     const raw = this.take(key);
     if (raw === undefined) return undefined;
