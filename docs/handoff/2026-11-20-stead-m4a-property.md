@@ -1,7 +1,7 @@
 ---
 type: handoff
 date: 2026-11-20
-status: M4a merged into main and pushed (merge 47c1c8f, no PR for the build); local DB only, Neon not migrated; last fix not independently inspected
+status: M4a merged into main and pushed (merge 47c1c8f, no PR for the build); migration applied to Neon on 2026-11-21; last fix not independently inspected
 seq: 8
 prev: docs/handoff/2026-11-20-stead-m3-closeout.md
 tags: [stead, m4a, property, condominium, codex, claude]
@@ -14,7 +14,7 @@ M4a (properties and condominium) per `docs/plans/2026-11-20-m4-property-condomin
 ## Current state
 
 - Merged into `main` and pushed with `git merge --no-ff feat/m4-property` (merge commit `47c1c8f`, owner's instruction: merge and push, no PR for the build). It carried the plan commit, so PR #7 (plan only) closes as merged. Pre-build base `b67fe8b`; commits: build `d04ddbc`, inspection fixes `04531d1`, last small fix and this handoff `69ab2e0`. The local branch `feat/m4-property` still exists, unpushed.
-- M3 is merged (PR #6, `edd2e6c`); `main` is aligned. Neon already had the three M3-era migrations and matching grants (checked read-only). **`20261124090000_property` is applied to the local test database only.**
+- M3 is merged (PR #6, `edd2e6c`); `main` is aligned. Neon already had the three M3-era migrations and matching grants (checked read-only). **`20261124090000_property` is applied to the local test database and, with the owner's explicit OK on 2026-11-21, to Neon (`test_neondb`):** `migrate deploy` applied only that migration, `db/grant-runtime.sql` was re-run, and a read-only check shows `migrate status` up to date, `migrate diff` against `db/schema.prisma` exit 0, the five `stead_*` property tables present, the strict `building_total_cents` CHECK in place, and the runtime role's table and column grants exactly as in `db/grant-runtime.sql` (no DELETE on properties or charges).
 - Plan review: Codex round 1 REVISE (3 findings, accepted), round 2 APPROVED, hash-bound.
 - Build inspection by Codex (`gpt-6.1-sol`, base `b67fe8b`, Claude built):
   - Round 1 REVISE, 7 findings, all accepted and fixed: charge-linked movement could get an INCOME category (guard now shared with occurrences); CHECK on `building_total_cents` let NULL through when a table was set; next due ignored resolved occurrences; property value hidden on the net worth page and dashboard with zero accounts; archived properties stayed in the default list; collection GET endpoints missing; charges not split pending/settled.
@@ -45,8 +45,7 @@ M4a (properties and condominium) per `docs/plans/2026-11-20-m4-property-condomin
 ## Where we want to go
 
 1. Optional: one more fresh Codex inspection (base `b67fe8b`) to cover the last fix, now on `main`.
-2. Apply `20261124090000_property` to Neon and re-run `db/grant-runtime.sql`, only with the owner's explicit OK.
-3. Then M4b: bills, subscriptions and rental income (needs a decision on generalising `RecurringTemplate` to income), encrypted attachments, reminders.
+2. Then M4b: bills, subscriptions and rental income (needs a decision on generalising `RecurringTemplate` to income), encrypted attachments, reminders.
 
 ## Before changing anything
 
