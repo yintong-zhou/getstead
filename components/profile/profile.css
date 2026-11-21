@@ -79,6 +79,7 @@
 .profile-card .field { width: 100%; min-width: 0; }
 .profile-card .button { justify-self: start; min-height: 44px; }
 .profile-card .profile-hint { color: var(--muted); font-size: 12px; line-height: 18px; }
+.profile-totp-qr { width: min(224px, 100%); height: auto; background: #fff; border-radius: 12px; }
 .profile-email { margin-top: 8px; overflow-wrap: anywhere; color: var(--muted); }
 .profile-languages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .profile-languages a { min-height: 44px; }

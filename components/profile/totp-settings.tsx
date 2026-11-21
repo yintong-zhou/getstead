@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Image from "next/image";
 import type { Locale } from "@/server/locale";
 import { SetupKey } from "../auth/setup-key";
 import { call } from "../cash-flow/api";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { profileCopy } from "./copy";
 
-type Setup = { secret: string; enrollmentToken: string };
+type Setup = { secret: string; enrollmentToken: string; qrCode: string };
 
 export function TotpSettings({ locale, initialEnabled }: { locale: Locale; initialEnabled: boolean }) {
   const copy = profileCopy[locale];
@@ -48,6 +49,7 @@ export function TotpSettings({ locale, initialEnabled }: { locale: Locale; initi
     {editing ? <form method="post" onSubmit={submit}>
       {setup ? <>
         <p className="profile-hint">{copy.totp.setup}</p>
+        <Image className="profile-totp-qr" src={setup.qrCode} alt={copy.totp.qrAlt} width={224} height={224} unoptimized />
         <SetupKey secret={setup.secret} locale={locale} />
       </> : <div className="form-field">
         <label htmlFor="totp-password">{copy.currentPassword}</label>

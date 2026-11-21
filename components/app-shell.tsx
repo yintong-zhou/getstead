@@ -3,12 +3,13 @@ import type { ReactNode } from "react";
 import type { Locale } from "@/server/locale";
 import type { Profile } from "@/server/profile/service";
 import { ProfileMenu } from "./profile/profile-menu";
+import { adminCopy } from "./admin/copy";
 import { dashboardCopy } from "./dashboard-copy";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
 import "./cash-flow/cash-flow.css";
 
-export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile" | "admin";
+export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile" | "admin" | "admin-logs";
 
 const sections = [
   { id: "overview", path: "/overview", icon: "overview", label: "overview" },
@@ -55,13 +56,28 @@ type Props = {
   children: ReactNode;
 };
 
+/** Admin accounts see only these two entries; the finance sections above are for user accounts. */
+const adminSections = [
+  { id: "admin", path: "/admin", icon: "accounts", label: "users" },
+  { id: "admin-logs", path: "/admin/logs", icon: "bills", label: "logs" },
+] as const;
+
 /** Navigation and profile menu shared by every signed-in page. */
 export function AppShell({ locale, current, title, subtitle, action, query = "", routePath, children, profile }: Props) {
   const copy = dashboardCopy[locale];
+  const admin = profile.admin;
+  const adminLabels = adminCopy[locale];
+  // One shape for both roles: { id, path, icon, label, short, mobile }.
+  const desktopItems = admin
+    ? adminSections.map(({ label, ...item }) => ({ ...item, label: adminLabels[label], short: adminLabels[label], mobile: adminLabels[label] }))
+    : sections.map(({ label, ...item }) => ({ ...item, label: copy.nav[label], short: copy.shortNav[label], mobile: "" }));
+  const mobileItems = admin
+    ? desktopItems
+    : mobileTabs.map(({ label, ...item }) => ({ ...item, label: copy.nav[label], short: "", mobile: copy.mobileNav[label] }));
   const currentPath = routePath ?? (current === "profile" ? "/profile" : sections.find((section) => section.id === current)?.path ?? "");
   // "page" only on the exact route; "true" marks the section a deeper route (such as the movements history) belongs to.
   const marker = (id: Section, path: string) => (id !== current ? undefined : (routePath ?? path) === path ? "page" : "true");
-  const tab = mobileTabs.find((item) => (item.group as readonly Section[]).includes(current));
+  const tab = admin ? undefined : mobileTabs.find((item) => (item.group as readonly Section[]).includes(current));
   const subs = tab && tab.id in subTabs ? subTabs[tab.id as keyof typeof subTabs] : undefined;
   const profileMenu = <ProfileMenu locale={locale} profile={profile} currentPath={currentPath} query={query} />;
 
@@ -71,18 +87,18 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
       <aside className="sidebar">
         <div className="wordmark"><BrandMark /><span>getstead</span></div>
         <nav className="navigation desktop-navigation" aria-label={copy.navigation}>
-          {sections.map(({ id, path, icon, label }) => (
+          {desktopItems.map(({ id, path, icon, label, short }) => (
             <Link
               key={id}
               className="nav-item"
               href={`/${locale}${path}`}
-              title={copy.nav[label]}
-              aria-label={copy.nav[label]}
+              title={label}
+              aria-label={label}
               aria-current={marker(id, path)}
             >
               <Icon name={icon} />
-              <span className="nav-label-short" aria-hidden="true">{copy.shortNav[label]}</span>
-              <span className="nav-label-full" aria-hidden="true">{copy.nav[label]}</span>
+              <span className="nav-label-short" aria-hidden="true">{short}</span>
+              <span className="nav-label-full" aria-hidden="true">{label}</span>
             </Link>
           ))}
         </nav>
@@ -115,17 +131,18 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
         </div>
       </main>
 
-      <nav className="navigation mobile-navigation" aria-label={copy.navigation}>
-        {mobileTabs.map(({ id, path, icon, label }) => (
+      <nav className="navigation mobile-navigation" aria-label={copy.navigation}
+        style={admin ? { gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` } : undefined}>
+        {mobileItems.map(({ id, path, icon, label, mobile }) => (
           <Link
             key={id}
             className="nav-item"
             href={`/${locale}${path}`}
-            aria-label={copy.nav[label]}
+            aria-label={label}
             aria-current={marker(id, path) ?? (id === tab?.id ? "true" : undefined)}
           >
             <Icon name={icon} />
-            <span className="nav-label-mobile" aria-hidden="true">{copy.mobileNav[label]}</span>
+            <span className="nav-label-mobile" aria-hidden="true">{mobile}</span>
           </Link>
         ))}
       </nav>

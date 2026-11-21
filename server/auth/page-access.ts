@@ -4,6 +4,7 @@ import { challengeCookie, sessionCookie } from "./http.ts";
 import { readChallenge, readSession } from "./service.ts";
 import { getProfile } from "../profile/service.ts";
 import type { Locale } from "../locale.ts";
+import { pageRedirect } from "./page-redirect.ts";
 
 export async function readPageSession() {
   try {
@@ -38,10 +39,14 @@ async function pageUser() {
 /**
  * The signed-in user's id for a protected page, or why there is none. A user still on a temporary
  * password is sent to the profile page (the only page allowed to skip this) to choose a new one.
+ *
+ * Pages are finance pages by default: an admin account is sent to the admin area instead. Only the
+ * profile and admin pages pass `shared`, and the admin pages check the role themselves.
  */
-export async function readPageUser(locale: Locale, { allowPasswordChange = false } = {}) {
+export async function readPageUser(locale: Locale, { allowPasswordChange = false, shared = false } = {}) {
   const user = await pageUser();
   // redirect() throws, so it must stay outside the try/catch above.
-  if (user.status === "authenticated" && user.profile.mustChangePassword && !allowPasswordChange) redirect(`/${locale}/profile`);
+  const target = user.status === "authenticated" ? pageRedirect(user.profile, { allowPasswordChange, shared }) : null;
+  if (target) redirect(`/${locale}${target}`);
   return user;
 }

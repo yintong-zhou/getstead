@@ -1,6 +1,7 @@
 import { generateSecret, verify } from "otplib";
+import QRCode from "qrcode";
 import { encryptionKey } from "../auth/config.ts";
-import { decryptSecret, digestToken, encryptSecret, hashPassword, newToken, verifyPassword } from "../auth/crypto.ts";
+import { decryptSecret, digestToken, encryptSecret, hashPassword, newToken, totpEnrollmentUri, verifyPassword } from "../auth/crypto.ts";
 import type { Prisma } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
 import { normalizeEmail, validNewPassword, validPasswordInput, validTotpCode } from "../auth/inputs.ts";
@@ -63,12 +64,14 @@ export async function updateTotp(userId: string, sessionToken: string, input: Re
     if (action === "begin") {
       const secret = generateSecret();
       const token = newToken();
+      const { email } = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
+      const svg = await QRCode.toString(totpEnrollmentUri(secret, email), { type: "svg", margin: 4 });
       await tx.loginChallenge.deleteMany({ where: { userId, pendingSecret: { not: null } } });
       await tx.loginChallenge.create({ data: {
         tokenDigest: digestToken(token)!, userId, expiresAt: new Date(Date.now() + 300_000),
         pendingSecret: encryptSecret(key, enrollmentContext, secret),
       } });
-      return { secret, enrollmentToken: token };
+      return { secret, enrollmentToken: token, qrCode: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}` };
     }
 
     let secret: string;

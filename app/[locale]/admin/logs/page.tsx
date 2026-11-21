@@ -26,13 +26,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AdminLogsPage({ params, searchParams }: Props) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const user = await readPageUser(locale);
+  const user = await readPageUser(locale, { shared: true });
   if (user.status === "anonymous") redirect(`/${locale}/login`);
   if (user.status === "unavailable") return <UnavailableNotice locale={locale} path={PATH} />;
   if (!user.profile.admin) notFound();
 
   const copy = adminCopy[locale];
-  const shell = { locale, current: "admin", routePath: PATH, title: copy.title, subtitle: copy.intro, profile: user.profile } as const;
+  const shell = { locale, current: "admin-logs", routePath: PATH, title: copy.title, subtitle: copy.intro, profile: user.profile } as const;
   if (!user.admin) {
     return <AppShell {...shell}>
       <section className="card"><p>{copy.needsTotp}</p><Link className="text-link" href={`/${locale}/profile`}>{copy.openProfile}</Link></section>

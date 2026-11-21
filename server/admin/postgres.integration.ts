@@ -79,6 +79,35 @@ test("admin routes need the admin role and two-step verification", async () => {
   assert.equal((await call(handler, await session(full.id))).status, 200);
 });
 
+test("finance routes are for user accounts: an admin account is refused, with or without two-step verification", async () => {
+  const finance = api(async () => ({ ok: true }));
+  const shared = api(async () => ({ ok: true }), { shared: true });
+  const admin = api(async () => ({ ok: true }), { admin: true });
+  const plain = await session((await user()).id);
+  const noTotp = await session((await user({ admin: true })).id);
+  const full = await session((await user({ admin: true, totp: true })).id);
+
+
+  // User: finance and profile routes yes, admin routes no.
+  assert.deepEqual(await Promise.all([finance, shared, admin].map(async (h) => (await call(h, plain)).status)), [200, 200, 403]);
+  // Admin without 2FA: only the shared (profile) routes, so password change and 2FA enrollment stay reachable.
+  assert.deepEqual(await Promise.all([finance, shared, admin].map(async (h) => (await call(h, noTotp)).status)), [403, 200, 403]);
+  // Admin with 2FA: shared and admin routes, never finance.
+  assert.deepEqual(await Promise.all([finance, shared, admin].map(async (h) => (await call(h, full)).status)), [403, 200, 200]);
+  // The refusal never reaches the handler's data.
+  assert.deepEqual(await (await call(finance, full)).json(), { error: "forbidden" });
+});
+
+test("an admin on a temporary password can reach only the password change", async () => {
+  const actor = await user({ admin: true, totp: true });
+  await owner.user.update({ where: { id: actor.id }, data: { mustChangePassword: true } });
+  const token = await session(actor.id);
+  const open = (options: Parameters<typeof api>[1]) => call(api(async () => ({ ok: true }), options), token);
+  assert.equal((await open({ shared: true })).status, 403); // profile data waits for the password change
+  assert.equal((await open({ admin: true })).status, 403);
+  assert.equal((await open({ allowPasswordChange: true, shared: true })).status, 200);
+});
+
 test("a created user signs in with the temporary password and is locked to the password change", async () => {
   const actor = await user({ admin: true, totp: true });
   const email = `m5-${randomUUID()}@example.test`;

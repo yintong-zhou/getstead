@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test, { afterEach, before } from "node:test";
 import { generate } from "otplib";
+import QRCode from "qrcode";
 import { getProfile, updateTotp } from "../profile/service.ts";
 import { encryptionKey, localPostgresUrl } from "./config.ts";
-import { digestRateLimitSubject } from "./crypto.ts";
+import { digestRateLimitSubject, totpEnrollmentUri } from "./crypto.ts";
 import { db, disconnectDb } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 import { createOwner, resetOwner } from "./owner.ts";
@@ -44,6 +45,8 @@ test("profile TOTP enrollment controls whether sign-in requires a code", async (
 
   const setup = await updateTotp(userId, first.token, { action: "begin", currentPassword: password });
   assert.ok(setup.secret && setup.enrollmentToken);
+  const expectedSvg = await QRCode.toString(totpEnrollmentUri(setup.secret, email), { type: "svg", margin: 4 });
+  assert.equal(setup.qrCode, `data:image/svg+xml;base64,${Buffer.from(expectedSvg).toString("base64")}`);
   assert.deepEqual(await readChallenge(setup.enrollmentToken), { status: "anonymous" });
   assert.equal((await getProfile(userId)).totpEnabled, false);
   const code = await generate({ secret: setup.secret, epoch: now });

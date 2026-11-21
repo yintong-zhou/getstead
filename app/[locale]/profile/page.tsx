@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProfilePage({ params }: Props) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const user = await readPageUser(locale, { allowPasswordChange: true });
+  const user = await readPageUser(locale, { allowPasswordChange: true, shared: true });
   if (user.status === "anonymous") redirect(`/${locale}/login`);
   if (user.status === "unavailable") return <UnavailableNotice locale={locale} path="/profile" />;
   const copy = profileCopy[locale];

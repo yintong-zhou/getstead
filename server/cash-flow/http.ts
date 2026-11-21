@@ -26,6 +26,8 @@ type Options = {
   admin?: boolean;
   /** The one route a user with a temporary password may still call: changing it. */
   allowPasswordChange?: boolean;
+  /** Open to admin accounts too (the profile routes). Without it a route is for user accounts only. */
+  shared?: boolean;
 };
 
 function json(data: unknown, status: number) {
@@ -68,6 +70,8 @@ export function api<P = Record<string, never>>(
       userId = session.userId;
       if (session.mustChangePassword && !options.allowPasswordChange) return json({ error: "password_change_required" }, 403);
       if (options.admin && !(session.admin && session.hasTotp)) return json({ error: "forbidden" }, 403);
+      // Finance routes are for user accounts: an admin account has no personal data to read or change here.
+      if (session.admin && !options.admin && !options.shared) return json({ error: "forbidden" }, 403);
 
       const result = await handler({
         userId: session.userId,

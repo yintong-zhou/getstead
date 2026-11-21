@@ -4,4 +4,4 @@ import { changeEmail } from "@/server/profile/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const POST = api(async ({ userId, body }) => changeEmail(userId, await body()));
+export const POST = api(async ({ userId, body }) => changeEmail(userId, await body()), { shared: true });
