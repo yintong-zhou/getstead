@@ -1,4 +1,4 @@
-// Accounts and categories. Both are archived, never deleted, so old movements keep their references.
+// Accounts and categories. Both are archived so old movements keep their references; an unused account can be deleted.
 
 import type { Account, Category } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
@@ -56,6 +56,17 @@ export async function updateAccount(userId: string, id: string, input: Record<st
     });
   });
   return accountDto(row);
+}
+
+/** Deletes an account nothing references. Every reference is a RESTRICT foreign key, so the database decides "in use" atomically; the logo cascades. */
+export async function deleteAccount(userId: string, id: string) {
+  try {
+    const { count } = await db().account.deleteMany({ where: { userId, id } });
+    if (!count) throw notFound();
+  } catch (error) {
+    if ((error as { code?: string })?.code === "P2003") throw conflict("account_in_use");
+    throw error;
+  }
 }
 
 export async function listCategories(userId: string, includeArchived = false) {

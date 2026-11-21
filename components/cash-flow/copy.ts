@@ -53,6 +53,7 @@ const en = {
     not_due: "This occurrence isn’t due yet.",
     frozen_month: "Past months are read-only.",
     forbidden: "The request was blocked. Reload the page and try again.",
+    account_in_use: "This account has movements, balance checks or other linked entries. Archive it instead.",
     linked: "This movement settles a recurring expense or a condominium charge. Reopen that occurrence or charge first, then change or void the movement.",
   } as Record<string, string>,
   fields: {
@@ -181,6 +182,8 @@ const en = {
   categoryAdded: "Category added.",
   ruleAdded: "Rule saved.",
   removed: "Removed.",
+  moreActionsFor: (name: string) => `More actions for ${name}`,
+  confirmDeleteAccount: (name: string) => `Delete the account “${name}”? This can’t be undone.`,
 
   // refunds, pagination, matching, reopen
   kindRefund: "Refund",
@@ -283,6 +286,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
       not_due: "Questa scadenza non è ancora arrivata.",
       frozen_month: "I mesi passati sono in sola lettura.",
       forbidden: "La richiesta è stata bloccata. Ricarica la pagina e riprova.",
+      account_in_use: "Questo conto ha movimenti, saldi o altre voci collegate. Archivialo invece di eliminarlo.",
       linked: "Questo movimento salda una spesa ricorrente o un addebito condominiale. Riapri prima quella scadenza o quell’addebito, poi modifica o annulla il movimento.",
     },
     fields: {
@@ -407,6 +411,8 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
     categoryAdded: "Categoria aggiunta.",
     ruleAdded: "Regola salvata.",
     removed: "Rimosso.",
+    moreActionsFor: (name: string) => `Altre azioni per ${name}`,
+    confirmDeleteAccount: (name: string) => `Eliminare il conto «${name}»? L’operazione non si può annullare.`,
 
     kindRefund: "Rimborso",
     refundHint: "Soldi che tornano per un acquisto. Riducono la spesa della categoria scelta, nel mese in cui arrivano.",

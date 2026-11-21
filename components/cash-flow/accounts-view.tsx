@@ -1,15 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
 import { supportsAccountLogo } from "@/server/cash-flow/logo-catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
 import { Select } from "../select";
-import { AccountLogoControls, AccountLogoThumbnail, accountLogoPath } from "./account-logo";
+import { AccountLogoControls, AccountLogoThumbnail, accountLogoLabel, accountLogoPath } from "./account-logo";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
+import { MoreActions } from "./more-actions";
 import { NoticeLine, useAction } from "./use-action";
 
 const accountTypes = ["CHECKING", "CARD", "CASH", "BROKERAGE", "CRYPTO", "DEBT"] as const;
@@ -21,14 +22,19 @@ function formData(event: FormEvent<HTMLFormElement>) {
   return new FormData(event.currentTarget);
 }
 
-function Row({ locale, name, meta, archived, logo, onRename, onArchive }: {
+function Row({ locale, name, meta, archived, logo, menuItems, onRename, onArchive, onDelete }: {
   locale: Locale; name: string; meta: string; archived: boolean;
-  logo?: ReactNode;
-  onRename: (name: string) => void; onArchive: () => void;
+  logo?: ReactNode; menuItems?: ReactNode;
+  onRename: (name: string) => void; onArchive: () => void; onDelete?: () => void;
 }) {
   const copy = cashFlowCopy[locale];
   const [editing, setEditing] = useState(false);
   const inputId = useId();
+  const trigger = useRef<HTMLElement>(null);
+  const stopEditing = () => {
+    setEditing(false);
+    requestAnimationFrame(() => trigger.current?.focus());
+  };
 
   return (
     <li className={`manage-row${archived ? " is-archived" : ""}`}>
@@ -38,13 +44,13 @@ function Row({ locale, name, meta, archived, logo, onRename, onArchive }: {
           onSubmit={(event) => {
             const value = String(formData(event).get("name") ?? "").trim();
             if (value) onRename(value);
-            setEditing(false);
+            stopEditing();
           }}
         >
           <label className="visually-hidden" htmlFor={inputId}>{copy.name}</label>
           <input id={inputId} name="name" className="field" defaultValue={name} maxLength={80} required autoFocus />
           <button className="button" type="submit">{copy.save}</button>
-          <button className="button button-quiet" type="button" onClick={() => setEditing(false)}>{copy.cancel}</button>
+          <button className="button button-quiet" type="button" onClick={stopEditing}>{copy.cancel}</button>
         </form>
       ) : (
         <>
@@ -52,14 +58,45 @@ function Row({ locale, name, meta, archived, logo, onRename, onArchive }: {
             <p>{name}</p>
             <span>{meta}{archived ? ` · ${copy.archivedSuffix}` : ""}</span>
           </div>
-          <div className="row-actions">
+          <MoreActions label={copy.moreActionsFor(name)} title={copy.actions} triggerRef={trigger}>
             <button className="button button-quiet" type="button" onClick={() => setEditing(true)}>{copy.edit}</button>
+            {menuItems}
             <button className="button button-quiet" type="button" onClick={onArchive}>{archived ? copy.restore : copy.archive}</button>
-          </div>
+            {onDelete && <button className="button button-quiet" type="button" onClick={onDelete}>{copy.delete}</button>}
+          </MoreActions>
         </>
       )}
       {logo}
     </li>
+  );
+}
+
+function AccountRow({ locale, account, lookup, action }: {
+  locale: Locale; account: AccountDto; lookup?: "pending" | "failed"; action: ReturnType<typeof useAction>;
+}) {
+  const copy = cashFlowCopy[locale];
+  const [logoOpen, setLogoOpen] = useState<boolean>();
+  const showLogo = logoOpen ?? lookup === "failed";
+  const path = `/accounts/${account.id}`;
+  const withLogo = supportsAccountLogo(account.type);
+
+  return (
+    <Row
+      locale={locale} name={account.name} archived={account.archived} meta={copy.accountTypes[account.type]}
+      logo={withLogo
+        ? <AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} />
+        : <AccountLogoThumbnail src={null} />}
+      menuItems={withLogo && (
+        <button className="button button-quiet" type="button" aria-expanded={showLogo} onClick={() => setLogoOpen(!showLogo)}>
+          {accountLogoLabel(locale)}
+        </button>
+      )}
+      onRename={(name) => action.run(() => call("PATCH", path, { name }), copy.saved)}
+      onArchive={() => action.run(() => call("PATCH", path, { archived: !account.archived }), copy.saved)}
+      onDelete={() => {
+        if (window.confirm(copy.confirmDeleteAccount(account.name))) void action.run(() => call("DELETE", path), copy.removed);
+      }}
+    />
   );
 }
 
@@ -98,15 +135,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
         {visibleAccounts.length === 0 ? <p className="empty-inline">{copy.accountsEmpty}</p> : (
           <ul className="rows">
             {visibleAccounts.map((account) => (
-              <Row
-                key={account.id} locale={locale} name={account.name} archived={account.archived}
-                meta={copy.accountTypes[account.type]}
-                logo={supportsAccountLogo(account.type)
-                  ? <AccountLogoControls account={account} locale={locale} lookup={lookups.get(account.id)} />
-                  : <AccountLogoThumbnail src={null} />}
-                onRename={(name) => accountsAction.run(() => call("PATCH", `/accounts/${account.id}`, { name }), copy.saved)}
-                onArchive={() => accountsAction.run(() => call("PATCH", `/accounts/${account.id}`, { archived: !account.archived }), copy.saved)}
-              />
+              <AccountRow key={account.id} locale={locale} account={account} lookup={lookups.get(account.id)} action={accountsAction} />
             ))}
           </ul>
         )}
@@ -209,15 +238,14 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
             {rules.map((rule) => (
               <li className="manage-row" key={rule.id}>
                 <div className="row-text"><p>{rule.phrase}</p><span>{categoryName.get(rule.categoryId) ?? ""}</span></div>
-                <div className="row-actions">
+                <MoreActions label={copy.moreActionsFor(rule.phrase)} title={copy.actions}>
                   <button
                     className="button button-quiet" type="button" disabled={rulesAction.pending}
-                    aria-label={`${copy.delete}: ${rule.phrase}`}
                     onClick={() => rulesAction.run(() => call("DELETE", `/rules/${rule.id}`), copy.removed)}
                   >
                     {copy.delete}
                   </button>
-                </div>
+                </MoreActions>
               </li>
             ))}
           </ul>

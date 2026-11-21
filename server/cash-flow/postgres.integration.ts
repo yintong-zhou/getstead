@@ -241,6 +241,39 @@ async function rejectsMissing(promise: Promise<unknown>) {
   });
 }
 
+test("unused accounts can be deleted only by their owner, including their logo", async () => {
+  const { deleteAccount } = await import("./catalog.ts");
+  assert.equal(typeof deleteAccount, "function", "The catalog must support account deletion");
+  const [owner, other] = [await newUser(), await newUser()];
+  const unused = await account(owner, "Synthetic Directa", "BROKERAGE");
+  await findAccountLogo(owner, unused.id, { provider: "directa" });
+  await updateAccount(owner, unused.id, { archived: true });
+
+  await rejectsApi(deleteAccount(other, unused.id), 404, "not_found");
+  assert.equal((await listAccounts(owner, true))[0]?.hasLogo, true);
+  await deleteAccount(owner, unused.id);
+  assert.deepEqual(await listAccounts(owner, true), []);
+  assert.equal(await admin.accountLogo.count({ where: { userId: owner, accountId: unused.id } }), 0);
+  await rejectsApi(deleteAccount(owner, unused.id), 404, "not_found");
+});
+
+test("accounts with a movement or a balance check cannot be deleted", async () => {
+  const { deleteAccount } = await import("./catalog.ts");
+  assert.equal(typeof deleteAccount, "function", "The catalog must support account deletion");
+  const owner = await newUser();
+  const checking = await account(owner);
+  const cash = await account(owner, "Synthetic cash", "CASH");
+  const booked = await movement(owner, checking.id, "2026-11-03", -100);
+  const { check } = await recordCheck(
+    owner, { accountId: cash.id, asOf: "2026-11-03", balanceCents: 100 }, new Date("2026-11-04T00:00:00Z"),
+  );
+
+  await rejectsApi(deleteAccount(owner, checking.id), 409, "account_in_use");
+  await rejectsApi(deleteAccount(owner, cash.id), 409, "account_in_use");
+  assert.equal((await getMovement(owner, booked.id)).accountId, checking.id);
+  assert.equal((await listChecks(owner))[0]?.id, check.id);
+});
+
 test("balance checks upsert and delete under the runtime role, with user isolation and database constraints", async () => {
   const [a, b] = [await newUser(), await newUser()];
   const checking = await account(a);
@@ -480,7 +513,7 @@ test("the runtime role has no DELETE on history tables and cannot rewrite owners
   }
   const rejected = /permission denied/i;
   await assert.rejects(db().$executeRaw`DELETE FROM stead_movements`, rejected);
-  await assert.rejects(db().$executeRaw`DELETE FROM stead_accounts`, rejected);
+  // Accounts are DELETE-able only while unreferenced: the RESTRICT foreign keys refuse the rest (see the deletion tests).
   await assert.rejects(db().$executeRaw`DELETE FROM stead_categories`, rejected);
   await assert.rejects(db().$executeRaw`DELETE FROM stead_recurring_templates`, rejected);
   await assert.rejects(db().$executeRaw`TRUNCATE stead_movements`, rejected);

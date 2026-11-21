@@ -1,6 +1,6 @@
 /* Movements screens: previews, compact rows, new-category popover, history. Tokens come from app/globals.css. */
 
-.cash-flow-view .card:has(.category-popover, .more-actions[open]) { position: relative; z-index: 3; }
+.cash-flow-view .card:has(.category-popover) { position: relative; z-index: 3; }
 
 /* Category and its optional remembered phrase share one row, so their fields start on the same line. */
 .category-row {
@@ -42,38 +42,6 @@
 .movement-meta .badge-amber { color: #8d5107; }
 
 .movement .data-row { gap: 8px; }
-.more-actions { position: relative; flex: 0 0 auto; }
-.more-actions summary {
-  display: grid;
-  width: 44px;
-  min-height: 44px;
-  place-items: center;
-  border-radius: 12px;
-  color: var(--brand);
-  cursor: pointer;
-  font-size: 22px;
-  font-weight: 700;
-  list-style: none;
-}
-.more-actions summary::-webkit-details-marker { display: none; }
-.more-actions summary:hover, .more-actions[open] summary { background: var(--brand-soft); }
-.more-actions summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.more-actions-list {
-  position: absolute;
-  inset-block-start: 100%;
-  inset-inline-end: 0;
-  z-index: 4;
-  display: grid;
-  min-width: 160px;
-  width: max-content;
-  max-width: min(240px, calc(100vw - 48px));
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--glass-popup-fill);
-  backdrop-filter: blur(var(--glass-blur));
-  box-shadow: inset 0 0 0 1px var(--glass-stroke), var(--glass-shadow);
-}
-.more-actions-list > .button { justify-content: start; white-space: normal; text-align: start; }
 
 /* Previews and history ------------------------------------------------------------------------ */
 

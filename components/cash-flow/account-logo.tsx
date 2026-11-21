@@ -60,14 +60,17 @@ export function AccountLogoThumbnail({ src }: { src: string | null }) {
   );
 }
 
-export function AccountLogoControls({ account, locale, lookup }: {
+export const accountLogoLabel = (locale: Locale) => copy[locale].manage;
+
+/** The logo thumbnail and its panel. The row menu owns the toggle, so `open` is controlled by the row. */
+export function AccountLogoControls({ account, locale, lookup, open }: {
   account: AccountDto;
   locale: Locale;
   lookup?: "pending" | "failed";
+  open: boolean;
 }) {
   const labels = copy[locale];
   const panel = useId();
-  const [open, setOpen] = useState<boolean>();
   const [provider, setProvider] = useState("");
   const [version, setVersion] = useState(0);
   const [visibleLogo, setVisibleLogo] = useState<boolean>();
@@ -80,7 +83,6 @@ export function AccountLogoControls({ account, locale, lookup }: {
     logo_account_changed: labels.changed,
   } as Record<string, string>)[error] ?? labels.failed);
   const busy = lookup === "pending" || action.pending;
-  const showPanel = open ?? lookup === "failed";
   const hasLogo = visibleLogo ?? account.hasLogo;
   const path = accountLogoPath(account.id);
   const image = hasLogo ? `/api/cash-flow${path}?v=${version}` : null;
@@ -97,11 +99,8 @@ export function AccountLogoControls({ account, locale, lookup }: {
   return (
     <>
       <AccountLogoThumbnail key={image} src={image} />
-      <button type="button" className="button button-quiet account-logo-toggle" aria-expanded={showPanel}
-        aria-controls={panel} aria-label={`${labels.manage} · ${account.name}`}
-        onClick={() => setOpen(!showPanel)}>{labels.manage}</button>
       {lookup === "pending" && <p className="hint account-logo-message" role="status">{labels.finding}</p>}
-      <div id={panel} className="account-logo-panel" hidden={!showPanel}>
+      <div id={panel} className="account-logo-panel" hidden={!open}>
         {lookup === "failed" && !hasLogo && !action.notice && <p className="hint" role="status">{labels.missing}</p>}
         <div className="row-actions">
           {!hasLogo && <button type="button" className="button button-quiet" disabled={busy}
@@ -109,7 +108,7 @@ export function AccountLogoControls({ account, locale, lookup }: {
           {hasLogo && <button type="button" className="button button-quiet" disabled={busy}
             onClick={() => void update(() => call("DELETE", path), false)}>{labels.remove}</button>}
         </div>
-        {showPanel && (
+        {open && (
           <form className="inline-form account-logo-catalog" onSubmit={(event) => {
             event.preventDefault();
             if (provider) void update(() => call("POST", path, { provider }), true);

@@ -15,6 +15,7 @@ import { cashFlowCopy, type CashFlowCopy } from "./copy";
 import { currentSuggestion, movementBody, type Suggestion } from "./movement-body";
 import { movementsCopy } from "./movements-copy";
 import { historyHref } from "./movements-query";
+import { MoreActions } from "./more-actions";
 import { NoticeLine, useAction } from "./use-action";
 import { euros } from "@/components/euros";
 import "./movements.css";
@@ -449,8 +450,6 @@ export function Row({ locale, movement, accounts, categories, today }: {
   const extra = movementsCopy[locale];
   const { pending, notice, run } = useAction(locale);
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [actionsOpen, setActionsOpen] = useState(false);
-  const actions = useRef<HTMLDetailsElement>(null);
   const actionTrigger = useRef<HTMLElement>(null);
   const account = accounts.find((item) => item.id === movement.accountId);
   const category = categories.find((item) => item.id === movement.categoryId);
@@ -462,24 +461,6 @@ export function Row({ locale, movement, accounts, categories, today }: {
   const icon = paired ? "cashFlow" : movement.amountCents > 0 ? "arrowDown" : "arrowUp";
   const subtitle = [paired ? null : category?.name ?? copy.noCategory, account?.name, formatDay(movement.bookingDate, locale, today, days(locale))]
     .filter(Boolean).join(" · ");
-
-  useEffect(() => {
-    if (!actionsOpen) return;
-    function dismissOutside(event: PointerEvent) {
-      if (actions.current && event.target instanceof Node && !actions.current.contains(event.target)) {
-        actions.current.open = false;
-      }
-    }
-    document.addEventListener("pointerdown", dismissOutside);
-    return () => document.removeEventListener("pointerdown", dismissOutside);
-  }, [actionsOpen]);
-
-  function menuKeys(event: KeyboardEvent<HTMLDetailsElement>) {
-    if (event.key !== "Escape" || !event.currentTarget.open) return;
-    event.stopPropagation();
-    event.currentTarget.open = false;
-    event.currentTarget.querySelector("summary")?.focus();
-  }
 
   return (
     <li className={`movement${movement.voided ? " is-voided" : ""}`}>
@@ -500,15 +481,8 @@ export function Row({ locale, movement, accounts, categories, today }: {
           {euros(movement.amountCents, locale, { showPlus: true })}
         </span>
         {mode === "view" && (
-          <details ref={actions} className="more-actions" onKeyDown={menuKeys} onToggle={(event) => setActionsOpen(event.currentTarget.open)}>
-            <summary ref={actionTrigger} aria-label={extra.moreActionsFor(movement.description)} title={extra.moreActions}>
-              <span aria-hidden="true">⋯</span>
-            </summary>
-            <div className="more-actions-list">
-              {!movement.voided && <button className="button button-quiet" type="button" onClick={() => {
-                setActionsOpen(false);
-                setMode("edit");
-              }}>{copy.edit}</button>}
+          <MoreActions label={extra.moreActionsFor(movement.description)} title={extra.moreActions} triggerRef={actionTrigger}>
+              {!movement.voided && <button className="button button-quiet" type="button" onClick={() => setMode("edit")}>{copy.edit}</button>}
               {paired && (
                 <button
                   className="button button-quiet" type="button" disabled={pending}
@@ -537,8 +511,7 @@ export function Row({ locale, movement, accounts, categories, today }: {
                   {movement.voided ? copy.unvoid : copy.void}
                 </button>
               )}
-            </div>
-          </details>
+          </MoreActions>
         )}
       </div>
       {mode === "edit" && <EditForm locale={locale} movement={movement} accounts={accounts} categories={categories} onDone={() => {
