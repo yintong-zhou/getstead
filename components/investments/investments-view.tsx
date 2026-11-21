@@ -9,6 +9,7 @@ import { formatMonth } from "../format";
 import { investmentsCopy } from "./copy";
 import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numbers";
 import { Instruments, PriceHistory, QuickPrice, Transactions, type Quote } from "./forms";
+import { euros } from "@/components/euros";
 import "./investments.css";
 
 type ViewProps = {
@@ -22,7 +23,7 @@ type ViewProps = {
 
 function Gain({ cents, locale }: { cents: number; locale: Locale }) {
   const tone = cents > 0 ? "positive" : cents < 0 ? "negative" : "";
-  return <span className={`amount ${tone}`}>{formatEuros(cents, locale, { showPlus: true })}</span>;
+  return <span className={`amount ${tone}`}>{euros(cents, locale, { showPlus: true })}</span>;
 }
 
 function Trend({ locale, series }: { locale: Locale; series: PortfolioData["series"] }) {
@@ -64,7 +65,7 @@ function Allocation({ locale, allocation }: { locale: Locale; allocation: Portfo
       <ul className="allocations">
         {allocation.map(({ kind, valueCents, share }) => <li key={kind}>
           <span><i data-kind={kind} aria-hidden="true" />{copy.kinds[kind]} · {percentages.format(Number(share))}</span>
-          <span className="amount">{formatEuros(valueCents, locale)}</span>
+          <span className="amount">{euros(valueCents, locale)}</span>
         </li>)}
       </ul>
     </>}
@@ -133,8 +134,8 @@ function Performance({ locale, data }: Pick<ViewProps, "locale" | "data">) {
         <h2 id="investments-income-title">{copy.income}</h2>
         <p className="hint investment-note">{copy.incomePeriod(data.today.slice(0, 4))}</p>
         <dl className="investment-metrics">
-          <div><dt>{copy.gross}</dt><dd className="amount">{formatEuros(data.income.grossCents, locale)}</dd></div>
-          <div><dt>{copy.net}</dt><dd className="amount">{formatEuros(data.income.netCents, locale)}</dd></div>
+          <div><dt>{copy.gross}</dt><dd className="amount">{euros(data.income.grossCents, locale)}</dd></div>
+          <div><dt>{copy.net}</dt><dd className="amount">{euros(data.income.netCents, locale)}</dd></div>
         </dl>
         <p className="hint investment-note">{copy.estimate}</p>
       </section>
@@ -157,7 +158,7 @@ function Performance({ locale, data }: Pick<ViewProps, "locale" | "data">) {
             <dl className="investment-metrics">
               <div><dt>{copy.taxableGains}</dt><dd><Gain cents={gainCents} locale={locale} /></dd></div>
               <div><dt>{copy.taxableLosses}</dt><dd><Gain cents={-lossCents} locale={locale} /></dd></div>
-              <div><dt>{copy.taxAmount}</dt><dd className="amount">{formatEuros(taxCents, locale)}</dd></div>
+              <div><dt>{copy.taxAmount}</dt><dd className="amount">{euros(taxCents, locale)}</dd></div>
             </dl>
           </li>
         ))}
@@ -174,9 +175,9 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
     <div className="investment-split investment-overview">
       <section className="card hero investment-hero" aria-labelledby="investments-value-title">
         <h2 id="investments-value-title" className="hero-label">{copy.value}</h2>
-        <p className="hero-amount amount">{formatEuros(data.valueCents, locale)}</p>
+        <p className="hero-amount amount">{euros(data.valueCents, locale)}</p>
         <p className="investment-hero-gain">
-          <span className="trend-chip">{formatEuros(data.gainCents, locale, { showPlus: true })}</span> {copy.gain}
+          <span className="trend-chip">{euros(data.gainCents, locale, { showPlus: true })}</span> {copy.gain}
         </p>
         <p className="hero-note">{copy.asOf} <time dateTime={data.today}>{data.today}</time></p>
       </section>

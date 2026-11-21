@@ -6,7 +6,7 @@ import { db } from "../auth/database.ts";
 import { isLocale, type Locale } from "../locale.ts";
 
 export type WaitlistRequest =
-  | { status: "ok"; email: string; locale: Locale }
+  | { status: "ok"; email: string; locale: Locale; turnstile: unknown }
   | { status: "bot" }
   | { status: "invalid" };
 
@@ -18,7 +18,7 @@ export function parseWaitlist(body: Record<string, unknown> | null): WaitlistReq
   const email = normalizeEmail(body.email);
   const locale = body.locale;
   if (!email || body.consent !== true || typeof locale !== "string" || !isLocale(locale)) return { status: "invalid" };
-  return { status: "ok", email, locale };
+  return { status: "ok", email, locale, turnstile: body.turnstile };
 }
 
 /** Adds the email once. A second sign-up with the same address changes nothing. */

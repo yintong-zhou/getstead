@@ -13,6 +13,7 @@ import { Select } from "../select";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction } from "./use-action";
+import { euros } from "@/components/euros";
 
 type Props = {
   locale: Locale;
@@ -289,7 +290,7 @@ export function RecurringView(props: Props) {
                     {nextFor.has(template.id) && ` · ${copy.nextDue} ${formatDay(nextFor.get(template.id)!, locale)}`}
                   </span>
                 </div>
-                <span className="row-amount amount">{formatEuros(-template.amountCents, locale)}</span>
+                <span className="row-amount amount">{euros(-template.amountCents, locale)}</span>
                 <div className="row-actions">
                   <button
                     className="button button-quiet" type="button" disabled={pending}

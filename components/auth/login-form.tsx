@@ -2,12 +2,15 @@
 
 import { useState, type FormEvent } from "react";
 import type { Locale } from "@/server/locale";
+import { PasswordInput } from "../password-input";
+import { useTurnstile } from "../use-turnstile";
 import { authCopy, errorKeyForStatus, postAuth, type AuthErrorKey } from "./auth-copy";
 
 export function LoginForm({ locale }: { locale: Locale }) {
   const copy = authCopy[locale];
   const [error, setError] = useState<AuthErrorKey | null>(null);
   const [pending, setPending] = useState(false);
+  const turnstile = useTurnstile("login");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,6 +23,7 @@ export function LoginForm({ locale }: { locale: Locale }) {
     const status = await postAuth("/api/auth/login", {
       email: String(data.get("email") ?? "").trim(),
       password: String(data.get("password") ?? ""),
+      turnstile: String(data.get("cf-turnstile-response") ?? ""),
     });
 
     if (status === 204 || status === 202) {
@@ -28,6 +32,7 @@ export function LoginForm({ locale }: { locale: Locale }) {
       return;
     }
     form.reset();
+    turnstile.reset(); // a token works once
     setError(errorKeyForStatus(status, "login"));
     setPending(false);
   }
@@ -49,12 +54,13 @@ export function LoginForm({ locale }: { locale: Locale }) {
       </div>
       <div className="auth-field">
         <label htmlFor="password">{copy.password}</label>
-        <input
-          id="password" name="password" type="password" className="auth-input" required
+        <PasswordInput
+          locale={locale} id="password" name="password" className="auth-input" required
           autoComplete="current-password"
           aria-invalid={error === "invalidLogin" || error === "badLogin"}
         />
       </div>
+      {turnstile.widget}
       <div id="login-error" role="alert">
         {error && <p className="auth-error">{copy.errors[error]}</p>}
       </div>

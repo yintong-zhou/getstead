@@ -10,6 +10,7 @@ import { editableEuros, parseLimit } from "../money";
 import { call, type ApiResult } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction, type Notice } from "./use-action";
+import { euros } from "@/components/euros";
 
 const palette = ["var(--brand)", "var(--chart-2)", "var(--warning)", "#a855f7", "#f43f5e"];
 
@@ -154,7 +155,7 @@ function BudgetMonth({ locale, month, currentMonth, rows }: { locale: Locale; mo
                   <div className="budget-caption">
                     <span className="budget-name"><i aria-hidden="true" />{row.name}{row.archived ? ` (${copy.archivedSuffix})` : ""}</span>
                     <span className="amount budget-amount">
-                      <strong>{formatEuros(row.spentCents, locale)}</strong>
+                      <strong>{euros(row.spentCents, locale)}</strong>
                       {row.limitCents !== null ? ` / ${formatEuros(row.limitCents, locale)}` : ` · ${copy.noLimit}`}
                     </span>
                   </div>

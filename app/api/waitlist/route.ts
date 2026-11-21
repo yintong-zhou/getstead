@@ -2,6 +2,7 @@ import { authResponse, readAuthBody, sameOrigin } from "@/server/auth/http";
 import { reserveAttempt } from "@/server/auth/limits";
 import { recordEvent } from "@/server/admin/logs";
 import { clientAddress, joinWaitlist, parseWaitlist } from "@/server/waitlist/service";
+import { verifyTurnstile } from "@/server/turnstile";
 
 const LIMIT_WINDOW_MS = 15 * 60_000;
 const event = { route: "/api/waitlist", method: "POST" } as const;
@@ -20,7 +21,13 @@ export function POST(request: Request) {
         return authResponse(429);
       }
       // A bot gets the same success answer as a person, and nothing is stored.
-      if (input.status === "ok") await joinWaitlist(input.email, input.locale);
+      if (input.status === "ok") {
+        if (!await verifyTurnstile(input.turnstile, "waitlist", clientAddress(request.headers))) {
+          await recordEvent({ ...event, kind: "SECURITY", code: "waitlist_challenge_failed" }, LIMIT_WINDOW_MS);
+          return authResponse(403);
+        }
+        await joinWaitlist(input.email, input.locale);
+      }
       return authResponse(204);
     } catch {
       // A missing table or grant would otherwise show up only as a silent 503: leave a row for the admin log.

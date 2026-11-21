@@ -2,10 +2,11 @@
 
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { Costs, Overview } from "@/server/property/service";
-import { formatEuros, type Locale } from "@/server/locale";
+import { type Locale } from "@/server/locale";
 import { propertyCopy } from "./copy";
 import { Charges, PropertyForm, Schedules, Tables, Valuations, type PropertyRow } from "./forms";
 import { ownershipText } from "./numbers";
+import { euros } from "@/components/euros";
 import "./property.css";
 
 type ViewProps = { locale: Locale; data: Overview; accounts: AccountDto[]; costs: Costs };
@@ -14,7 +15,7 @@ type CostRow = Costs["total"];
 function CostFigures({ locale, row }: { locale: Locale; row: CostRow }) {
   const copy = propertyCopy[locale];
   const figure = (label: string, cents: number, strong = false) =>
-    <div><dt>{label}</dt><dd className={strong ? "amount cost-strong" : "amount"}>{formatEuros(cents, locale)}</dd></div>;
+    <div><dt>{label}</dt><dd className={strong ? "amount cost-strong" : "amount"}>{euros(cents, locale)}</dd></div>;
   return <dl className="property-metrics">
     {figure(copy.costsPaidOrdinary, row.paidOrdinary)}
     {figure(copy.costsPaidExtraordinary, row.paidExtraordinary)}
@@ -41,11 +42,11 @@ function PropertyCard({ locale, property, accounts, today, costs }: { locale: Lo
     </div>
     {property.noValuation && !sold ? <p className="hint">{copy.noValuation}. {copy.noValuationHint}</p> : null}
     <dl className="property-metrics">
-      <div><dt>{copy.fullValue}</dt><dd className="amount">{property.valueCents === null ? "–" : formatEuros(property.valueCents, locale)}</dd></div>
+      <div><dt>{copy.fullValue}</dt><dd className="amount">{property.valueCents === null ? "–" : euros(property.valueCents, locale)}</dd></div>
       <div><dt>{copy.ownership}</dt><dd className="amount">{ownershipText(property.ownershipBps, separator)}%</dd></div>
-      <div><dt>{copy.yourShare}</dt><dd className="amount">{formatEuros(property.shareValueCents, locale)}</dd></div>
-      {mortgage && <div><dt>{copy.mortgageDebt}</dt><dd className="amount">{property.debtBalanceCents === null ? "–" : formatEuros(property.debtBalanceCents, locale)}</dd></div>}
-      {property.equityCents !== null && <div><dt>{copy.equity}</dt><dd className="amount">{formatEuros(property.equityCents, locale)}</dd></div>}
+      <div><dt>{copy.yourShare}</dt><dd className="amount">{euros(property.shareValueCents, locale)}</dd></div>
+      {mortgage && <div><dt>{copy.mortgageDebt}</dt><dd className="amount">{property.debtBalanceCents === null ? "–" : euros(property.debtBalanceCents, locale)}</dd></div>}
+      {property.equityCents !== null && <div><dt>{copy.equity}</dt><dd className="amount">{euros(property.equityCents, locale)}</dd></div>}
     </dl>
     <p className="hint">{copy.estimateLabel}</p>
     <Valuations locale={locale} property={property} today={today} />
@@ -75,7 +76,7 @@ export function PropertyView({ locale, data, accounts, costs }: ViewProps) {
   return <div className="stack property-view">
     <section className="card hero" aria-labelledby="property-total-title">
       <h2 id="property-total-title" className="hero-label">{copy.totalValue}</h2>
-      <p className="hero-amount amount">{formatEuros(data.propertiesCents, locale)}</p>
+      <p className="hero-amount amount">{euros(data.propertiesCents, locale)}</p>
       <p className="hero-note">{copy.totalNote}</p>
     </section>
     {data.properties.length > 0 && <section className="card" aria-labelledby="property-costs-title">

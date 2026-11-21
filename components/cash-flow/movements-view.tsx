@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
 import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import type { MovementDto } from "@/server/cash-flow/movements";
-import { formatEuros, type Locale } from "@/server/locale";
+import { type Locale } from "@/server/locale";
 import { addMonths, formatDay, formatMonth } from "../format";
 import { Icon } from "../icon";
 import { Select, type SelectGroup } from "../select";
@@ -16,6 +16,7 @@ import { currentSuggestion, movementBody, type Suggestion } from "./movement-bod
 import { movementsCopy } from "./movements-copy";
 import { historyHref } from "./movements-query";
 import { NoticeLine, useAction } from "./use-action";
+import { euros } from "@/components/euros";
 import "./movements.css";
 
 type Kind = "EXPENSE" | "INCOME" | "REFUND" | "TRANSFER";
@@ -496,7 +497,7 @@ export function Row({ locale, movement, accounts, categories, today }: {
           </div>
         </div>
         <span className={`row-amount amount${movement.amountCents > 0 ? " positive" : ""}`}>
-          {formatEuros(movement.amountCents, locale, { showPlus: true })}
+          {euros(movement.amountCents, locale, { showPlus: true })}
         </span>
         {mode === "view" && (
           <details ref={actions} className="more-actions" onKeyDown={menuKeys} onToggle={(event) => setActionsOpen(event.currentTarget.open)}>
@@ -611,7 +612,7 @@ export function MovementsView(props: Props) {
           {stats.map((stat) => (
             <div key={stat.label}>
               <dt>{stat.label}</dt>
-              <dd className={`amount${stat.cents > 0 ? " positive" : ""}`}>{formatEuros(stat.cents, locale, { showPlus: true })}</dd>
+              <dd className={`amount${stat.cents > 0 ? " positive" : ""}`}>{euros(stat.cents, locale, { showPlus: true })}</dd>
             </div>
           ))}
         </dl>
@@ -632,7 +633,7 @@ export function MovementsView(props: Props) {
               <Link className="text-link" href={historyHref(locale, { month, type: column.key })} aria-label={extra.viewAllFor(column.title)}>{extra.viewAll}</Link>
             </div>
             <p className={`flow-total amount${column.cents > 0 ? " positive" : ""}`}>
-              {formatEuros(column.cents, locale, { showPlus: true })}
+              {euros(column.cents, locale, { showPlus: true })}
             </p>
             {column.rows.length === 0 ? <div className="empty-inline"><p>{column.empty}</p></div> : list(column.rows)}
           </section>

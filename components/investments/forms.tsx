@@ -5,13 +5,14 @@ import { useId, useState, type ComponentProps, type ReactNode } from "react";
 import { Select } from "../select";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
-import { formatEuros, type Locale } from "@/server/locale";
+import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { editableEuros } from "../money";
 import { investmentsCopy } from "./copy";
 import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers";
+import { euros } from "@/components/euros";
 
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
   "id" | "instrumentId" | "asOf" | "unitPrice">;
@@ -155,7 +156,7 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
         <p>{label}{row.voided && <span className="badge">{shared.voided}</span>}</p>
         <span><time dateTime={row.tradeDate}>{row.tradeDate}</time> · #{row.ordinal} · {account?.name}</span>
       </div>
-      <b className="amount">{formatEuros(row.amountCents, locale)}</b>
+      <b className="amount">{euros(row.amountCents, locale)}</b>
       <div className="investment-actions">
         <button type="button" className="button button-quiet" aria-expanded={editing} aria-controls={details}
           aria-label={`${editing ? shared.cancel : shared.edit} · ${label} · ${row.tradeDate} · #${row.ordinal}`}

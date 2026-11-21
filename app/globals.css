@@ -757,3 +757,26 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   }
   body::before { background: var(--bg); }
 }
+
+/* Password field with a show/hide toggle (components/password-input.tsx). */
+.password-input { position: relative; }
+.password-input input { padding-inline-end: 48px; }
+.password-toggle {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.password-toggle:hover { color: var(--ink); }
+.password-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+
+/* Plus Jakarta Sans centres "+" and "−" at 0.25em above the baseline but its figures at 0.37em
+   (measured in the bundled font, no "case" feature to fix it), so signs look low. Lift them. */
+.sign { position: relative; top: -0.12em; }
