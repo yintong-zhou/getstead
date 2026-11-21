@@ -21,6 +21,27 @@ const sections = [
   { id: "accounts", path: "/accounts", icon: "accounts", label: "accounts" },
 ] as const;
 
+/** The four mobile tabs. A tab stays active on every page of its group; the group's pages are the subtabs shown under the heading. */
+const mobileTabs = [
+  { id: "overview", path: "", icon: "overview", label: "overview", group: ["overview"] },
+  { id: "cash-flow", path: "/cash-flow", icon: "cashFlow", label: "cashFlow", group: ["cash-flow", "budget", "recurring", "accounts"] },
+  { id: "net-worth", path: "/net-worth", icon: "netWorth", label: "netWorth", group: ["net-worth", "investments"] },
+  { id: "property", path: "/property", icon: "home", label: "property", group: ["property"] },
+] as const;
+
+const subTabs = {
+  "cash-flow": [
+    { id: "cash-flow", path: "/cash-flow", label: "movements" },
+    { id: "budget", path: "/budget", label: "budget" },
+    { id: "recurring", path: "/recurring", label: "recurring" },
+    { id: "accounts", path: "/accounts", label: "accounts" },
+  ],
+  "net-worth": [
+    { id: "net-worth", path: "/net-worth", label: "summary" },
+    { id: "investments", path: "/investments", label: "investments" },
+  ],
+} as const;
+
 type Props = {
   profile: Profile;
   locale: Locale;
@@ -30,20 +51,25 @@ type Props = {
   action?: ReactNode;
   /** Query string (with "?") kept when switching language. */
   query?: string;
+  routePath?: string;
   children: ReactNode;
 };
 
 /** Navigation and profile menu shared by every signed-in page. */
-export function AppShell({ locale, current, title, subtitle, action, query = "", children, profile }: Props) {
+export function AppShell({ locale, current, title, subtitle, action, query = "", routePath, children, profile }: Props) {
   const copy = dashboardCopy[locale];
-  const currentPath = current === "profile" ? "/profile" : sections.find((section) => section.id === current)!.path;
+  const currentPath = routePath ?? (current === "profile" ? "/profile" : sections.find((section) => section.id === current)!.path);
+  // "page" only on the exact route; "true" marks the section a deeper route (such as the movements history) belongs to.
+  const marker = (id: Section, path: string) => (id !== current ? undefined : (routePath ?? path) === path ? "page" : "true");
+  const tab = mobileTabs.find((item) => (item.group as readonly Section[]).includes(current));
+  const subs = tab && tab.id in subTabs ? subTabs[tab.id as keyof typeof subTabs] : undefined;
 
   return (
     <div className="workspace">
       <a className="skip-link" href="#main">{copy.skip}</a>
       <aside className="sidebar">
         <div className="wordmark"><BrandMark /><span>getstead</span></div>
-        <nav className="navigation" aria-label={copy.navigation}>
+        <nav className="navigation desktop-navigation" aria-label={copy.navigation}>
           {sections.map(({ id, path, icon, label }) => (
             <Link
               key={id}
@@ -51,7 +77,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
               href={`/${locale}${path}`}
               title={copy.nav[label]}
               aria-label={copy.nav[label]}
-              aria-current={id === current ? "page" : undefined}
+              aria-current={marker(id, path)}
             >
               <Icon name={icon} />
               <span className="nav-label-short" aria-hidden="true">{copy.shortNav[label]}</span>
@@ -75,10 +101,32 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
               </div>
               {action}
             </div>
+            {subs && tab && (
+              <nav className="section-nav" aria-label={copy.subNav[tab.label as "cashFlow" | "netWorth"]}>
+                {subs.map(({ id, path, label }) => (
+                  <Link key={id} className="section-link" href={`/${locale}${path}`} aria-current={marker(id, path)}>{copy.subNav[label]}</Link>
+                ))}
+              </nav>
+            )}
           </header>
           {children}
         </div>
       </main>
+
+      <nav className="navigation mobile-navigation" aria-label={copy.navigation}>
+        {mobileTabs.map(({ id, path, icon, label }) => (
+          <Link
+            key={id}
+            className="nav-item"
+            href={`/${locale}${path}`}
+            aria-label={copy.nav[label]}
+            aria-current={marker(id, path) ?? (id === tab?.id ? "true" : undefined)}
+          >
+            <Icon name={icon} />
+            <span className="nav-label-mobile" aria-hidden="true">{copy.mobileNav[label]}</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }

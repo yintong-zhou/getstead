@@ -251,10 +251,45 @@ h1 {
 .nav-item > .nav-label-short { white-space: nowrap; }
 .nav-item:focus-visible { outline-offset: -2px; }
 
-.nav-item[aria-current="page"] {
+.nav-item[aria-current] {
   background: var(--brand-soft);
   color: var(--brand);
 }
+
+/* Below 768px the bar holds four tabs; the sidebar's eight entries return from 768px. */
+.desktop-navigation { display: none; }
+.mobile-navigation { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mobile-navigation .nav-item { font-size: 11px; }
+.nav-label-mobile { white-space: nowrap; }
+
+/* Mobile subtabs under the page heading; they scroll sideways rather than clip when a label is long. */
+.section-nav {
+  display: flex;
+  gap: 2px;
+  margin-block-start: 16px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--glass-recessed);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.section-nav::-webkit-scrollbar { display: none; }
+.section-link {
+  display: flex;
+  min-height: 44px;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 4px;
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.section-link:hover { color: var(--ink); }
+.section-link[aria-current] { background: var(--glass-fill-strong); color: var(--brand); box-shadow: 0 1px 4px #1b2b5e1f; }
 
 .dashboard-grid, .secondary-cards {
   display: grid;
@@ -601,6 +636,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   }
   .navigation { position: static; display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; border-radius: 0; background: transparent; backdrop-filter: none; box-shadow: none; }
   .nav-item { width: 48px; }
+  .mobile-navigation, .section-nav { display: none; }
   .nav-item > .nav-label-short { display: none; }
   .page { padding: 24px; }
   .page-head { margin-bottom: 24px; }

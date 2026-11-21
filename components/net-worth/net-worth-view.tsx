@@ -103,6 +103,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
             <span className="amount">{formatEuros(data.propertiesCents, locale)}</span>
           </li>
         )}</ul>}
+        {(data.perAccount.length > 0 || data.holdingsCents > 0 || data.propertiesCents > 0) && <p><Link className="text-link" href={`/${locale}/accounts`}>{shared.goToAccounts}</Link></p>}
       </section>
 
       {data.perAccount.length > 0 && <section className="card" aria-labelledby="worth-record-title">
