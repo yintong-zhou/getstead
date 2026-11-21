@@ -1,10 +1,13 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
+import { supportsAccountLogo } from "@/server/cash-flow/logo-catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
 import { Select } from "../select";
+import { AccountLogoControls, AccountLogoThumbnail, accountLogoPath } from "./account-logo";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction } from "./use-action";
@@ -18,8 +21,9 @@ function formData(event: FormEvent<HTMLFormElement>) {
   return new FormData(event.currentTarget);
 }
 
-function Row({ locale, name, meta, archived, onRename, onArchive }: {
+function Row({ locale, name, meta, archived, logo, onRename, onArchive }: {
   locale: Locale; name: string; meta: string; archived: boolean;
+  logo?: ReactNode;
   onRename: (name: string) => void; onArchive: () => void;
 }) {
   const copy = cashFlowCopy[locale];
@@ -54,16 +58,19 @@ function Row({ locale, name, meta, archived, onRename, onArchive }: {
           </div>
         </>
       )}
+      {logo}
     </li>
   );
 }
 
 export function AccountsView({ locale, accounts, categories, rules }: Props) {
   const copy = cashFlowCopy[locale];
+  const router = useRouter();
   const accountsAction = useAction(locale);
   const categoriesAction = useAction(locale);
   const rulesAction = useAction(locale);
   const [showArchived, setShowArchived] = useState(false);
+  const [lookups, setLookups] = useState(() => new Map<string, "pending" | "failed">());
   const categoryName = new Map(categories.map((category) => [category.id, category.name]));
   const visibleAccounts = accounts.filter((account) => showArchived || !account.archived);
   const visibleCategories = categories.filter((category) => showArchived || !category.archived);
@@ -72,21 +79,31 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
 
   return (
     <div className="stack">
-      {hasArchived && (
-        <label className="check">
-          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
-          {copy.showArchived}
-        </label>
-      )}
-
       <section className="card" aria-labelledby="accounts-title">
-        <h2 id="accounts-title">{copy.accountsSection}</h2>
+        <header className="card-head">
+          <h2 id="accounts-title">{copy.accountsSection}</h2>
+          {hasArchived && (
+            <button
+              className="button archived-filter"
+              type="button"
+              role="switch"
+              aria-checked={showArchived}
+              onClick={() => setShowArchived((visible) => !visible)}
+            >
+              {copy.showArchived}
+              <span className="archived-filter-track" aria-hidden="true" />
+            </button>
+          )}
+        </header>
         {visibleAccounts.length === 0 ? <p className="empty-inline">{copy.accountsEmpty}</p> : (
           <ul className="rows">
             {visibleAccounts.map((account) => (
               <Row
                 key={account.id} locale={locale} name={account.name} archived={account.archived}
                 meta={copy.accountTypes[account.type]}
+                logo={supportsAccountLogo(account.type)
+                  ? <AccountLogoControls account={account} locale={locale} lookup={lookups.get(account.id)} />
+                  : <AccountLogoThumbnail src={null} />}
                 onRename={(name) => accountsAction.run(() => call("PATCH", `/accounts/${account.id}`, { name }), copy.saved)}
                 onArchive={() => accountsAction.run(() => call("PATCH", `/accounts/${account.id}`, { archived: !account.archived }), copy.saved)}
               />
@@ -100,10 +117,22 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
             const form = event.currentTarget;
             const data = formData(event);
             const result = await accountsAction.run(
-              () => call("POST", "/accounts", { name: String(data.get("name") ?? ""), type: String(data.get("type")) }),
+              () => call<AccountDto>("POST", "/accounts", { name: String(data.get("name") ?? ""), type: String(data.get("type")) }),
               copy.accountAdded,
             );
-            if (result) form.reset();
+            if (!result) return;
+            form.reset();
+            const { id, type } = result.data;
+            if (!supportsAccountLogo(type)) return;
+            setLookups((current) => new Map(current).set(id, "pending"));
+            const logo = await call("POST", accountLogoPath(id), { lookup: true });
+            setLookups((current) => {
+              const next = new Map(current);
+              if (logo.ok) next.delete(id);
+              else next.set(id, "failed");
+              return next;
+            });
+            if (logo.ok) router.refresh();
           }}
         >
           <div className="form-field">

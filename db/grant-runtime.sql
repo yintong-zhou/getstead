@@ -17,6 +17,7 @@ GRANT UPDATE (email, password_hash, display_name) ON public.stead_users TO stead
 GRANT SELECT, INSERT ON public.stead_accounts, public.stead_categories, public.stead_movements,
   public.stead_recurring_templates TO stead_auth_app;
 GRANT UPDATE (name, type, archived_at) ON public.stead_accounts TO stead_auth_app;
+GRANT SELECT, INSERT, UPDATE (image_enc), DELETE ON public.stead_account_logos TO stead_auth_app;
 GRANT UPDATE (name, archived_at) ON public.stead_categories TO stead_auth_app;
 GRANT UPDATE (account_id, category_id, booking_date, description_enc, amount_cents, voided_at, transfer_id, transfer_leg)
   ON public.stead_movements TO stead_auth_app;

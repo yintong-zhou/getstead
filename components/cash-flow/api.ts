@@ -7,10 +7,11 @@ export type ApiResult<T> =
 /** Never throws: a dropped connection is reported as `network`. */
 export async function call<T = unknown>(method: string, path: string, body?: unknown, base = "/api/cash-flow"): Promise<ApiResult<T>> {
   try {
+    const file = body instanceof Blob ? body : undefined;
     const response = await fetch(`${base}${path}`, {
       method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined ? undefined : { "Content-Type": file ? file.type || "application/octet-stream" : "application/json" },
+      body: file ?? (body === undefined ? undefined : JSON.stringify(body)),
       cache: "no-store",
     });
     if (response.ok) {

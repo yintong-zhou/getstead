@@ -187,10 +187,21 @@ model Account {
   balanceChecks BalanceCheck[]
   investmentTransactions InvestmentTransaction[]
   mortgageProperties Property[]
+  logo AccountLogo?
 
   @@unique([userId, id])
   @@unique([userId, name])
   @@map("stead_accounts")
+}
+
+model AccountLogo {
+  userId     String  @map("user_id") @db.Uuid
+  accountId  String  @map("account_id") @db.Uuid
+  image      Bytes   @map("image_enc")
+  account    Account @relation(fields: [userId, accountId], references: [userId, id], onDelete: Cascade)
+
+  @@id([userId, accountId])
+  @@map("stead_account_logos")
 }
 
 model BalanceCheck {

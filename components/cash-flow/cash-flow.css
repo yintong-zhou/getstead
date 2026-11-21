@@ -225,6 +225,66 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .manage-row + .manage-row { border-top: 1px solid var(--glass-hairline); }
 .manage-row.is-archived { opacity: .7; }
 .manage-row .row-text { min-width: 140px; }
+.button.archived-filter {
+  gap: 8px;
+  padding-inline: 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-alt);
+  box-shadow: inset 0 0 0 1px var(--glass-hairline);
+  backdrop-filter: none;
+}
+.button.archived-filter:hover { color: var(--ink); }
+.button.archived-filter[aria-checked="true"] { color: var(--brand-dark); background: var(--brand-soft); }
+.archived-filter-track {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 30px;
+  height: 18px;
+  padding-inline: 3px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+.archived-filter-track::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.archived-filter[aria-checked="true"] .archived-filter-track {
+  justify-content: flex-end;
+  background: var(--brand);
+}
+@media (forced-colors: active) {
+  .archived-filter-track { border: 1px solid ButtonText; }
+  .archived-filter-track::before { background: ButtonText; }
+}
+.account-logo-thumbnail {
+  order: -1;
+  flex: 0 0 36px;
+  display: grid;
+  height: 36px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--surface-alt);
+  color: var(--brand);
+}
+.account-logo-thumbnail img { width: 32px; height: 32px; object-fit: contain; }
+.account-logo-message, .account-logo-panel { flex: 0 0 100%; }
+.account-logo-panel:not([hidden]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.account-logo-panel .row-actions { justify-content: flex-start; }
+.account-logo-panel .inline-form { align-items: end; }
+.account-logo-panel .form-field { flex: 1 1 200px; min-width: 0; }
+.account-logo-catalog .account-logo-thumbnail { order: 0; height: 44px; }
+.account-logo-panel .inline-form .field { width: 100%; min-width: 0; }
 .inline-form { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 8px; }
 .inline-form .field { flex: 1 1 160px; width: auto; }
 

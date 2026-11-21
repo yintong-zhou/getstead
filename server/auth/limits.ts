@@ -3,7 +3,7 @@ import { digestRateLimitSubject } from "./crypto.ts";
 import { db } from "./database.ts";
 
 /** `phase` is a VarChar(8) column: "waitlist" is exactly 8 characters. */
-export async function reserveAttempt(phase: "password" | "mfa" | "waitlist", value: string) {
+export async function reserveAttempt(phase: "password" | "mfa" | "waitlist" | "logo", value: string) {
   const subject = digestRateLimitSubject(encryptionKey(), value);
   const reserved = await db().$executeRaw`
     INSERT INTO stead_auth_limits AS limits (phase, subject_digest, attempts, window_until)
@@ -12,7 +12,7 @@ export async function reserveAttempt(phase: "password" | "mfa" | "waitlist", val
     SET attempts = CASE WHEN limits.window_until <= statement_timestamp() THEN 1 ELSE limits.attempts + 1 END,
         window_until = CASE WHEN limits.window_until <= statement_timestamp()
           THEN EXCLUDED.window_until ELSE limits.window_until END
-    WHERE limits.attempts < 5 OR limits.window_until <= statement_timestamp()
+    WHERE limits.attempts < ${phase === "logo" ? 20 : 5} OR limits.window_until <= statement_timestamp()
   `;
   return reserved === 1;
 }

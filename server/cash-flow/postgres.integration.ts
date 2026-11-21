@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import test, { after, before } from "node:test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { NextRequest, NextResponse } from "next/server.js";
+import sharp from "sharp";
 import { PrismaClient } from "../../db/generated/client.ts";
 import { encryptionKey, localPostgresUrl } from "../auth/config.ts";
 import { digestRateLimitSubject, digestToken, hashPassword, newToken, verifyPassword } from "../auth/crypto.ts";
@@ -15,6 +16,7 @@ import { sessionCookie } from "../auth/http.ts";
 import { getBudget, setLimit, clearOverride } from "./budget.ts";
 import { addStarterCategories, createAccount, createCategory, listAccounts, listCategories, updateAccount, updateCategory } from "./catalog.ts";
 import { getDashboard } from "./dashboard.ts";
+import { findAccountLogo, readAccountLogo, removeAccountLogo, uploadAccountLogo } from "./account-logo-service.ts";
 import { addDays, toDate } from "./dates.ts";
 import { ApiError } from "./errors.ts";
 import { api } from "./http.ts";
@@ -50,6 +52,52 @@ async function newUser() {
   });
   return user.id;
 }
+
+test("checking account logos are private, optional, encrypted and removable by the runtime role", async () => {
+  const [owner, other] = [await newUser(), await newUser()];
+  const checking = await createAccount(owner, { name: "Synthetic household", type: "CHECKING" });
+  const cash = await createAccount(owner, { name: "Synthetic cash", type: "CASH" });
+  const png = await sharp({ create: { width: 64, height: 64, channels: 3, background: "blue" } }).png().toBuffer();
+  const upload = () => new Request("https://example.test/logo", { method: "PUT", body: new Uint8Array(png) });
+  const key = { userId: owner, accountId: checking.id };
+
+  await rejectsApi(findAccountLogo(owner, checking.id, { lookup: true }), 422, "logo_not_found");
+  assert.equal((await listAccounts(owner)).find(({ id }) => id === checking.id)?.hasLogo, false);
+  await rejectsApi(uploadAccountLogo(owner, cash.id, upload()), 404, "not_found");
+  await rejectsApi(uploadAccountLogo(other, checking.id, upload()), 404, "not_found");
+  await uploadAccountLogo(owner, checking.id, upload());
+  const bytes = await readAccountLogo(owner, checking.id);
+  assert.equal((await sharp(bytes).metadata()).format, "webp");
+  const stored = await admin.accountLogo.findUniqueOrThrow({ where: { userId_accountId: key } });
+  assert.notDeepEqual(Buffer.from(stored.image), bytes);
+  assert.equal((await listAccounts(owner)).find(({ id }) => id === checking.id)?.hasLogo, true);
+  await rejectsApi(readAccountLogo(other, checking.id), 404, "not_found");
+  await rejectsApi(findAccountLogo(other, checking.id, { lookup: true }), 404, "not_found");
+  await rejectsApi(removeAccountLogo(other, checking.id), 404, "not_found");
+  await assert.rejects(admin.accountLogo.create({ data: { ...key, userId: other, image: stored.image } }), { code: "P2003" });
+  await assert.rejects(db().$executeRaw`UPDATE stead_account_logos SET user_id = user_id WHERE account_id = ${checking.id}::uuid`, /permission denied/i);
+  await uploadAccountLogo(owner, checking.id, upload());
+  await removeAccountLogo(owner, checking.id);
+  await rejectsApi(readAccountLogo(owner, checking.id), 404, "not_found");
+});
+
+test("brokerage logos can be matched by name and replaced with a catalog choice", async () => {
+  const [owner, other] = [await newUser(), await newUser()];
+  const broker = await createAccount(owner, { name: "Synthetic IBKR portfolio", type: "BROKERAGE" });
+  await rejectsApi(findAccountLogo(other, broker.id, { provider: "directa" }), 404, "not_found");
+  await rejectsApi(findAccountLogo(owner, broker.id, { provider: "invalid-provider" }), 422, "logo_not_found");
+  await findAccountLogo(owner, broker.id, { lookup: true });
+  const automatic = await readAccountLogo(owner, broker.id);
+  assert.equal((await sharp(automatic).metadata()).format, "webp");
+  assert.equal((await listAccounts(owner))[0].hasLogo, true);
+  await findAccountLogo(owner, broker.id, { provider: "directa" });
+  const selected = await readAccountLogo(owner, broker.id);
+  assert.notDeepEqual(selected, automatic);
+  await findAccountLogo(owner, broker.id, { lookup: true });
+  assert.deepEqual(await readAccountLogo(owner, broker.id), selected);
+  await removeAccountLogo(owner, broker.id);
+  assert.equal((await listAccounts(owner))[0].hasLogo, false);
+});
 
 const profilePassword = "synthetic current password";
 async function profileUser() {

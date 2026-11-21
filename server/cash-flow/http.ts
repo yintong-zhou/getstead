@@ -16,6 +16,7 @@ export type ApiContext<P> = {
   sessionToken: string;
   url: URL;
   params: P;
+  request: Request;
   /** The JSON object body; rejects a missing, oversized or non-object body with 400. */
   body: () => Promise<Record<string, unknown>>;
 };
@@ -77,6 +78,7 @@ export function api<P = Record<string, never>>(
         userId: session.userId,
         sessionToken,
         url: request.nextUrl,
+        request,
         params: await route.params,
         body: async () => {
           const body = await readAuthBody(request, 16_384);

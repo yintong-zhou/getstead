@@ -19,19 +19,27 @@ function additionalData(userId: string, context: string) {
 }
 
 export function encryptText(userId: string, context: string, text: string) {
+  return encryptBytes(userId, context, Buffer.from(text, "utf8"));
+}
+
+export function encryptBytes(userId: string, context: string, bytes: Uint8Array) {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", textKey(), iv);
   cipher.setAAD(additionalData(userId, context));
-  const ciphertext = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
+  const ciphertext = Buffer.concat([cipher.update(bytes), cipher.final()]);
   return Buffer.concat([Buffer.of(VERSION), iv, cipher.getAuthTag(), ciphertext]);
 }
 
 export function decryptText(userId: string, context: string, encrypted: Uint8Array) {
+  return decryptBytes(userId, context, encrypted).toString("utf8");
+}
+
+export function decryptBytes(userId: string, context: string, encrypted: Uint8Array) {
   if (encrypted[0] !== VERSION) throw new Error("Unsupported text envelope.");
   const decipher = createDecipheriv("aes-256-gcm", textKey(), encrypted.subarray(1, 13));
   decipher.setAAD(additionalData(userId, context));
   decipher.setAuthTag(encrypted.subarray(13, 29));
-  return Buffer.concat([decipher.update(encrypted.subarray(29)), decipher.final()]).toString("utf8");
+  return Buffer.concat([decipher.update(encrypted.subarray(29)), decipher.final()]);
 }
 
 export const movementContext = (id: string) => `movement:${id}`;
