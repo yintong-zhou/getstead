@@ -23,9 +23,9 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const logout = useLogout(locale);
-  // Menu order: profile, admin (admins only), language, sign out.
-  const languageIndex = profile.admin ? 2 : 1;
-  const lastIndex = languageIndex + 1;
+  // Menu order: profile, language, sign out.
+  const languageIndex = 1;
+  const lastIndex = 2;
 
   function items() { return Array.from(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []); }
   function show(index: number) {
@@ -89,8 +89,6 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
       <div role="menu" aria-label={copy.title} aria-describedby={`${id}-who`}>
       <Link role="menuitem" tabIndex={active === 0 ? 0 : -1} href={`/${locale}/profile`}
         onFocus={() => setActive(0)} onClick={() => close()}>{copy.title}</Link>
-      {profile.admin && <Link role="menuitem" tabIndex={active === 1 ? 0 : -1} href={`/${locale}/admin`}
-        onFocus={() => setActive(1)} onClick={() => close()}>{copy.admin}</Link>}
       <Link role="menuitem" tabIndex={active === languageIndex ? 0 : -1} href={`/${alternative}${currentPath}${query}`}
         lang={alternative} hrefLang={alternative} onFocus={() => setActive(languageIndex)} onClick={() => close()}>
         {alternative === "it" ? "Italiano" : "English"}
