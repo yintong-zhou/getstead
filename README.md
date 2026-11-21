@@ -77,7 +77,9 @@ Enter the getstead email and password in the interactive owner command. Sign in 
 
 To make an account an admin, run `npm run auth:owner -- promote` and enter its email. The admin area (Profile menu → Admin, or `/en/admin`) opens only once the account has two-step verification enabled. From there you can create users, reset passwords, disable or enable accounts, and read the error and security log.
 
-Open [getstead in English](http://127.0.0.1:3000/en) or [getstead in Italian](http://127.0.0.1:3000/it). Use the same loopback hostname as `APP_ORIGIN`.
+Open [getstead in English](http://127.0.0.1:3000/en) or [getstead in Italian](http://127.0.0.1:3000/it) for the public home page; the signed-in app starts at `/en/overview`. Use the same loopback hostname as `APP_ORIGIN`.
+
+The home page is prerendered, so `APP_ORIGIN` must be the public origin at build time: canonical links, the sitemap, `robots.txt` and the share image read it. The waitlist (`POST /api/waitlist`) stores one row per email in `stead_waitlist`; the app role can only insert, so read the list on the owner connection. Set `PRIVACY_CONTACT_EMAIL` so the privacy notice shows a contact address before the waitlist goes live.
 
 ## Verify
 

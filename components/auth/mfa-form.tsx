@@ -24,7 +24,7 @@ export function MfaForm({ locale }: { locale: Locale }) {
     const status = await postAuth("/api/auth/mfa", { code });
     if (status === 204) {
       // Full navigation so the dashboard is rendered with the upgraded session.
-      window.location.replace(`/${locale}`);
+      window.location.replace(`/${locale}/overview`);
       return;
     }
     setCode("");

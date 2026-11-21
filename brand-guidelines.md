@@ -102,6 +102,8 @@ The whole product uses **Plus Jakarta Sans**, a modern geometric sans that stays
 | Overline       | SemiBold  | 11 / 14 px         | +0.6 px, UPPERCASE | Labels above amounts             |
 
 
+**Marketing scale (public home page).** The home page sets its headline at 46 px ExtraBold, −0.03 em tracking, and section titles at 26–40 px ExtraBold. Body text there uses #3B4658 instead of text-secondary so it reads at AAA on the page background; text-secondary stays for labels and captions.
+
 - Amounts and titles in text-primary; everything supporting in text-secondary.
 - In columns of numbers use tabular figures (`font-variant-numeric: tabular-nums`) to align amounts.
 - No more than three different styles in the same card.

@@ -8,3 +8,4 @@ db/generated/
 .next/
 next-env.d.ts
 *.tsbuildinfo
+.taste-skill/

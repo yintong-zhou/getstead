@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { dashboardCopy } from "@/components/dashboard-copy";
 import { glassBootstrap } from "@/components/profile/appearance";
+import { appOrigin } from "@/server/auth/config";
 import { isLocale, locales } from "@/server/locale";
 import "../globals.css";
 
@@ -22,15 +22,9 @@ export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
 
-export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
-  const { locale } = await params;
-  if (!isLocale(locale)) notFound();
-
-  const copy = dashboardCopy[locale];
-  return {
-    title: `${copy.overview} | getstead`,
-    description: copy.description,
-  };
+// Pages set their own title; the layout only supplies the site origin that relative URLs resolve against.
+export function generateMetadata(): Metadata {
+  return { metadataBase: appOrigin(), title: "getstead" };
 }
 
 export default async function RootLayout({ children, params }: LocaleParams & { children: ReactNode }) {

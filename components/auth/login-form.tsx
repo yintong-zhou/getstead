@@ -24,7 +24,7 @@ export function LoginForm({ locale }: { locale: Locale }) {
 
     if (status === 204 || status === 202) {
       // Full navigation so the server re-reads the new session cookie.
-      window.location.replace(status === 202 ? `/${locale}/login/mfa` : `/${locale}`);
+      window.location.replace(status === 202 ? `/${locale}/login/mfa` : `/${locale}/overview`);
       return;
     }
     form.reset();

@@ -2,7 +2,8 @@ import { encryptionKey } from "./config.ts";
 import { digestRateLimitSubject } from "./crypto.ts";
 import { db } from "./database.ts";
 
-export async function reserveAttempt(phase: "password" | "mfa", value: string) {
+/** `phase` is a VarChar(8) column: "waitlist" is exactly 8 characters. */
+export async function reserveAttempt(phase: "password" | "mfa" | "waitlist", value: string) {
   const subject = digestRateLimitSubject(encryptionKey(), value);
   const reserved = await db().$executeRaw`
     INSERT INTO stead_auth_limits AS limits (phase, subject_digest, attempts, window_until)
