@@ -288,6 +288,10 @@ h1 {
 }
 
 .nav-item:hover { background: #ffffff59; color: var(--ink); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .admin-navigation .nav-item svg { transition: transform 180ms ease; }
+  .admin-navigation .nav-item:hover svg { transform: translateY(-1px); }
+}
 .nav-item > .nav-label-full { display: none; }
 .nav-item > .nav-label-short { white-space: nowrap; }
 .nav-item:focus-visible { outline-offset: -2px; }

@@ -58,8 +58,8 @@ type Props = {
 
 /** Admin accounts see only these two entries; the finance sections above are for user accounts. */
 const adminSections = [
-  { id: "admin", path: "/admin", icon: "accounts", label: "users" },
-  { id: "admin-logs", path: "/admin/logs", icon: "bills", label: "logs" },
+  { id: "admin", path: "/admin", icon: "users", label: "users" },
+  { id: "admin-logs", path: "/admin/logs", icon: "logs", label: "logs" },
 ] as const;
 
 /** Navigation and profile menu shared by every signed-in page. */
@@ -86,7 +86,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
       <a className="skip-link" href="#main">{copy.skip}</a>
       <aside className="sidebar">
         <div className="wordmark"><BrandMark /><span>getstead</span></div>
-        <nav className="navigation desktop-navigation" aria-label={copy.navigation}>
+        <nav className={`navigation desktop-navigation${admin ? " admin-navigation" : ""}`} aria-label={copy.navigation}>
           {desktopItems.map(({ id, path, icon, label, short }) => (
             <Link
               key={id}
@@ -131,7 +131,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
         </div>
       </main>
 
-      <nav className="navigation mobile-navigation" aria-label={copy.navigation}
+      <nav className={`navigation mobile-navigation${admin ? " admin-navigation" : ""}`} aria-label={copy.navigation}
         style={admin ? { gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` } : undefined}>
         {mobileItems.map(({ id, path, icon, label, mobile }) => (
           <Link
