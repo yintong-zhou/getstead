@@ -7,6 +7,8 @@ import type { Profile } from "@/server/profile/service";
 import { call } from "../cash-flow/api";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { profileCopy } from "./copy";
+import { GlassSettings } from "./glass-settings";
+import { TotpSettings } from "./totp-settings";
 import "./profile.css";
 
 export function ProfileView({ locale, profile }: { locale: Locale; profile: Profile }) {
@@ -18,6 +20,8 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
   const [email, setEmail] = useState(profile.email);
 
   return <div className="profile-grid">
+    <GlassSettings locale={locale} />
+    <TotpSettings locale={locale} initialEnabled={profile.totpEnabled} />
     <section className="card profile-card" aria-labelledby="profile-name-title">
       <h2 id="profile-name-title">{copy.displayName}</h2>
       <form onSubmit={async (event) => {

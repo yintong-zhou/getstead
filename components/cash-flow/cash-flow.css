@@ -227,25 +227,14 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 
 /* Budget -------------------------------------------------------------------------------------- */
 
-.budget-table { display: grid; gap: 4px; margin-top: 16px; }
-.budget-item { padding-block: 16px; }
+.budget-table { margin-top: 12px; }
+.budget-item { padding-block: 12px; }
 .budget-item + .budget-item { border-top: 1px solid var(--glass-hairline); }
-.budget-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
-.budget-facts dt { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .6px; text-transform: uppercase; }
-.budget-facts dd { font-weight: 700; white-space: normal; }
-.limit-details { margin-top: 4px; }
-.limit-details summary {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  width: fit-content;
-  color: var(--brand);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 750;
-}
-.limit-details summary:hover { text-decoration: underline; }
-.limit-form { max-width: 420px; padding-bottom: 8px; }
+.budget-row-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.budget-variance { font-size: 13px; font-weight: 700; white-space: normal; }
+.budget-row-footer .button { margin-inline-start: auto; }
+.limit-form { max-width: 520px; padding-block: 8px 4px; }
+.limit-form .form-actions { margin-top: 8px; }
 
 @media (min-width: 768px) {
   .stack { gap: 20px; max-width: 960px; }

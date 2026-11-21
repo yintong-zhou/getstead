@@ -63,6 +63,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
   const marker = (id: Section, path: string) => (id !== current ? undefined : (routePath ?? path) === path ? "page" : "true");
   const tab = mobileTabs.find((item) => (item.group as readonly Section[]).includes(current));
   const subs = tab && tab.id in subTabs ? subTabs[tab.id as keyof typeof subTabs] : undefined;
+  const profileMenu = <ProfileMenu locale={locale} profile={profile} currentPath={currentPath} query={query} />;
 
   return (
     <div className="workspace">
@@ -85,6 +86,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
             </Link>
           ))}
         </nav>
+        <div className="sidebar-profile">{profileMenu}</div>
       </aside>
 
       <main id="main" className="main-content" tabIndex={-1}>
@@ -92,7 +94,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
           <header className="page-head">
             <div className="utility-bar">
               <div className="wordmark mobile-wordmark"><BrandMark /><span>getstead</span></div>
-              <ProfileMenu locale={locale} profile={profile} currentPath={currentPath} query={query} />
+              {profileMenu}
             </div>
             <div className="page-title-row">
               <div>

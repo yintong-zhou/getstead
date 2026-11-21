@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
 import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import type { MovementDto } from "@/server/cash-flow/movements";
@@ -14,11 +13,12 @@ import { editableEuros, parseEuros } from "../money";
 import { call } from "./api";
 import { cashFlowCopy, type CashFlowCopy } from "./copy";
 import { currentSuggestion, movementBody, type Suggestion } from "./movement-body";
+import { movementsCopy } from "./movements-copy";
+import { historyHref } from "./movements-query";
 import { NoticeLine, useAction } from "./use-action";
+import "./movements.css";
 
 type Kind = "EXPENSE" | "INCOME" | "REFUND" | "TRANSFER";
-type RegisterPage = { movements: MovementDto[]; hasMore: boolean };
-type PageKey = "pageIn" | "pageOut" | "pageTransfers";
 
 type Props = {
   locale: Locale;
@@ -26,25 +26,25 @@ type Props = {
   today: string;
   accounts: AccountDto[];
   categories: CategoryDto[];
-  incoming: RegisterPage;
-  outgoing: RegisterPage;
-  transfers: RegisterPage;
+  /** The most recent movements of the month, newest first (3 or 5). */
+  incoming: MovementDto[];
+  outgoing: MovementDto[];
+  transfers: MovementDto[];
   summary: { incomeCents: number; expenseCents: number; netCents: number };
-  accountId?: string;
-  categoryId?: string;
-  pageIn: number;
-  pageOut: number;
-  pageTransfers: number;
+  show: 3 | 5;
 };
 
-const days = (locale: Locale) => (locale === "it" ? { today: "Oggi", yesterday: "Ieri" } : { today: "Today", yesterday: "Yesterday" });
+export const days = (locale: Locale) => (locale === "it" ? { today: "Oggi", yesterday: "Ieri" } : { today: "Today", yesterday: "Yesterday" });
 
-function categoryGroups({ copy, categories, current, only }: {
-  copy: CashFlowCopy; categories: CategoryDto[]; current?: string | null; only?: "EXPENSE";
+/** Sentinel option value: it opens the new-category popover instead of choosing a category. */
+const NEW_CATEGORY = "__new__";
+
+function categoryGroups({ copy, categories, current, only, newLabel }: {
+  copy: CashFlowCopy; categories: CategoryDto[]; current?: string | null; only?: "EXPENSE"; newLabel?: string;
 }): SelectGroup[] {
   const usable = categories.filter((category) => (!category.archived || category.id === current) && (!only || category.kind === only));
   return [
-    { label: "", options: [{ value: "", label: only ? "—" : copy.noCategory }] },
+    { label: "", options: [...(newLabel ? [{ value: NEW_CATEGORY, label: newLabel }] : []), { value: "", label: only ? "—" : copy.noCategory }] },
     ...(only ? ([only] as const) : (["EXPENSE", "INCOME"] as const)).map((kind) => ({
       label: copy.kinds[kind],
       options: usable.filter((category) => category.kind === kind).map((category) => ({
@@ -73,10 +73,13 @@ function Segmented({ legend, value, options, onChange }: {
 
 // ---- Create -------------------------------------------------------------------------------------
 
-function NewMovement({ locale, today, accounts, categories }: Pick<Props, "locale" | "today" | "accounts" | "categories">) {
+function NewMovement({ locale, today, accounts, categories: loaded }: Pick<Props, "locale" | "today" | "accounts" | "categories">) {
   const copy = cashFlowCopy[locale];
+  const extra = movementsCopy[locale];
   const ids = useId();
   const { pending, notice, run, setNotice } = useAction(locale);
+  // The popover has its own pending state and notice, so creating a category never touches the draft's.
+  const creator = useAction(locale);
   const active = accounts.filter((account) => !account.archived);
   const [kind, setKind] = useState<Kind>("EXPENSE");
   const [accountId, setAccountId] = useState(active[0]?.id ?? "");
@@ -90,6 +93,15 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
   // A suggestion remembers the description it answered; it is shown only while that still matches.
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [remember, setRemember] = useState("");
+  // Categories created here are usable at once, before the refreshed server data arrives.
+  const [added, setAdded] = useState<CategoryDto[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newKind, setNewKind] = useState<"EXPENSE" | "INCOME" | null>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const categoryPopover = useRef<HTMLDivElement>(null);
+  const setCreateNotice = creator.setNotice;
+  const categories = [...loaded, ...added.filter((category) => !loaded.some((item) => item.id === category.id))];
 
   useEffect(() => {
     if (kind === "TRANSFER" || !description.trim()) return;
@@ -104,6 +116,24 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
     };
   }, [description, kind]);
 
+  useEffect(() => {
+    if (creating) nameInput.current?.focus();
+  }, [creating]);
+
+  useEffect(() => {
+    if (!creating || creator.pending) return;
+    function dismissOutside(event: PointerEvent) {
+      if (!(event.target instanceof Element) || categoryPopover.current?.contains(event.target)
+        || document.getElementById(`${ids}category`)?.contains(event.target) || event.target.closest(".select-popup")) return;
+      setCreating(false);
+      setNewName("");
+      setNewKind(null);
+      setCreateNotice(null);
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => document.removeEventListener("pointerdown", dismissOutside);
+  }, [creating, creator.pending, ids, setCreateNotice]);
+
   // The destination can never equal the source: fall back to the first other account.
   const toAccountId = chosenTo !== accountId && active.some((account) => account.id === chosenTo)
     ? chosenTo
@@ -115,14 +145,48 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
   const suggested = fresh && (!refund || expenseIds.has(fresh)) ? fresh : null;
   const touched = manual !== null;
   const categoryId = manual ?? suggested ?? "";
+  // The new category defaults to the movement's kind; a refund can only be filed under an expense category.
+  const createKind = refund ? "EXPENSE" : newKind ?? (kind === "INCOME" ? "INCOME" : "EXPENSE");
 
   function changeKind(next: Kind) {
     setKind(next);
     if (next === "REFUND" && manual && !expenseIds.has(manual)) setManual(null);
+    if (next === "TRANSFER") setCreating(false);
+  }
+
+  function closePopover(keepNotice = false) {
+    if (creator.pending) return;
+    setCreating(false);
+    setNewName("");
+    setNewKind(null);
+    if (!keepNotice) setCreateNotice(null);
+    document.getElementById(`${ids}category`)?.focus();
+  }
+
+  async function createCategory() {
+    const name = newName.trim();
+    if (!name) return creator.setNotice({ kind: "error", text: `${copy.errors.validation} (${copy.fields.name})` });
+    const result = await creator.run(() => call<CategoryDto>("POST", "/categories", { name, kind: createKind }), extra.newCategoryCreated);
+    if (!result) return;
+    setAdded((list) => [...list, result.data]);
+    setManual(result.data.id);
+    closePopover(true);
+  }
+
+  function popoverKeys(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closePopover();
+    } else if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+      // This panel sits inside the movement form: Enter creates the category and never submits the movement.
+      event.preventDefault();
+      void createCategory();
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creating) return;
     const cents = parseEuros(amount);
     if (!cents) return setNotice({ kind: "error", text: `${copy.errors.validation} (${copy.fields.amountCents}). ${copy.amountHint}` });
     if (refund && !categoryId) return setNotice({ kind: "error", text: `${copy.errors.validation} (${copy.fields.categoryId}). ${copy.refundCategory}.` });
@@ -215,19 +279,31 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
             />
           </div>
           {kind !== "TRANSFER" && (
-            <>
+            // One row of its own, so the optional phrase field lines up with the category beside it.
+            <div className="category-row">
               <div className="form-field">
                 <label htmlFor={`${ids}category`}>{refund ? copy.refundCategory : copy.category}</label>
                 <Select
-                  id={`${ids}category`} value={categoryId} onChange={setManual}
+                  id={`${ids}category`} value={categoryId}
+                  onChange={(value) => {
+                    if (value !== NEW_CATEGORY) {
+                      setManual(value);
+                      if (creating) closePopover();
+                    } else if (creating) {
+                      requestAnimationFrame(() => nameInput.current?.focus());
+                    } else {
+                      setCreateNotice(null);
+                      setCreating(true);
+                    }
+                  }}
                   aria-describedby={!touched && suggested ? `${ids}suggested` : undefined}
-                  groups={categoryGroups({ copy, categories, only: refund ? "EXPENSE" : undefined })}
+                  groups={categoryGroups({ copy, categories, only: refund ? "EXPENSE" : undefined, newLabel: extra.newCategoryOption })}
                 />
                 {!touched && suggested && <span id={`${ids}suggested`} className="hint">{copy.suggestedCategory}</span>}
               </div>
               {categoryId && (
                 <div className="form-field">
-                  <label htmlFor={`${ids}remember`}>{copy.rememberLabel}</label>
+                  <label htmlFor={`${ids}remember`}>{extra.rememberLabel}</label>
                   <input
                     id={`${ids}remember`} className="field" maxLength={60} autoComplete="off" value={remember}
                     onChange={(event) => setRemember(event.target.value)} aria-describedby={`${ids}remember-hint`}
@@ -235,11 +311,40 @@ function NewMovement({ locale, today, accounts, categories }: Pick<Props, "local
                   <span id={`${ids}remember-hint`} className="hint">{copy.rememberHint}</span>
                 </div>
               )}
-            </>
+              {creating && (
+                <div ref={categoryPopover} role="dialog" aria-labelledby={`${ids}new-category-title`} className="category-popover" onKeyDown={popoverKeys}>
+                  <h3 id={`${ids}new-category-title`}>{extra.newCategoryTitle}</h3>
+                  <div className="form-field">
+                    <label htmlFor={`${ids}new-category-name`}>{extra.newCategoryName}</label>
+                    <input
+                      id={`${ids}new-category-name`} ref={nameInput} className="field" maxLength={80} autoComplete="off"
+                      value={newName} onChange={(event) => setNewName(event.target.value)}
+                    />
+                  </div>
+                  {refund ? (
+                    <p className="hint">{extra.newCategoryType}: {copy.kinds.EXPENSE}</p>
+                  ) : (
+                    <Segmented
+                      legend={extra.newCategoryType}
+                      value={createKind}
+                      onChange={(value) => setNewKind(value as "EXPENSE" | "INCOME")}
+                      options={[{ value: "EXPENSE", label: copy.kinds.EXPENSE }, { value: "INCOME", label: copy.kinds.INCOME }]}
+                    />
+                  )}
+                  <div className="form-actions">
+                    <button className="button button-solid" type="button" disabled={creator.pending} onClick={() => void createCategory()}>
+                      {creator.pending ? copy.saving : extra.newCategoryCreate}
+                    </button>
+                    <button className="button button-quiet" type="button" disabled={creator.pending} onClick={() => closePopover()}>{copy.cancel}</button>
+                  </div>
+                </div>
+              )}
+              <NoticeLine notice={creator.notice} />
+            </div>
           )}
         </div>
         <div className="form-actions">
-          <button className="primary-link" type="submit" disabled={pending}>
+          <button className="primary-link" type="submit" disabled={pending || creating}>
             {pending ? copy.saving : kind === "TRANSFER" ? copy.addTransfer : copy.addMovement}
           </button>
         </div>
@@ -255,6 +360,7 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
   locale: Locale; movement: MovementDto; accounts: AccountDto[]; categories: CategoryDto[]; onDone: () => void;
 }) {
   const copy = cashFlowCopy[locale];
+  const extra = movementsCopy[locale];
   const ids = useId();
   const { pending, notice, run, setNotice } = useAction(locale);
   const paired = movement.transferId !== null;
@@ -311,17 +417,19 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
           <label htmlFor={`${ids}description`}>{copy.description}</label>
           <input id={`${ids}description`} className="field" maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} required />
         </div>
-        <div className="form-field">
-          <label htmlFor={`${ids}category`}>{copy.category}</label>
-          <Select id={`${ids}category`} value={categoryId} onChange={setCategoryId}
-            groups={categoryGroups({ copy, categories: linked ? categories.filter((item) => item.kind === "EXPENSE" || item.id === movement.categoryId) : categories, current: movement.categoryId })} />
-        </div>
-        {categoryId && (
+        <div className="category-row">
           <div className="form-field">
-            <label htmlFor={`${ids}remember`}>{copy.rememberLabel}</label>
-            <input id={`${ids}remember`} className="field" maxLength={60} value={remember} onChange={(event) => setRemember(event.target.value)} />
+            <label htmlFor={`${ids}category`}>{copy.category}</label>
+            <Select id={`${ids}category`} value={categoryId} onChange={setCategoryId}
+              groups={categoryGroups({ copy, categories: linked ? categories.filter((item) => item.kind === "EXPENSE" || item.id === movement.categoryId) : categories, current: movement.categoryId })} />
           </div>
-        )}
+          {categoryId && (
+            <div className="form-field">
+              <label htmlFor={`${ids}remember`}>{extra.rememberLabel}</label>
+              <input id={`${ids}remember`} className="field" maxLength={60} value={remember} onChange={(event) => setRemember(event.target.value)} />
+            </div>
+          )}
+        </div>
       </div>
       <div className="form-actions">
         <button className="button button-solid" type="submit" disabled={pending}>{pending ? copy.saving : copy.save}</button>
@@ -332,99 +440,17 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
   );
 }
 
-type CandidatePage = { movements: MovementDto[]; hasMore: boolean; pageSize: number };
-
-/** Counterparts for a transfer, nearest date first. A month and "show more" reach the whole history. */
-function PairPanel({ locale, movement, accounts, today, onDone }: {
-  locale: Locale; movement: MovementDto; accounts: AccountDto[]; today: string; onDone: () => void;
-}) {
-  const copy = cashFlowCopy[locale];
-  const ids = useId();
-  const { pending, notice, run } = useAction(locale);
-  const [month, setMonth] = useState("");
-  const [list, setList] = useState<MovementDto[] | null>(null);
-  const [more, setMore] = useState(false);
-  const [partner, setPartner] = useState("");
-  const [loading, setLoading] = useState(false);
-  const names = new Map(accounts.map((account) => [account.id, account.name]));
-  const validMonth = month === "" || (/^\d{4}-\d{2}$/.test(month) && month >= FIRST_MONTH && month <= LAST_MONTH);
-
-  async function load(append: boolean) {
-    setLoading(true);
-    const query = new URLSearchParams({ movementId: movement.id, offset: String(append ? list?.length ?? 0 : 0) });
-    if (month) query.set("month", month);
-    const result = await call<CandidatePage>("GET", `/transfers/candidates?${query}`);
-    setLoading(false);
-    if (!result.ok) return;
-    const next = append ? [...(list ?? []), ...result.data.movements] : result.data.movements;
-    setList(next);
-    setMore(result.data.hasMore);
-    if (!append) setPartner(next[0]?.id ?? "");
-  }
-
-  useEffect(() => {
-    if (!validMonth) return;
-    let current = true;
-    const query = new URLSearchParams({ movementId: movement.id });
-    if (month) query.set("month", month);
-    call<CandidatePage>("GET", `/transfers/candidates?${query}`).then((result) => {
-      if (!current) return;
-      const next = result.ok ? result.data.movements : [];
-      setList(next);
-      setMore(result.ok && result.data.hasMore);
-      setPartner(next[0]?.id ?? "");
-    });
-    return () => { current = false; };
-  }, [movement.id, month, validMonth]);
-
-  return (
-    <div className="pair-panel">
-      <h3>{copy.pairTitle}</h3>
-      <div className="form-field">
-        <label htmlFor={`${ids}month`}>{copy.matchMonth}</label>
-        <input
-          id={`${ids}month`} className="field" type="month" min={FIRST_MONTH} max={LAST_MONTH} placeholder="YYYY-MM"
-          pattern="\d{4}-\d{2}" value={month} onChange={(event) => setMonth(event.target.value)} aria-describedby={`${ids}month-hint`} aria-invalid={!validMonth}
-        />
-        <span id={`${ids}month-hint`} className="hint">{copy.matchMonthHint}</span>
-      </div>
-      {list === null ? <p className="hint">…</p> : list.length === 0 ? <p className="hint">{copy.pairNone}</p> : (
-        <div className="form-grid">
-          <div className="form-field wide">
-            <label htmlFor={`${ids}partner`}>{copy.pair}</label>
-            <Select id={`${ids}partner`} value={partner} onChange={setPartner} options={list.map((candidate) => ({
-              value: candidate.id,
-              label: `${names.get(candidate.accountId)} · ${formatDay(candidate.bookingDate, locale, today, days(locale))} ${candidate.bookingDate.slice(0, 4)} · ${formatEuros(candidate.amountCents, locale, { showPlus: true })} · ${candidate.description}`,
-            }))} />
-          </div>
-        </div>
-      )}
-      <div className="form-actions">
-        {list && list.length > 0 && (
-          <button
-            className="button button-solid" type="button" disabled={pending || !partner}
-            onClick={async () => {
-              const result = await run(() => call("POST", "/transfers/pair", { movementIds: [movement.id, partner] }), copy.paired);
-              if (result) onDone();
-            }}
-          >
-            {copy.pairConfirm}
-          </button>
-        )}
-        {more && <button className="button" type="button" disabled={loading} onClick={() => load(true)}>{copy.showMore}</button>}
-        <button className="button button-quiet" type="button" onClick={onDone}>{copy.cancel}</button>
-      </div>
-      <NoticeLine notice={notice} />
-    </div>
-  );
-}
-
-function Row({ locale, movement, accounts, categories, today }: {
+/** One compact row shared by previews and history. */
+export function Row({ locale, movement, accounts, categories, today }: {
   locale: Locale; movement: MovementDto; accounts: AccountDto[]; categories: CategoryDto[]; today: string;
 }) {
   const copy = cashFlowCopy[locale];
+  const extra = movementsCopy[locale];
   const { pending, notice, run } = useAction(locale);
-  const [mode, setMode] = useState<"view" | "edit" | "pair">("view");
+  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actions = useRef<HTMLDetailsElement>(null);
+  const actionTrigger = useRef<HTMLElement>(null);
   const account = accounts.find((item) => item.id === movement.accountId);
   const category = categories.find((item) => item.id === movement.categoryId);
   const paired = movement.transferId !== null;
@@ -433,64 +459,91 @@ function Row({ locale, movement, accounts, categories, today }: {
   const refund = !paired && movement.amountCents > 0 && category?.kind === "EXPENSE";
   const tone = paired ? "blue" : movement.amountCents > 0 ? "green" : "red";
   const icon = paired ? "cashFlow" : movement.amountCents > 0 ? "arrowDown" : "arrowUp";
-  const subtitle = [paired ? copy.transferBadge : category?.name ?? copy.noCategory, account?.name, formatDay(movement.bookingDate, locale, today, days(locale))]
+  const subtitle = [paired ? null : category?.name ?? copy.noCategory, account?.name, formatDay(movement.bookingDate, locale, today, days(locale))]
     .filter(Boolean).join(" · ");
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    function dismissOutside(event: PointerEvent) {
+      if (actions.current && event.target instanceof Node && !actions.current.contains(event.target)) {
+        actions.current.open = false;
+      }
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => document.removeEventListener("pointerdown", dismissOutside);
+  }, [actionsOpen]);
+
+  function menuKeys(event: KeyboardEvent<HTMLDetailsElement>) {
+    if (event.key !== "Escape" || !event.currentTarget.open) return;
+    event.stopPropagation();
+    event.currentTarget.open = false;
+    event.currentTarget.querySelector("summary")?.focus();
+  }
 
   return (
     <li className={`movement${movement.voided ? " is-voided" : ""}`}>
       <div className="data-row">
         <span className={`row-icon tone-${tone}`}><Icon name={icon} size={20} /></span>
         <div className="row-text">
-          <p>
-            {movement.description}
+          <p className="movement-description">{movement.description}</p>
+          <div className="movement-meta">
+            <span>{subtitle}</span>
             {movement.voided && <span className="badge">{copy.voided}</span>}
             {paired && <span className="badge badge-blue">{copy.transferBadge}</span>}
             {refund && <span className="badge badge-green">{copy.refundBadge}</span>}
             {linked && <span className="badge badge-amber">{copy.recurringBadge}</span>}
             {chargeLinked && <span className="badge badge-amber">{copy.chargeBadge}</span>}
-          </p>
-          <span>{subtitle}</span>
+          </div>
         </div>
         <span className={`row-amount amount${movement.amountCents > 0 ? " positive" : ""}`}>
           {formatEuros(movement.amountCents, locale, { showPlus: true })}
         </span>
-      </div>
-      {mode === "view" && (
-        <div className="row-actions">
-          {!movement.voided && <button className="button button-quiet" type="button" onClick={() => setMode("edit")}>{copy.edit}</button>}
-          {!paired && !movement.voided && !linked && !chargeLinked && <button className="button button-quiet" type="button" onClick={() => setMode("pair")}>{copy.pair}</button>}
-          {paired && (
-            <button
-              className="button button-quiet" type="button" disabled={pending}
-              onClick={() => run(() => call("DELETE", `/transfers/${movement.transferId}`), copy.unpaired)}
-            >
-              {copy.unpair}
-            </button>
-          )}
-          {linked && (
-            <button
-              className="button button-quiet" type="button" disabled={pending}
-              onClick={() => run(
-                () => call<{ templateArchived: boolean }>("POST", "/recurring/occurrences", { action: "reopen", templateId: linked.templateId, dueDate: linked.dueDate }),
-                (data: { templateArchived: boolean }) => ({ kind: "ok", text: data?.templateArchived ? copy.reopenedArchived : copy.reopened }),
+        {mode === "view" && (
+          <details ref={actions} className="more-actions" onKeyDown={menuKeys} onToggle={(event) => setActionsOpen(event.currentTarget.open)}>
+            <summary ref={actionTrigger} aria-label={extra.moreActionsFor(movement.description)} title={extra.moreActions}>
+              <span aria-hidden="true">⋯</span>
+            </summary>
+            <div className="more-actions-list">
+              {!movement.voided && <button className="button button-quiet" type="button" onClick={() => {
+                setActionsOpen(false);
+                setMode("edit");
+              }}>{copy.edit}</button>}
+              {paired && (
+                <button
+                  className="button button-quiet" type="button" disabled={pending}
+                  onClick={() => run(() => call("DELETE", `/transfers/${movement.transferId}`), copy.unpaired)}
+                >
+                  {copy.unpair}
+                </button>
               )}
-            >
-              {copy.reopen}
-            </button>
-          )}
-          {chargeLinked && <Link className="button button-quiet" href={`/${locale}/property`}>{copy.openProperty}</Link>}
-          {!paired && !linked && !chargeLinked && (
-            <button
-              className="button button-quiet" type="button" disabled={pending}
-              onClick={() => run(() => call("PATCH", `/movements/${movement.id}`, { voided: !movement.voided }), movement.voided ? copy.restoredDone : copy.voidedDone)}
-            >
-              {movement.voided ? copy.unvoid : copy.void}
-            </button>
-          )}
-        </div>
-      )}
-      {mode === "edit" && <EditForm locale={locale} movement={movement} accounts={accounts} categories={categories} onDone={() => setMode("view")} />}
-      {mode === "pair" && <PairPanel locale={locale} movement={movement} accounts={accounts} today={today} onDone={() => setMode("view")} />}
+              {linked && (
+                <button
+                  className="button button-quiet" type="button" disabled={pending}
+                  onClick={() => run(
+                    () => call<{ templateArchived: boolean }>("POST", "/recurring/occurrences", { action: "reopen", templateId: linked.templateId, dueDate: linked.dueDate }),
+                    (data: { templateArchived: boolean }) => ({ kind: "ok", text: data?.templateArchived ? copy.reopenedArchived : copy.reopened }),
+                  )}
+                >
+                  {copy.reopen}
+                </button>
+              )}
+              {chargeLinked && <Link className="button button-quiet" href={`/${locale}/property`}>{copy.openProperty}</Link>}
+              {!paired && !linked && !chargeLinked && (
+                <button
+                  className="button button-quiet" type="button" disabled={pending}
+                  onClick={() => run(() => call("PATCH", `/movements/${movement.id}`, { voided: !movement.voided }), movement.voided ? copy.restoredDone : copy.voidedDone)}
+                >
+                  {movement.voided ? copy.unvoid : copy.void}
+                </button>
+              )}
+            </div>
+          </details>
+        )}
+      </div>
+      {mode === "edit" && <EditForm locale={locale} movement={movement} accounts={accounts} categories={categories} onDone={() => {
+        setMode("view");
+        requestAnimationFrame(() => actionTrigger.current?.focus());
+      }} />}
       <NoticeLine notice={notice} />
     </li>
   );
@@ -498,42 +551,47 @@ function Row({ locale, movement, accounts, categories, today }: {
 
 // ---- Page ---------------------------------------------------------------------------------------
 
-function Step({ href, label, symbol, disabledLabel }: { href: string | null; label: string; symbol: string; disabledLabel?: string }) {
+export function Step({ href, label, symbol, disabledLabel }: { href: string | null; label: string; symbol: string; disabledLabel?: string }) {
   return href
     ? <Link className="icon-button" href={href} aria-label={label}><span aria-hidden="true">{symbol}</span></Link>
     : <span className="icon-button is-disabled" role="link" aria-disabled="true" aria-label={disabledLabel ? `${label} (${disabledLabel})` : label}><span aria-hidden="true">{symbol}</span></span>;
 }
 
-export function MovementsView(props: Props) {
-  const { locale, month, today, accounts, categories, incoming, outgoing, transfers, summary, accountId, categoryId, pageIn, pageOut, pageTransfers } = props;
-  const copy = cashFlowCopy[locale];
-  const router = useRouter();
-  const filtered = Boolean(accountId || categoryId);
+export function Pager({ copy, title, page, hasMore, href }: {
+  copy: CashFlowCopy; title: string; page: number; hasMore: boolean; href: (page: number) => string;
+}) {
+  if (page === 1 && !hasMore) return null;
+  return (
+    <nav className="pagination" aria-label={`${title}: ${copy.pagination}`}>
+      <Step href={page > 1 ? href(page - 1) : null} label={`${title}: ${copy.previousPage}`} symbol="‹" />
+      <span className="pagination-label" aria-current="page">{copy.pageLabel(page)}</span>
+      <Step href={hasMore ? href(page + 1) : null} label={`${title}: ${copy.nextPage}`} symbol="›" />
+    </nav>
+  );
+}
 
-  /** A pager preserves the other columns; changing month or filters resets all pages. */
-  const link = (target: string, pages: Partial<Record<PageKey, number>> = {}) => {
-    const query = new URLSearchParams({ month: target });
-    if (accountId) query.set("accountId", accountId);
-    if (categoryId) query.set("categoryId", categoryId);
-    const next = { pageIn: 1, pageOut: 1, pageTransfers: 1, ...pages };
-    for (const key of ["pageIn", "pageOut", "pageTransfers"] as const) {
-      if (next[key] > 1) query.set(key, String(next[key]));
-    }
-    return `/${locale}/cash-flow?${query}`;
-  };
-  const pageLink = (key: PageKey, page: number) => link(month, { pageIn, pageOut, pageTransfers, [key]: page });
-  const filter = (key: "accountId" | "categoryId", value: string) => {
-    const query = new URLSearchParams({ month });
-    const next = { accountId, categoryId, [key]: value || undefined };
-    if (next.accountId) query.set("accountId", next.accountId);
-    if (next.categoryId) query.set("categoryId", next.categoryId);
-    router.push(`/${locale}/cash-flow?${query}`);
-  };
+export function MovementsView(props: Props) {
+  const { locale, month, today, accounts, categories, incoming, outgoing, transfers, summary, show } = props;
+  const copy = cashFlowCopy[locale];
+  const extra = movementsCopy[locale];
+
+  /** The preview length is part of the URL, so it is kept when the month changes. */
+  const link = (target: string, rows = show) => `/${locale}/cash-flow?month=${target}${rows === 5 ? "&show=5" : ""}`;
   const stats = [
     { label: copy.income, cents: summary.incomeCents },
     { label: copy.expenses, cents: -summary.expenseCents },
     { label: copy.net, cents: summary.netCents },
   ];
+  const previews = [
+    { key: "in", title: extra.recentIncome, empty: copy.noIncome, cents: summary.incomeCents, rows: incoming },
+    { key: "out", title: extra.recentExpenses, empty: copy.noExpenses, cents: -summary.expenseCents, rows: outgoing },
+  ] as const;
+
+  const list = (rows: MovementDto[]) => (
+    <ul className="rows movement-list">{rows.map((movement) => (
+      <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
+    ))}</ul>
+  );
 
   return (
     <div className="stack cash-flow-view">
@@ -560,76 +618,36 @@ export function MovementsView(props: Props) {
         <p className="hint">{copy.summaryNote}</p>
         {summary.expenseCents < 0 && <p className="hint">{copy.refundsExceed}</p>}
 
-        <div className="filters" role="group" aria-label={copy.filters}>
-          <div className="form-field">
-            <label htmlFor="filter-account">{copy.account}</label>
-            <Select id="filter-account" value={accountId ?? ""} onChange={(value) => filter("accountId", value)} options={[
-              { value: "", label: copy.allAccounts },
-              ...accounts.map((account) => ({ value: account.id, label: `${account.name}${account.archived ? ` (${copy.archivedSuffix})` : ""}` })),
-            ]} />
-          </div>
-          <div className="form-field">
-            <label htmlFor="filter-category">{copy.category}</label>
-            <Select id="filter-category" value={categoryId ?? ""} onChange={(value) => filter("categoryId", value)} options={[
-              { value: "", label: copy.allCategories }, { value: "none", label: copy.noCategory },
-              ...categories.map((category) => ({ value: category.id, label: `${category.name}${category.archived ? ` (${copy.archivedSuffix})` : ""}` })),
-            ]} />
-          </div>
+        <div className="preview-controls">
+          <Link className="text-link" href={link(month, show === 5 ? 3 : 5)}>{show === 5 ? extra.previewThree : extra.previewFive}</Link>
+          <Link className="text-link" href={historyHref(locale, { month })}>{extra.historyTitle}</Link>
         </div>
       </section>
+
       <div className="flow-columns">
-        {([
-          { key: "pageIn", title: copy.income, empty: filtered ? copy.noIncomeMatches : pageIn > 1 ? copy.emptyPage : copy.noIncome, cents: summary.incomeCents, register: incoming, page: pageIn },
-          { key: "pageOut", title: copy.expenses, empty: filtered ? copy.noExpensesMatches : pageOut > 1 ? copy.emptyPage : copy.noExpenses, cents: -summary.expenseCents, register: outgoing, page: pageOut },
-        ] as const).map((column) => (
-          <section key={column.key} className="card" aria-labelledby={`${column.key}-title`}>
-            <h2 id={`${column.key}-title`}>{column.title}</h2>
+        {previews.map((column) => (
+          <section key={column.key} className="card" aria-labelledby={`preview-${column.key}-title`}>
+            <div className="card-head">
+              <h2 id={`preview-${column.key}-title`}>{column.title}</h2>
+              <Link className="text-link" href={historyHref(locale, { month, type: column.key })} aria-label={extra.viewAllFor(column.title)}>{extra.viewAll}</Link>
+            </div>
             <p className={`flow-total amount${column.cents > 0 ? " positive" : ""}`}>
               {formatEuros(column.cents, locale, { showPlus: true })}
             </p>
-            {column.register.movements.length === 0 ? (
-              <div className="empty-inline">
-                <p>{column.empty}</p>
-                {column.page > 1 && <Link className="text-link" href={pageLink(column.key, 1)}>{copy.backToFirstPage}</Link>}
-              </div>
-            ) : (
-              <ul className="rows movement-list">{column.register.movements.map((movement) => (
-                <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
-              ))}</ul>
-            )}
-            <Pager copy={copy} title={column.title} page={column.page} hasMore={column.register.hasMore} href={(page) => pageLink(column.key, page)} />
+            {column.rows.length === 0 ? <div className="empty-inline"><p>{column.empty}</p></div> : list(column.rows)}
           </section>
         ))}
       </div>
-      {(transfers.movements.length > 0 || pageTransfers > 1) && (
-        <section className="card" aria-labelledby="transfers-title">
-          <h2 id="transfers-title">{copy.transfersTitle}</h2>
-          {transfers.movements.length === 0 ? (
-            <div className="empty-inline">
-              <p>{copy.emptyPage}</p>
-              {pageTransfers > 1 && <Link className="text-link" href={pageLink("pageTransfers", 1)}>{copy.backToFirstPage}</Link>}
-            </div>
-          ) : (
-            <ul className="rows movement-list">{transfers.movements.map((movement) => (
-              <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
-            ))}</ul>
-          )}
-          <Pager copy={copy} title={copy.transfersTitle} page={pageTransfers} hasMore={transfers.hasMore} href={(page) => pageLink("pageTransfers", page)} />
+
+      {transfers.length > 0 && (
+        <section className="card" aria-labelledby="preview-transfers-title">
+          <div className="card-head">
+            <h2 id="preview-transfers-title">{extra.recentTransfers}</h2>
+            <Link className="text-link" href={historyHref(locale, { month, type: "transfers" })} aria-label={extra.viewAllFor(extra.recentTransfers)}>{extra.viewAll}</Link>
+          </div>
+          {list(transfers)}
         </section>
       )}
     </div>
-  );
-}
-
-function Pager({ copy, title, page, hasMore, href }: {
-  copy: CashFlowCopy; title: string; page: number; hasMore: boolean; href: (page: number) => string;
-}) {
-  if (page === 1 && !hasMore) return null;
-  return (
-    <nav className="pagination" aria-label={`${title}: ${copy.pagination}`}>
-      <Step href={page > 1 ? href(page - 1) : null} label={`${title}: ${copy.previousPage}`} symbol="‹" />
-      <span className="pagination-label" aria-current="page">{copy.pageLabel(page)}</span>
-      <Step href={hasMore ? href(page + 1) : null} label={`${title}: ${copy.nextPage}`} symbol="›" />
-    </nav>
   );
 }

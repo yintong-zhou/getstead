@@ -20,18 +20,19 @@
   --warning-soft: #fef3c7;
   --chart-2: #14b8a6;
   --chart-4: #a855f7;
-  --glass-fill: #ffffff8c;
-  --glass-fill-strong: #ffffffb8;
-  --glass-popup-fill: #fffffff0;
+  --glass-transparency: 100%;
+  --glass-fill: color-mix(in srgb, #ffffff8c var(--glass-transparency), var(--surface));
+  --glass-fill-strong: color-mix(in srgb, #ffffffb8 var(--glass-transparency), var(--surface));
+  --glass-popup-fill: color-mix(in srgb, #fffffff0 var(--glass-transparency), var(--surface));
   --glass-stroke: #ffffffb3;
   --glass-highlight: linear-gradient(180deg, #ffffff99, #ffffff00 2px);
   --glass-shadow: 0 8px 32px #1b2b5e1f;
   --glass-blur: 24px;
   --glass-blur-control: 16px;
   --glass-hairline: #0f172a0f;
-  --glass-primary: #2f5beae6;
-  --glass-hero: #1b2b5ed9;
-  --glass-recessed: #eef1f799;
+  --glass-primary: color-mix(in srgb, #2f5beae6 var(--glass-transparency), var(--brand));
+  --glass-hero: color-mix(in srgb, #1b2b5ed9 var(--glass-transparency), var(--brand-dark));
+  --glass-recessed: color-mix(in srgb, #eef1f799 var(--glass-transparency), var(--surface-alt));
 }
 
 body {
@@ -211,7 +212,7 @@ h1 {
   box-shadow: inset 0 2px 0 #ffffffb3, inset 0 0 0 1px #ffffff80, var(--glass-shadow);
 }
 
-.sidebar > .wordmark { display: none; }
+.sidebar > .wordmark, .sidebar-profile { display: none; }
 
 .navigation {
   position: fixed;
@@ -308,6 +309,11 @@ h1 {
 }
 
 .card:has(.rows) { background-color: var(--glass-fill-strong); }
+.financial-trend { padding-block: 4px 8px; min-width: 0; }
+.financial-trend h2 { font-size: 18px; font-weight: 750; }
+.financial-trend-labels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; color: var(--muted); font-size: 12px; }
+.financial-trend-labels > :nth-child(2) { text-align: center; }
+.financial-trend-labels > :last-child { text-align: end; }
 
 .card h2 {
   font-size: 17px;
@@ -610,23 +616,26 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 }
 
 @media (min-width: 768px) {
-  .workspace { display: grid; grid-template-columns: 72px minmax(0, 1fr); }
+  .workspace { display: grid; grid-template-columns: 88px minmax(0, 1fr); }
   .sidebar {
     position: sticky;
-    top: 0;
+    top: 16px;
+    z-index: 20;
     display: flex;
-    height: 100dvh;
+    align-self: start;
+    height: calc(100dvh - 32px);
+    margin: 16px 0 16px 12px;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
-    padding: 24px 12px;
-    border-inline-end: 0;
-    background: var(--surface);
-    box-shadow: 4px 0 24px #1b2b5e0a;
-    overflow-y: auto;
+    gap: 20px;
+    padding: 16px 8px;
+    border-radius: 24px;
+    background: var(--glass-highlight), var(--glass-fill-strong);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    box-shadow: inset 0 0 0 1px var(--glass-stroke), var(--glass-shadow);
   }
-  .sidebar > .wordmark { display: flex; }
-  .sidebar .wordmark > span:last-child, .mobile-wordmark {
+  .sidebar > .wordmark { display: flex; flex-shrink: 0; }
+  .sidebar .wordmark > span:last-child {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -634,13 +643,32 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .navigation { position: static; display: flex; flex-direction: column; gap: 8px; border: 0; padding: 0; border-radius: 0; background: transparent; backdrop-filter: none; box-shadow: none; }
-  .nav-item { width: 48px; }
+  .sidebar .navigation {
+    position: static;
+    display: flex;
+    width: 100%;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 3px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .nav-item { width: 48px; flex-shrink: 0; }
+  .sidebar .nav-item[aria-current] { border-radius: 999px; }
   .mobile-navigation, .section-nav { display: none; }
+  .sidebar-profile { display: block; flex-shrink: 0; margin-block-start: auto; }
   .nav-item > .nav-label-short { display: none; }
   .page { padding: 24px; }
   .page-head { margin-bottom: 24px; }
-  .utility-bar { margin-bottom: 12px; }
+  .utility-bar { display: none; }
   .primary-link { padding-inline: 16px; font-size: 14px; }
   .month-label { font-size: 14px; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -649,8 +677,10 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 
 @media (min-width: 1280px) {
   .workspace { grid-template-columns: 248px minmax(0, 1fr); }
-  .sidebar { align-items: stretch; gap: 32px; padding: 28px 16px; }
+  .sidebar { align-items: stretch; gap: 24px; margin-inline-start: 16px; padding: 20px 12px; }
   .sidebar .wordmark { margin-inline: 12px; }
+  .sidebar .navigation { align-items: stretch; }
+  .sidebar-profile { margin-inline: 3px; }
   .sidebar .wordmark > span:last-child {
     position: static;
     width: auto;
@@ -713,7 +743,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   }
   body::before { background: var(--bg); }
 }
-@supports not (backdrop-filter: blur(1px)) {
+@supports not ((backdrop-filter: blur(1px)) and (color: color-mix(in srgb, white, black))) {
   :root {
     --glass-fill: var(--surface);
     --glass-fill-strong: var(--surface);

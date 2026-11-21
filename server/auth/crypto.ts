@@ -1,4 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { generateURI } from "otplib";
+
+export function totpEnrollmentUri(secret: string, email: string) {
+  return generateURI({ issuer: "getstead", label: email, secret });
+}
 
 const scryptOptions = { N: 65_536, r: 8, p: 2, maxmem: 96 * 1024 * 1024 };
 const dummyHash = `scrypt-v1:${"0".repeat(32)}:${"0".repeat(64)}`;

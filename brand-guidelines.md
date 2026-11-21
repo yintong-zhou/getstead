@@ -130,8 +130,8 @@ Spacing follows a 4 px scale; radii are generous for a soft, reassuring look.
 | Device  | Width       | Navigation                                         | Grid                                                 |
 | ------- | ----------- | -------------------------------------------------- | ---------------------------------------------------- |
 | Mobile  | < 768 px    | Floating glass navigation pill, 12 px from edges and safe area | 1 column, 16 margins, 16 gap               |
-| Tablet  | 768–1279 px | Icon-only sidebar (72 px)                          | 2 columns, 24 margins, 20 gap                        |
-| Desktop | ≥ 1280 px   | Expanded 248 px sidebar with Pro panel and profile | Fluid area + fixed 360 px column, 32 margins, 24 gap |
+| Tablet  | 768–1279 px | Icon-only glass island in an 88 px column         | 2 columns, 24 margins, 20 gap                        |
+| Desktop | ≥ 1280 px   | Labeled glass island in a 248 px column            | Fluid area + fixed 360 px column, 32 margins, 24 gap |
 
 
 Design is **mobile-first**: every new screen starts at 390 px and then widens. On desktop the "+" button becomes the "New transaction" button in the top bar. Cards in the same row always share the same height.
@@ -190,7 +190,7 @@ The components already exist in Figma in the "Componenti" section; every new scr
 
 ## Liquid Glass
 
-Liquid Glass is the application's only style: cards, buttons and dropdown menus are sheets of translucent glass that let the background show through. It is always on, with no Settings page or appearance toggle. Standard opaque surfaces are retained only as the automatic reduced-transparency or no-blur fallback.
+Liquid Glass is the application's visual style. Cards, buttons and dropdown menus let the background show through. Profile and settings offers a browser-local transparency slider with a live preview. The slider runs from opaque surfaces at 0% to the default glass effect at 100%. Reduced-transparency preferences and the no-blur fallback use opaque surfaces automatically.
 
 **Principle.** Glass needs something beneath it. A soft low-saturation gradient of brand, chart-2 and chart-4 gives the glass depth, painted on a fixed background layer rather than `background-attachment: fixed` so it works on iOS.
 
@@ -217,7 +217,7 @@ Liquid Glass is the application's only style: cards, buttons and dropdown menus 
 - **Hero-tint deviation:** increase brand-dark from 70% to 85% because the 11–12 px `#d0dcff` captions reached only about 3.9–4.05:1 over the lightest backdrop, below AA's 4.5:1. At 85% over `#f5f6fa`, the computed caption contrast is 6.36:1 (6.38:1 for the actual `#d9` alpha), so captions retain their existing color.
 - **Buttons:** the primary button is brand-tinted glass at least 90% with on-brand text. This deliberately increases the original 70% tint: white 12–14 px text at 70% has about 3.1:1 contrast, while 90% gives about 4.6:1. Keep white reflections at the edge of primary controls so they do not lighten the text surface. Secondary and icon buttons are clear glass. On press glass brightens and scales to 97%; primary controls brighten their edge rather than their text surface to preserve contrast. Reduced motion removes the scale.
 - **Dropdown menus:** panel in near-opaque glass/popup-fill (94% white), 16 radius, 24 px blur, items separated by 1 px of glass/hairline; the selected item has a brand-soft pill at 60%.
-- **Navigation:** on mobile the bottom bar becomes a floating glass pill, 12 px from the edges; the desktop sidebar stays opaque.
+- **Navigation:** the mobile bottom bar floats 12 px from the edges. Tablet and desktop use an inset glass island with a rounded edge and a blue active pill.
 - **Fields and nested panels:** fields use a recessed translucent fill and inset shadow. Segments, statistics, edit panels and badges use translucent fills without additional blur.
 - **Scrollbars:** thin app-styled scrollbars, rounded translucent thumb, transparent track, with a Safari fallback.
 - **Pickers:** dropdowns use the accessible in-house Select, including keyboard navigation, type-ahead and upward opening near the mobile navigation. Date/month popup pickers remain native; only their fields are restyled.

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useId, useState, type ComponentProps, type ReactNode } from "react";
+import { Select } from "../select";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
 import { formatEuros, type Locale } from "@/server/locale";
@@ -205,6 +206,7 @@ function InstrumentForm({ locale, instrument }: { locale: Locale; instrument?: I
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
   const note = useId();
+  const kindId = useId();
 
   return <form aria-label={instrument ? copy.editInstrument : copy.addInstrument} aria-describedby={note}
     onSubmit={async (event) => {
@@ -224,9 +226,11 @@ function InstrumentForm({ locale, instrument }: { locale: Locale; instrument?: I
       <Input label={copy.name} name="name" maxLength={120} required defaultValue={instrument?.name} />
       <Input label={copy.symbol} name="symbol" maxLength={24} defaultValue={instrument?.symbol ?? ""} />
       <Input label={copy.isin} name="isin" maxLength={12} defaultValue={instrument?.isin ?? ""} />
-      <Choice label={copy.kind} name="kind" defaultValue={instrument?.kind ?? "STOCK"}>
-        {Object.entries(copy.kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </Choice>
+      <div className="form-field">
+        <label htmlFor={kindId}>{copy.kind}</label>
+        <Select id={kindId} name="kind" defaultValue={instrument?.kind ?? "STOCK"} aria-describedby={note}
+          options={Object.entries(copy.kinds).map(([value, label]) => ({ value, label }))} />
+      </div>
     </div>
     <p className="hint investment-note" id={note}>{copy.kindHint}</p>
     <div className="form-actions">

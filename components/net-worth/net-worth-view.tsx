@@ -23,7 +23,7 @@ function Trend({ data, locale }: { data: NetWorthData; locale: Locale }) {
   const points = data.series.map((point, index) => `${20 + index * 560 / 11},${y(point.netCents)}`);
   const line = `M ${points.join(" L ")}`;
   return (
-    <section className="card" aria-labelledby="worth-trend-title">
+    <section className="financial-trend" aria-labelledby="worth-trend-title">
       <h2 id="worth-trend-title">{copy.trend}</h2>
       <p className="hint">{copy.trendLabel}</p>
       <svg className="worth-chart" viewBox="0 0 600 192" role="img" aria-label={`${copy.trendLabel}. ${data.series.map(
@@ -37,7 +37,7 @@ function Trend({ data, locale }: { data: NetWorthData; locale: Locale }) {
         <path d={`${line} L 580,${y(0)} L 20,${y(0)} Z`} fill={`url(#${gradient})`} />
         <path d={line} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      <div className="worth-chart-labels" aria-hidden="true">
+      <div className="financial-trend-labels" aria-hidden="true">
         {[data.series[0], data.series[5], data.series[11]].map((point) => <span key={point.month}>{formatMonth(point.month, locale)}</span>)}
       </div>
     </section>
@@ -58,6 +58,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
 
   return (
     <div className="stack worth-view">
+      <Trend data={data} locale={locale} />
       <section className="card hero" aria-labelledby="worth-total-title">
         <h2 id="worth-total-title" className="hero-label">{copy.title}</h2>
         <p className="hero-amount amount">{formatEuros(data.netCents, locale)}</p>
@@ -69,8 +70,6 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
         <div className="card"><dt>{copy.assets}</dt><dd className="amount">{formatEuros(data.assetsCents, locale)}</dd></div>
         <div className="card"><dt>{copy.liabilities}</dt><dd className="amount">{formatEuros(data.liabilitiesCents, locale)}</dd></div>
       </dl>
-
-      <Trend data={data} locale={locale} />
 
       <section className="card" aria-labelledby="worth-accounts-title">
         <h2 id="worth-accounts-title">{copy.accounts}</h2>

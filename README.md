@@ -1,8 +1,47 @@
-<p align="center"><img src="public/brand/getstead-mark.png" width="96" alt="getstead mark: a glass drop with two eyes"></p>
+<p align="center">
+  <img src="public/brand/getstead-mark.png" width="96" alt="getstead mark">
+</p>
 
-# getstead
+<h1 align="center">getstead</h1>
 
-getstead is a personal finance workspace. It has a private sign-in with two-step verification and, from milestone M1, manual cash flow and budget: accounts, categories, movements, transfers, category rules, monthly budgets and recurring expenses. The overview shows the signed-in user's own month. English is the default language, with Italian available from the header. CSV and Excel import is not part of M1.
+<p align="center">
+  A private workspace for your money, investments and property.
+</p>
+
+<p align="center">
+  <a href="#what-you-can-track">Features</a> ?
+  <a href="#run-locally">Getting started</a> ?
+  <a href="#verify">Testing</a> ?
+  <a href="#how-it-works">Architecture</a> ?
+  <a href="#license">License</a>
+</p>
+
+getstead brings cash flow, budgets, net worth, investments and condominium costs together in one browser app. It is designed for personal use, with data scoped to the signed-in user. The interface is available in English and Italian.
+
+## What you can track
+
+| Area | Available today |
+| --- | --- |
+| **Cash flow and budget** | Accounts, categories, movements, transfers, categorisation rules, monthly budgets and recurring expenses. |
+| **Net worth** | Account balance checks, assets and liabilities, and a 12-month trend. Investment holdings and property valuations contribute to the total. |
+| **Investments** | Instruments, trades, dividends, coupons, manual prices, holdings, allocation and indicative tax estimates. |
+| **Property** | Property valuations, ownership shares, condominium tables, instalments, one-off charges and annual costs. |
+| **Account** | Private sign-in with optional two-step verification, profile settings and language selection. |
+
+Tax figures are indicative estimates, not tax statements. Investment prices and property values are entered manually. CSV and Excel import, automatic bank connections and investment advice are not currently available.
+
+## How it works
+
+getstead is a full-stack Next.js application built with TypeScript, React and Tailwind CSS. PostgreSQL and Prisma handle persistence; application logic and data access live in `server/`, while `app/` contains pages and API route handlers. Financial amounts use integer cents or decimal arithmetic.
+
+| Directory | Purpose |
+| --- | --- |
+| `app/` | Pages and REST API route handlers |
+| `components/` | Interface components |
+| `server/` | Business logic and data access |
+| `db/` | Prisma schema, migrations and runtime grants |
+| `public/` | Static assets |
+| `docs/` | Project plans and handoffs |
 
 ## Run locally
 
@@ -34,7 +73,7 @@ npm run auth:owner -- create
 npm run dev
 ```
 
-Enter the getstead email and password in the interactive owner command. On the first sign-in, add the setup key to a time-based authenticator and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the getstead password, revokes sessions, and resets the authenticator enrollment.
+Enter the getstead email and password in the interactive owner command. Sign in with your email and password. To enable two-step verification, open Profile and settings, re-enter your password, add the setup key to a time-based authenticator, and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the getstead password, revokes sessions, and resets the authenticator enrollment.
 
 Open [getstead in English](http://127.0.0.1:3000/en) or [getstead in Italian](http://127.0.0.1:3000/it). Use the same loopback hostname as `APP_ORIGIN`.
 
@@ -74,7 +113,7 @@ The product and package are called **getstead** (interface, page titles, cookies
 
 ## Profile
 
-The person icon opens a menu with profile settings, language and sign-out. Open `/en/profile` or `/it/profile` to set an optional display name, change email or password, or switch language. Login still uses email, password and 2FA; email and password changes require the current password. A password change revokes other sessions and pending login challenges, keeping the requesting session. The authenticated API exposes `GET` and `PATCH /api/profile`, `POST /api/profile/email` and `POST /api/profile/password`. After applying the profile migration, rerun `db/grant-runtime.sql`: its three new runtime-role column grants allow updating only `email`, `password_hash` and `display_name`, alongside the existing MFA grants.
+The person icon opens a menu with profile settings, language and sign-out. Open `/en/profile` or `/it/profile` to set an optional display name, change email or password, or switch language. Two-step verification is off by default. Enable it with your current password and an authenticator code, or disable it with your current password and a fresh code. Both changes sign out your other sessions. Email and password changes require the current password. A password change revokes other sessions and pending login challenges, keeping the requesting session. The authenticated API exposes `GET` and `PATCH /api/profile`, `POST /api/profile/email` `POST /api/profile/password` and `POST /api/profile/totp`. After applying the profile migration, rerun `db/grant-runtime.sql`: its three new runtime-role column grants allow updating only `email`, `password_hash` and `display_name`, alongside the existing MFA grants.
 
 ## Net worth (M2)
 
@@ -138,3 +177,7 @@ Unlinking an instalment schedule (`DELETE /api/property/schedules/:id`) is refus
 APIs (same authenticated, same-origin, no-store wrapper): `GET /api/property`, `GET /api/property/costs`, `POST /api/property/properties`, `PATCH /api/property/properties/:id`, `POST /api/property/valuations`, `PATCH|DELETE /api/property/valuations/:id`, `POST /api/property/tables`, `PATCH|DELETE /api/property/tables/:id`, `POST /api/property/schedules`, `DELETE /api/property/schedules/:id`, `POST /api/property/charges`, `PATCH /api/property/charges/:id` (fields, `{ "voided": true }`, `{ "action": "settle", "accountId": "…" }` or `{ "action": "reopen" }`).
 
 M4a writes take a per-user advisory lock (key 4), then lock the account row with `FOR NO KEY UPDATE` (never `FOR UPDATE`, which deadlocks with transfers), then property, charge and movement rows. The migration `20261124090000_property` follows investments. Apply only to a local database unless separately approved, then rerun `db/grant-runtime.sql` for the five new tables. The runtime role cannot delete properties or charges. No dependency was added. `test:postgres` includes `server/property/postgres.integration.ts`.
+
+## License
+
+Proprietary and confidential. See [LICENSE](LICENSE) for the full notice.

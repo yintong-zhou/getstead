@@ -31,7 +31,7 @@ export default async function MfaPage({ params }: Props) {
 
   return (
     <AuthShell locale={locale} path="/login/mfa">
-      <MfaForm locale={locale} enrollSecret={challenge.status === "enroll" ? challenge.secret : undefined} />
+      <MfaForm locale={locale} />
     </AuthShell>
   );
 }

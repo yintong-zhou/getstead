@@ -1,7 +1,7 @@
-import { generateSecret, verify } from "otplib";
+import { verify } from "otplib";
 import type { Prisma, User } from "../../db/generated/client.ts";
 import { encryptionKey } from "./config.ts";
-import { decryptSecret, digestToken, encryptSecret, newToken, verifyPassword } from "./crypto.ts";
+import { decryptSecret, digestToken, newToken, verifyPassword } from "./crypto.ts";
 import { db } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 
@@ -12,6 +12,15 @@ export async function lockUser(tx: Prisma.TransactionClient, id: string) {
     FROM stead_users WHERE user_id = ${id}::uuid FOR NO KEY UPDATE
   `;
   return user;
+}
+
+async function createSession(tx: Prisma.TransactionClient, userId: string) {
+  const token = newToken();
+  await tx.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
+  await tx.session.create({ data: {
+    tokenDigest: digestToken(token)!, userId, expiresAt: new Date(Date.now() + 28_800_000),
+  } });
+  return token;
 }
 
 export async function signIn(email: string, password: string) {
@@ -29,22 +38,19 @@ export async function signIn(email: string, password: string) {
   return db().$transaction(async (tx) => {
     const current = await lockUser(tx, user.id);
     if (!current || current.passwordHash !== user.passwordHash) return { status: "invalid" } as const;
+    if (!current.totpSecret) return { status: "ok", token: await createSession(tx, user.id) } as const;
 
     const token = newToken();
-    const pendingSecret = current.totpSecret
-      ? null
-      : encryptSecret(encryptionKey(), user.id, generateSecret());
     await tx.loginChallenge.deleteMany({ where: { userId: user.id, expiresAt: { lte: new Date() } } });
     await tx.loginChallenge.create({
       data: {
         tokenDigest: digestToken(token)!,
         userId: user.id,
-        pendingSecret,
         expiresAt: new Date(Date.now() + 5 * 60_000),
       },
     });
 
-    return { status: "ok", token } as const;
+    return { status: "mfa", token } as const;
   });
 }
 
@@ -53,16 +59,10 @@ export async function readChallenge(token: string | undefined) {
   if (!digest) return { status: "anonymous" } as const;
 
   const challenge = await db().loginChallenge.findUnique({
-    where: { tokenDigest: digest, expiresAt: { gt: new Date() } },
-    select: { userId: true, pendingSecret: true, user: { select: { totpSecret: true } } },
+    where: { tokenDigest: digest, pendingSecret: null, expiresAt: { gt: new Date() } },
+    select: { user: { select: { totpSecret: true } } },
   });
-  if (!challenge) return { status: "anonymous" } as const;
-  if (challenge.user.totpSecret) return { status: "verify" } as const;
-  if (!challenge.pendingSecret) throw new Error("Missing enrollment key.");
-  return {
-    status: "enroll",
-    secret: decryptSecret(encryptionKey(), challenge.userId, challenge.pendingSecret),
-  } as const;
+  return challenge?.user.totpSecret ? { status: "verify" } as const : { status: "anonymous" } as const;
 }
 
 export async function verifyMfa(token: string | undefined, code: string, epoch = Date.now() / 1000) {
@@ -70,7 +70,7 @@ export async function verifyMfa(token: string | undefined, code: string, epoch =
   if (!digest) return { status: "expired" } as const;
 
   const active = await db().loginChallenge.findUnique({
-    where: { tokenDigest: digest, expiresAt: { gt: new Date() } },
+    where: { tokenDigest: digest, pendingSecret: null, expiresAt: { gt: new Date() } },
     select: { userId: true },
   });
   if (!active) return { status: "expired" } as const;
@@ -80,15 +80,13 @@ export async function verifyMfa(token: string | undefined, code: string, epoch =
     const { userId } = active;
     const user = await lockUser(tx, userId);
     const challenge = await tx.loginChallenge.findUnique({
-      where: { tokenDigest: digest, userId, expiresAt: { gt: new Date() } },
-      select: { pendingSecret: true },
+      where: { tokenDigest: digest, userId, pendingSecret: null, expiresAt: { gt: new Date() } },
+      select: { userId: true },
     });
-    if (!user || !challenge) return { status: "expired" } as const;
+    if (!user?.totpSecret || !challenge) return { status: "expired" } as const;
 
-    const secret = user.totpSecret ?? challenge.pendingSecret;
-    if (!secret) throw new Error("Missing MFA key.");
     const result = await verify({
-      secret: decryptSecret(encryptionKey(), userId, secret),
+      secret: decryptSecret(encryptionKey(), userId, user.totpSecret),
       token: code,
       epoch,
       epochTolerance: [5, 0],
@@ -97,19 +95,9 @@ export async function verifyMfa(token: string | undefined, code: string, epoch =
     if (!result.valid) return { status: "invalid" } as const;
     if (!("timeStep" in result)) throw new Error("Expected TOTP verification.");
 
-    const session = newToken();
-    await tx.user.update({ where: { id: userId }, data: { totpSecret: secret, lastTotpStep: result.timeStep } });
-    await tx.loginChallenge.deleteMany({ where: user.totpSecret ? { tokenDigest: digest, userId } : { userId } });
-    await tx.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
-    await tx.session.create({
-      data: {
-        tokenDigest: digestToken(session)!,
-        userId,
-        expiresAt: new Date(Date.now() + 8 * 60 * 60_000),
-      },
-    });
-
-    return { status: "ok", token: session } as const;
+    await tx.user.update({ where: { id: userId }, data: { lastTotpStep: result.timeStep } });
+    await tx.loginChallenge.deleteMany({ where: { tokenDigest: digest, userId } });
+    return { status: "ok", token: await createSession(tx, userId) } as const;
   });
 }
 

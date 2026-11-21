@@ -22,9 +22,9 @@ export function LoginForm({ locale }: { locale: Locale }) {
       password: String(data.get("password") ?? ""),
     });
 
-    if (status === 204) {
+    if (status === 204 || status === 202) {
       // Full navigation so the server re-reads the new session cookie.
-      window.location.replace(`/${locale}/login/mfa`);
+      window.location.replace(status === 202 ? `/${locale}/login/mfa` : `/${locale}`);
       return;
     }
     form.reset();

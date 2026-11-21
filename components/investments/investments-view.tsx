@@ -1,13 +1,13 @@
 ﻿"use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { formatMonth } from "../format";
 import { investmentsCopy } from "./copy";
-import { formatDecimal } from "./numbers";
+import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numbers";
 import { Instruments, PriceHistory, QuickPrice, Transactions, type Quote } from "./forms";
 import "./investments.css";
 
@@ -33,7 +33,7 @@ function Trend({ locale, series }: { locale: Locale; series: PortfolioData["seri
   const path = `M ${points.join(" L ")}`;
   const detail = series.map(({ month, valueCents }) => `${formatMonth(month, locale)} ${formatEuros(valueCents, locale)}`).join(", ");
 
-  return <section className="card" aria-labelledby="investment-trend-title">
+  return <section className="financial-trend" aria-labelledby="investment-trend-title">
     <h2 id="investment-trend-title">{copy.trend}</h2>
     <p className="hint">{copy.trendNote}</p>
     <svg className="investment-chart" viewBox="0 0 600 188" role="img" aria-label={detail}>
@@ -45,7 +45,7 @@ function Trend({ locale, series }: { locale: Locale; series: PortfolioData["seri
       <path d={`${path} L 580,174 L 20,174 Z`} fill={`url(#${gradient})`} />
       <path d={path} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
-    <div className="investment-chart-labels" aria-hidden="true">
+    <div className="financial-trend-labels" aria-hidden="true">
       {[series[0], series[5], series[11]].map(({ month }) => <span key={month}>{formatMonth(month, locale)}</span>)}
     </div>
   </section>;
@@ -74,14 +74,22 @@ function Allocation({ locale, allocation }: { locale: Locale; allocation: Portfo
 function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "data" | "instruments">) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
+  const [expanded, setExpanded] = useState(false);
   const byId = new Map(instruments.map((instrument) => [instrument.id, instrument]));
   const fields = [copy.quantity, copy.averageCost, copy.price, copy.marketValue, copy.gain];
+  const canExpand = data.holdings.some((holding) =>
+    hasHoldingPrecision(holding.quantity, false) || hasHoldingPrecision(holding.averageCost, true)
+      || (!holding.noPrice && hasHoldingPrecision(holding.unitPrice, true)));
 
   return <section className="card" aria-labelledby="investments-holdings-title">
-    <h2 id="investments-holdings-title">{copy.holdings}</h2>
+    <div className="card-head">
+      <h2 id="investments-holdings-title">{copy.holdings}</h2>
+      {canExpand && <button className="button button-quiet" type="button" aria-controls="investment-holdings"
+        onClick={() => setExpanded(!expanded)}>{expanded ? copy.hideDecimals : copy.showDecimals}</button>}
+    </div>
     {data.holdings.some((holding) => holding.noPrice) && <p className="hint investment-note">{copy.noPriceHint}</p>}
     {data.holdings.length === 0 ? <p className="empty-inline">{copy.noHoldings}</p> : (
-      <table className="investment-holdings" role="table" aria-labelledby="investments-holdings-title">
+      <table id="investment-holdings" className="investment-holdings" role="table" aria-labelledby="investments-holdings-title">
         <thead role="rowgroup">
           <tr role="row">
             {[copy.instrument, ...fields].map((label) => <th key={label} role="columnheader" scope="col">{label}</th>)}
@@ -90,9 +98,9 @@ function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "dat
         {data.holdings.map((holding) => {
           const instrument = byId.get(holding.instrumentId);
           const cells = [
-            formatDecimal(holding.quantity, locale),
-            formatDecimal(holding.averageCost, locale, true),
-            holding.noPrice ? <span key="no-price" className="badge badge-amber">{copy.noPrice}</span> : formatDecimal(holding.unitPrice, locale, true),
+            formatHoldingDecimal(holding.quantity, locale, false, expanded),
+            formatHoldingDecimal(holding.averageCost, locale, true, expanded),
+            holding.noPrice ? <span key="no-price" className="badge badge-amber">{copy.noPrice}</span> : formatHoldingDecimal(holding.unitPrice, locale, true, expanded),
             formatEuros(holding.valueCents, locale),
             <Gain key="gain" cents={holding.gainCents} locale={locale} />,
           ];
@@ -162,16 +170,16 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
   const copy = investmentsCopy[locale];
 
   return <div className="stack investment-view">
-    <section className="card hero investment-hero" aria-labelledby="investments-value-title">
-      <h2 id="investments-value-title" className="hero-label">{copy.value}</h2>
-      <p className="hero-amount amount">{formatEuros(data.valueCents, locale)}</p>
-      <p className="investment-hero-gain">
-        <span className="trend-chip">{formatEuros(data.gainCents, locale, { showPlus: true })}</span> {copy.gain}
-      </p>
-      <p className="hero-note">{copy.asOf} <time dateTime={data.today}>{data.today}</time></p>
-    </section>
+    <Trend locale={locale} series={data.series} />
     <div className="investment-split investment-overview">
-      <Trend locale={locale} series={data.series} />
+      <section className="card hero investment-hero" aria-labelledby="investments-value-title">
+        <h2 id="investments-value-title" className="hero-label">{copy.value}</h2>
+        <p className="hero-amount amount">{formatEuros(data.valueCents, locale)}</p>
+        <p className="investment-hero-gain">
+          <span className="trend-chip">{formatEuros(data.gainCents, locale, { showPlus: true })}</span> {copy.gain}
+        </p>
+        <p className="hero-note">{copy.asOf} <time dateTime={data.today}>{data.today}</time></p>
+      </section>
       <Allocation locale={locale} allocation={data.allocation} />
     </div>
     <Holdings locale={locale} data={data} instruments={instruments} />

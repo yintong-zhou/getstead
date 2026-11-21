@@ -1,6 +1,15 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { formatDecimal, ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers.ts";
+import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision, ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers.ts";
+
+test("holding decimals round for the summary and reveal meaningful precision on demand", () => {
+  assert.equal(formatHoldingDecimal("100.33333333", "it", true), "€ 100,33");
+  assert.equal(formatHoldingDecimal("11.5", "it", false), "11,5");
+  assert.equal(formatHoldingDecimal("0.0000000001", "en", false), "< 0.01");
+  assert.equal(formatHoldingDecimal("0.0000000001", "en", false, true), "0.0000000001");
+  assert.equal(hasHoldingPrecision("10.2000", true), false);
+  assert.equal(hasHoldingPrecision("10.2001", true), true);
+});
 
 test("investment euro inputs preserve cents up to the API maximum", () => {
   assert.equal(parseInvestmentEuros(" 0,05 "), 5);

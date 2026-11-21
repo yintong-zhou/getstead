@@ -118,9 +118,6 @@
 
 .auth-error a { font-weight: 700; text-decoration: underline; }
 
-.auth-steps { display: grid; gap: 8px; margin-block-end: 20px; padding-inline-start: 20px; list-style: decimal; }
-.auth-steps li::marker { font-weight: 700; }
-
 .setup-key {
   display: grid;
   gap: 10px;

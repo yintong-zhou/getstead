@@ -5,35 +5,7 @@ import { useState, type FormEvent } from "react";
 import type { Locale } from "@/server/locale";
 import { authCopy, errorKeyForStatus, postAuth, type AuthErrorKey } from "./auth-copy";
 
-/** First-access setup key: grouped for reading, copied raw. Manual entry only. */
-function SetupKey({ secret, locale }: { secret: string; locale: Locale }) {
-  const copy = authCopy[locale];
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
-
-  async function copyKey() {
-    try {
-      await navigator.clipboard.writeText(secret);
-      setStatus("copied");
-    } catch {
-      setStatus("failed");
-    }
-  }
-
-  return (
-    <div className="setup-key">
-      <span className="setup-key-label" id="setup-key-label">{copy.setupKey}</span>
-      <code aria-labelledby="setup-key-label">{secret.replace(/(.{4})(?=.)/g, "$1 ")}</code>
-      <button type="button" className="auth-secondary" onClick={copyKey}>{copy.copy}</button>
-      <span className="auth-hint" role="status">
-        {status === "copied" ? copy.copied : status === "failed" ? copy.copyFailed : ""}
-      </span>
-      <p className="setup-key-note">{copy.setupKeyNote}</p>
-    </div>
-  );
-}
-
-/** Six-digit TOTP step. `enrollSecret` is present only on first access. */
-export function MfaForm({ locale, enrollSecret }: { locale: Locale; enrollSecret?: string }) {
+export function MfaForm({ locale }: { locale: Locale }) {
   const copy = authCopy[locale];
   const [code, setCode] = useState("");
   const [error, setError] = useState<AuthErrorKey | null>(null);
@@ -64,20 +36,14 @@ export function MfaForm({ locale, enrollSecret }: { locale: Locale; enrollSecret
 
   return (
     <>
-      <h1>{enrollSecret ? copy.enrollTitle : copy.mfaTitle}</h1>
-      <p className="auth-intro">{enrollSecret ? copy.enrollIntro : copy.mfaIntro}</p>
-      {enrollSecret && (
-        <>
-          <ol className="auth-steps">{copy.enrollSteps.map((step) => <li key={step}>{step}</li>)}</ol>
-          <SetupKey secret={enrollSecret} locale={locale} />
-        </>
-      )}
+      <h1>{copy.mfaTitle}</h1>
+      <p className="auth-intro">{copy.mfaIntro}</p>
       <form className="auth-form" method="post" onSubmit={submit}>
         <div className="auth-field">
           <label htmlFor="code">{copy.code}</label>
           <input
             id="code" name="code" type="text" className="auth-input auth-code" required
-            autoFocus={!enrollSecret}
+            autoFocus
             autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
             enterKeyHint="done" spellCheck={false} value={code}
             onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}

@@ -13,6 +13,7 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
   locale: Locale; profile: Profile; currentPath: string; query: string;
 }) {
   const copy = profileCopy[locale];
+  const displayName = profile.displayName ?? profile.email.split("@")[0];
   const alternative = locale === "en" ? "it" : "en";
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -66,17 +67,20 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
   }
 
   return <div className="profile-menu" ref={root}>
-    <button ref={trigger} type="button" className="profile-trigger" aria-label={copy.title}
+    <button ref={trigger} type="button" className="profile-trigger" aria-label={`${copy.title} — ${displayName}`}
       aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined}
       onClick={() => open ? close() : show(0)}
       onKeyDown={(event) => {
         if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
           event.preventDefault(); show(event.key === "ArrowUp" || event.key === "End" ? 2 : 0);
         } else if (event.key === "Escape" && open) { event.preventDefault(); close(true); }
-      }}><Icon name="user" /></button>
+      }}>
+      <Icon name="user" />
+      <span className="profile-trigger-name">{displayName}</span>
+    </button>
     {open && <div ref={menu} id={id} className="profile-popup" onKeyDown={keyDown}>
       <div className="profile-menu-header" id={`${id}-who`}>
-        <strong>{profile.displayName ?? profile.email.split("@")[0]}</strong>
+        <strong>{displayName}</strong>
         <span>{profile.email}</span>
       </div>
       <div role="menu" aria-label={copy.title} aria-describedby={`${id}-who`}>

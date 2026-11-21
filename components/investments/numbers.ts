@@ -30,6 +30,19 @@ export function formatDecimal(value: string, locale: Locale, currency = false, m
   return currency ? `€${locale === "it" ? " " : ""}${formatted}` : formatted;
 }
 
+export function formatHoldingDecimal(value: string, locale: Locale, currency: boolean, expanded = false): string {
+  const formatted = formatDecimal(value, locale, currency, expanded ? (currency ? 8 : 10) : 2);
+  if (/[1-9]/.test(value) && formatted === formatDecimal("0", locale, currency)) {
+    const minimum = expanded ? (currency ? "0.00000001" : "0.0000000001") : "0.01";
+    return "< " + formatDecimal(minimum, locale, currency, expanded ? (currency ? 8 : 10) : 2);
+  }
+  return formatted;
+}
+
+export function hasHoldingPrecision(value: string, currency: boolean): boolean {
+  return formatHoldingDecimal(value, "en", currency) !== formatHoldingDecimal(value, "en", currency, true);
+}
+
 /** Send the ordinal only when the owner changed it, so the server can place a moved row last in its new day. */
 export function ordinalPatch(entered: string, stored: number | undefined): { ordinal?: number } {
   const ordinal = Number(entered);

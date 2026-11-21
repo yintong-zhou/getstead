@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type CSSProperties, type FormEvent } from "react";
+import { useId, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { BudgetRow } from "@/server/cash-flow/budget";
 import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import { formatEuros, type Locale } from "@/server/locale";
 import { addMonths, formatMonth } from "../format";
-import { parseLimit } from "../money";
+import { editableEuros, parseLimit } from "../money";
 import { call, type ApiResult } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction, type Notice } from "./use-action";
@@ -20,32 +20,35 @@ type BudgetResponse = { month: string; rows: BudgetRow[] };
  * limit belongs to the month on screen. Every action says so, and the feedback reports what the
  * selected month actually shows afterwards, so a saved value that does not apply is never hidden.
  */
-function LimitForm({ locale, row, month, currentMonth, frozen }: {
-  locale: Locale; row: BudgetRow; month: string; currentMonth: string; frozen: boolean;
+function LimitForm({ locale, row, month, currentMonth, onDone }: {
+  locale: Locale; row: BudgetRow; month: string; currentMonth: string; onDone: (notice: Notice) => void;
 }) {
   const copy = cashFlowCopy[locale];
   const id = useId();
   const { pending, notice, run, setNotice } = useAction(locale);
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(() => row.limitCents === null ? "" : editableEuros(row.limitCents, locale));
   const current = formatMonth(currentMonth, locale);
   const selected = formatMonth(month, locale);
+  const monthlyFirst = row.limitSource === "override" || month !== currentMonth;
+  const scopes = monthlyFirst ? (["month", "base"] as const) : (["base", "month"] as const);
 
   /** Runs a change, then reads the selected month back so the message matches what it now shows. */
-  function change(request: () => Promise<ApiResult<unknown>>, message: (shown: BudgetRow | undefined) => NonNullable<Notice>) {
-    return run(async () => {
+  async function change(request: () => Promise<ApiResult<unknown>>, message: (shown: BudgetRow | undefined) => NonNullable<Notice>) {
+    const result = await run(async () => {
       const saved = await request();
       if (!saved.ok) return saved;
       const view = await call<BudgetResponse>("GET", `/budget?month=${month}`);
       const shown = view.ok ? view.data.rows.find((item) => item.categoryId === row.categoryId) : undefined;
       return { ok: true as const, data: shown };
-    }, message);
+    });
+    if (result) onDone(message(result.data));
   }
 
   async function save(event: FormEvent, scope: "base" | "month") {
     event.preventDefault();
     const cents = parseLimit(value);
     if (cents === null) return setNotice({ kind: "error", text: `${copy.errors.validation} (${copy.fields.limitCents}). ${copy.amountHint}` });
-    const result = await change(
+    await change(
       () => call("PUT", "/budget/limits", { categoryId: row.categoryId, limitCents: cents, ...(scope === "month" ? { month } : {}) }),
       (shown): NonNullable<Notice> => {
         if (scope === "month") return { kind: "ok", text: copy.savedOnlyFor(selected) };
@@ -55,21 +58,22 @@ function LimitForm({ locale, row, month, currentMonth, frozen }: {
           : { kind: "ok", text: copy.savedFrom(current) };
       },
     );
-    if (result) setValue("");
   }
 
-  if (frozen) return <p className="hint">{copy.pastMonthNote}</p>;
-
   return (
-    <form className="limit-form" onSubmit={(event) => save(event, "base")}>
+    <form className="limit-form" onSubmit={(event) => save(event, scopes[0])}>
       <div className="form-field">
         <label htmlFor={id}>{copy.limitInput} (€)</label>
         <input id={id} className="field amount-field" inputMode="decimal" autoComplete="off" value={value} onChange={(event) => setValue(event.target.value)} required aria-describedby={`${id}-hint`} />
         <span id={`${id}-hint`} className="hint">{copy.baseStartsHint(current)}</span>
       </div>
       <div className="form-actions">
-        <button className="button button-solid" type="submit" disabled={pending}>{copy.applyFrom(current)}</button>
-        <button className="button" type="button" disabled={pending} onClick={(event) => save(event, "month")}>{copy.applyOnlyFor(selected)}</button>
+        {scopes.map((scope, index) => <button key={scope} className={index === 0 ? "button button-solid" : "button"}
+          type={index === 0 ? "submit" : "button"} disabled={pending}
+          onClick={index === 0 ? undefined : (event) => save(event, scope)}>
+          {scope === "base" ? copy.applyFrom(current) : copy.applyOnlyFor(selected)}
+        </button>)}
+        <button className="button button-quiet" type="button" disabled={pending} onClick={() => onDone(null)}>{copy.cancel}</button>
       </div>
       {row.limitSource !== "none" && (
         <div className="form-actions">
@@ -109,15 +113,22 @@ function MonthStep({ href, label, symbol, disabledLabel }: { href: string | null
 }
 
 export function BudgetView({ locale, month, currentMonth, rows }: { locale: Locale; month: string; currentMonth: string; rows: BudgetRow[] }) {
+  return <BudgetMonth key={month} locale={locale} month={month} currentMonth={currentMonth} rows={rows} />;
+}
+
+function BudgetMonth({ locale, month, currentMonth, rows }: { locale: Locale; month: string; currentMonth: string; rows: BudgetRow[] }) {
   const copy = cashFlowCopy[locale];
   const frozen = month < currentMonth;
   const link = (target: string) => `/${locale}/budget?month=${target}`;
+  const [editing, setEditing] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ id: string; notice: Notice } | null>(null);
+  const editTrigger = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="stack">
       <section className="card" aria-labelledby="budget-month-title">
         <div className="card-head">
-          <h2 id="budget-month-title">{copy.budgetTitle}</h2>
+          <h2 id="budget-month-title">{copy.month}</h2>
           <nav className="month-nav" aria-label={copy.month}>
             <MonthStep href={month > FIRST_MONTH ? link(addMonths(month, -1)) : null} label={copy.previousMonth} symbol="‹" disabledLabel={copy.firstMonth} />
             <time className="month-nav-label" dateTime={month}>{formatMonth(month, locale)}</time>
@@ -125,6 +136,7 @@ export function BudgetView({ locale, month, currentMonth, rows }: { locale: Loca
           </nav>
         </div>
         <p className="hint">{copy.refundNote}</p>
+        {frozen && <p className="hint">{copy.pastMonthNote}</p>}
 
         {rows.length === 0 ? (
           <div className="empty-inline">
@@ -149,22 +161,28 @@ export function BudgetView({ locale, month, currentMonth, rows }: { locale: Loca
                   {row.limitCents !== null && (
                     <progress value={Math.max(0, Math.min(row.spentCents, row.limitCents))} max={Math.max(row.limitCents, 1)} aria-label={row.name} />
                   )}
-                  <dl className="budget-facts">
-                    <div><dt>{copy.spent}</dt><dd className="amount">{formatEuros(row.spentCents, locale)}</dd></div>
-                    <div><dt>{copy.limit}</dt><dd className="amount">{row.limitCents === null ? "—" : formatEuros(row.limitCents, locale)}</dd></div>
+                  <div className="budget-row-footer">
                     <div>
-                      <dt>{copy.variance}</dt>
-                      <dd className={`amount${over ? " negative" : ""}`}>
-                        {variance === null ? "—" : over ? `▲ ${copy.overBy} ${formatEuros(-variance, locale)}` : `${formatEuros(variance, locale)} ${copy.leftOf}`}
-                      </dd>
+                      {variance !== null && <p className={`budget-variance amount${over ? " negative" : ""}`}>
+                        {over ? `▲ ${copy.overBy} ${formatEuros(-variance, locale)}` : `${formatEuros(variance, locale)} ${copy.leftOf}`}
+                      </p>}
+                      {row.limitSource !== "none" && <p className="hint">{row.limitSource === "override" ? copy.limitOverride : copy.limitBase}</p>}
                     </div>
-                  </dl>
-                  {row.limitSource !== "none" && <p className="hint">{row.limitSource === "override" ? copy.limitOverride : copy.limitBase}</p>}
+                    {!frozen && <button ref={editing === row.categoryId ? editTrigger : undefined} className="button button-quiet" type="button"
+                      data-category={row.categoryId}
+                      aria-expanded={editing === row.categoryId}
+                      onClick={() => { setFeedback(null); setEditing(editing === row.categoryId ? null : row.categoryId); }}>
+                      {copy.edit}<span className="visually-hidden"> — {row.name}</span>
+                    </button>}
+                  </div>
                   {over && !frozen && <p className="budget-flag">{copy.overBudgetAction}</p>}
-                  <details className="limit-details">
-                    <summary>{copy.edit}<span className="visually-hidden"> — {row.name}</span></summary>
-                    <LimitForm locale={locale} row={row} month={month} currentMonth={currentMonth} frozen={frozen} />
-                  </details>
+                  {editing === row.categoryId && !frozen && <LimitForm locale={locale} row={row} month={month} currentMonth={currentMonth}
+                    onDone={(notice) => {
+                      if (editTrigger.current?.dataset.category === row.categoryId) editTrigger.current.focus();
+                      setEditing((open) => open === row.categoryId ? null : open);
+                      setFeedback({ id: row.categoryId, notice });
+                    }} />}
+                  <NoticeLine notice={feedback?.id === row.categoryId ? feedback.notice : null} />
                 </li>
               );
             })}

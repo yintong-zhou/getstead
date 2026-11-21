@@ -12,6 +12,27 @@
   cursor: pointer;
 }
 .profile-trigger:hover, .profile-trigger[aria-expanded="true"] { background: var(--brand-soft); }
+.profile-trigger-name { display: none; }
+@media (min-width: 1280px) {
+  .sidebar-profile .profile-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 10px;
+    padding-inline: 12px;
+    text-align: start;
+  }
+  .sidebar-profile .profile-trigger > svg { flex-shrink: 0; }
+  .sidebar-profile .profile-trigger-name {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 .profile-popup {
   position: absolute;
   inset-inline-end: 0;
@@ -27,6 +48,10 @@
   color: var(--ink);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px #ffffff59, var(--glass-shadow);
+}
+.sidebar-profile .profile-popup {
+  inset: auto auto calc(100% + 8px) 0;
+  max-height: max(80px, calc(100dvh - 100px));
 }
 .profile-menu-header { display: grid; gap: 4px; padding: 12px; overflow-wrap: anywhere; border-bottom: 1px solid var(--glass-hairline); }
 .profile-menu-header span { color: var(--muted); font-size: 12px; }
@@ -59,3 +84,27 @@
 .profile-languages a { min-height: 44px; }
 .profile-languages [aria-current="page"] { background: var(--brand-soft); color: var(--brand-dark); }
 @media (min-width: 768px) { .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; } }
+.glass-settings-range { display: flex; align-items: center; gap: 12px; }
+.glass-settings-range input { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--brand); }
+.glass-settings-range span { min-width: 4ch; text-align: end; font-variant-numeric: tabular-nums; }
+.glass-sample {
+  margin-block: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, var(--brand-soft), #badfdf 55%, #d9cdf7);
+}
+.glass-sample-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur-control));
+  box-shadow: inset 0 0 0 1px var(--glass-stroke);
+  font-size: 13px;
+  font-weight: 700;
+}
+.glass-sample-button { padding: 6px 12px; border-radius: 999px; color: #fff; background: var(--glass-primary); }

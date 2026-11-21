@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { encryptSecret, decryptSecret, hashPassword, verifyPassword, digestToken, newToken } from "./crypto.ts";
+import { encryptSecret, decryptSecret, hashPassword, verifyPassword, digestToken, newToken, totpEnrollmentUri } from "./crypto.ts";
+
+test("the authenticator enrollment URI preserves the account and the TOTP settings", () => {
+  const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+  const uri = new URL(totpEnrollmentUri(secret, "owner+test@example.com"));
+  assert.equal(uri.protocol, "otpauth:");
+  assert.equal(uri.hostname, "totp");
+  assert.equal(decodeURIComponent(uri.pathname), "/getstead:owner+test@example.com");
+  assert.equal(uri.searchParams.get("issuer"), "getstead");
+  assert.equal(uri.searchParams.get("secret"), secret);
+  assert.equal(uri.searchParams.get("algorithm") ?? "SHA1", "SHA1");
+  assert.equal(uri.searchParams.get("digits") ?? "6", "6");
+  assert.equal(uri.searchParams.get("period") ?? "30", "30");
+});
 
 test("password hashes are salted and only the original password verifies", async () => {
   const password = "synthetic test password";

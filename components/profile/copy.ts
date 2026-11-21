@@ -2,7 +2,16 @@ import type { Locale } from "@/server/locale";
 
 export const profileCopy = {
   en: {
-    title: "Profile and settings", intro: "Manage your name, sign-in details and language.",
+    totp: {
+      title: "Two-step verification", on: "Enabled. Sign-in requires a code from your authenticator app.",
+      off: "Disabled. You can require a code from an authenticator app when you sign in.",
+      enable: "Enable", disable: "Disable", continue: "Continue", code: "Six-digit code",
+      setup: "Add getstead as a time-based account in your authenticator app, then enter the six-digit code. This setup expires in five minutes.",
+    },
+    title: "Profile and settings", intro: "Manage your appearance, account and language.",
+    appearance: "Appearance", transparency: "Liquid Glass transparency", cancel: "Cancel",
+    transparencyHint: "0% is opaque. 100% uses the default glass effect. Your choice is saved in this browser.",
+    appearancePreview: "Live preview", browserSaveFailed: "This browser couldn't save your preference.",
     displayName: "Display name", nameHint: "Optional, up to 60 characters. Leave blank to clear.",
     email: "Email", newEmail: "New email", currentPassword: "Current password",
     password: "Password", newPassword: "New password", confirmPassword: "Confirm new password",
@@ -11,6 +20,9 @@ export const profileCopy = {
     passwordSaved: "Password changed. Your other sessions have been signed out.",
     signOut: "Sign out", signingOut: "Signing out…", signOutFailed: "We couldn't sign you out. Try again.",
     errors: {
+      invalid_code: "Enter a fresh six-digit code from your authenticator app.",
+      enrollment_expired: "This setup has expired. Cancel and start again.",
+      totp_state: "The setting has changed. Reload the page and try again.",
       invalid: "The current password is incorrect.", limited: "Too many attempts. Try again in 15 minutes.",
       conflict: "That email is already in use.", validation: "Check the entered values and try again.",
       same_password: "Choose a password different from your current password.",
@@ -19,7 +31,16 @@ export const profileCopy = {
     } as Record<string, string>,
   },
   it: {
-    title: "Profilo e impostazioni", intro: "Gestisci il nome, i dati di accesso e la lingua.",
+    totp: {
+      title: "Verifica in due passaggi", on: "Attiva. Per accedere serve un codice della tua app di autenticazione.",
+      off: "Disattivata. Puoi richiedere un codice di autenticazione a ogni accesso.",
+      enable: "Attiva", disable: "Disattiva", continue: "Continua", code: "Codice a sei cifre",
+      setup: "Aggiungi getstead come account basato sul tempo nella tua app di autenticazione, poi inserisci il codice a sei cifre. La configurazione scade dopo cinque minuti.",
+    },
+    title: "Profilo e impostazioni", intro: "Gestisci l’aspetto, l’account e la lingua.",
+    appearance: "Aspetto", transparency: "Trasparenza Liquid Glass", cancel: "Annulla",
+    transparencyHint: "0% rende le superfici opache. 100% usa l’effetto predefinito. La scelta viene salvata in questo browser.",
+    appearancePreview: "Anteprima in tempo reale", browserSaveFailed: "Il browser non ha potuto salvare la preferenza.",
     displayName: "Nome visualizzato", nameHint: "Facoltativo, fino a 60 caratteri. Lascia vuoto per rimuoverlo.",
     email: "Email", newEmail: "Nuova email", currentPassword: "Password attuale",
     password: "Password", newPassword: "Nuova password", confirmPassword: "Conferma nuova password",
@@ -28,6 +49,9 @@ export const profileCopy = {
     passwordSaved: "Password modificata. Le altre sessioni sono state disconnesse.",
     signOut: "Esci", signingOut: "Uscita…", signOutFailed: "Non è stato possibile uscire. Riprova.",
     errors: {
+      invalid_code: "Inserisci un nuovo codice a sei cifre dalla tua app di autenticazione.",
+      enrollment_expired: "La configurazione è scaduta. Annulla e ricomincia.",
+      totp_state: "L'impostazione è cambiata. Ricarica la pagina e riprova.",
       invalid: "La password attuale non è corretta.", limited: "Troppi tentativi. Riprova tra 15 minuti.",
       conflict: "Questa email è già in uso.", validation: "Controlla i valori inseriti e riprova.",
       same_password: "Scegli una password diversa da quella attuale.",

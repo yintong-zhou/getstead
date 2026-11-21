@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { dashboardCopy } from "@/components/dashboard-copy";
+import { glassBootstrap } from "@/components/profile/appearance";
 import { isLocale, locales } from "@/server/locale";
 import "../globals.css";
 
@@ -37,7 +38,8 @@ export default async function RootLayout({ children, params }: LocaleParams & { 
   if (!isLocale(locale)) notFound();
 
   return (
-    <html lang={locale} className={plusJakarta.className}>
+    <html lang={locale} className={plusJakarta.className} suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: glassBootstrap }} /></head>
       <body>{children}</body>
     </html>
   );
