@@ -27,6 +27,8 @@
   --glass-stroke: #ffffffb3;
   --glass-highlight: linear-gradient(180deg, #ffffff99, #ffffff00 2px);
   --glass-shadow: 0 8px 32px #1b2b5e1f;
+  --glass-nav-fill: color-mix(in srgb, #ffffff38 var(--glass-transparency), var(--surface));
+  --glass-rim: 5px;
   --glass-blur: 24px;
   --glass-blur-control: 16px;
   --glass-hairline: #0f172a0f;
@@ -55,6 +57,7 @@ body::before {
     radial-gradient(ellipse at 8% 10%, #2f5bea38, transparent 60%),
     radial-gradient(ellipse at 90% 40%, #14b8a633, transparent 60%),
     radial-gradient(ellipse at 45% 95%, #a855f72e, transparent 60%),
+    radial-gradient(ellipse at 75% 8%, #f472b626, transparent 55%),
     var(--bg);
 }
 
@@ -224,9 +227,46 @@ h1 {
   padding: 8px;
   border: 0;
   border-radius: 28px;
-  background: var(--glass-highlight), var(--glass-fill-strong);
-  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px #ffffff59, var(--glass-shadow);
+  box-shadow: 0 10px 30px #1b2b5e1a;
+}
+
+/* Liquid glass, for navigation and controls only (never content cards).
+   Two sibling layers sample the page: a frosted core, and a thin rim that is barely blurred but brighter and
+   more saturated, which reads as the thick refracting edge of real glass. The host keeps no backdrop-filter,
+   so it is not a backdrop root and the active tab can sample the page through it as its own lens. */
+.navigation::before, .navigation::after,
+.utility-bar .profile-trigger::before, .utility-bar .profile-trigger::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.navigation::before, .utility-bar .profile-trigger::before {
+  inset: var(--glass-rim);
+  background:
+    radial-gradient(120% 140% at 0% 0%, #f9c6e03d, transparent 55%),
+    radial-gradient(120% 140% at 100% 100%, #c3d4ff3d, transparent 55%),
+    var(--glass-nav-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(200%) brightness(1.06);
+  box-shadow: inset 0 0 14px #ffffff40;
+}
+.navigation::after, .utility-bar .profile-trigger::after {
+  inset: 0;
+  padding: var(--glass-rim);
+  /* Specular light: bright top-left and bottom-right edges, dim sides. */
+  background: linear-gradient(135deg, #ffffffcc, #ffffff26 30%, #ffffff0d 55%, #ffffff26 75%, #ffffffa6);
+  backdrop-filter: blur(calc(var(--glass-blur) / 12)) saturate(260%) brightness(1.15);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+}
+.utility-bar .profile-trigger {
+  position: relative;
+  z-index: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: 0 6px 20px #1b2b5e1a;
 }
 
 .nav-item {
@@ -236,7 +276,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  border-radius: 12px;
+  border-radius: 20px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
@@ -244,17 +284,26 @@ h1 {
   text-align: center;
   overflow-wrap: normal;
   word-break: normal;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease, transform 200ms ease, box-shadow 200ms ease;
 }
 
-.nav-item:hover { background: var(--surface-alt); color: var(--ink); }
+.nav-item:hover { background: #ffffff59; color: var(--ink); }
 .nav-item > .nav-label-full { display: none; }
 .nav-item > .nav-label-short { white-space: nowrap; }
 .nav-item:focus-visible { outline-offset: -2px; }
 
+/* Active tab is a glass lens: it sits slightly proud of the bar and magnifies-brightens what is behind it. */
 .nav-item[aria-current] {
-  background: var(--brand-soft);
+  border-radius: 999px;
+  background:
+    radial-gradient(90% 80% at 25% 10%, #ffffffb3, transparent 60%),
+    linear-gradient(160deg, #ffffff73, #f6d3ea40 55%, #cfdcff59);
+  backdrop-filter: blur(calc(var(--glass-blur) / 4)) saturate(220%) brightness(1.12);
+  box-shadow:
+    inset 1px 1px 1px #fffffff2, inset -1px -1px 2px #ffffff80, inset 0 0 0 1px #ffffff99,
+    0 4px 16px #f0a6cf40, 0 2px 8px #2f5bea1f;
   color: var(--brand);
+  transform: scale(1.06);
 }
 
 /* Below 768px the bar holds four tabs; the sidebar's eight entries return from 768px. */
@@ -662,7 +711,9 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
     scrollbar-width: thin;
   }
   .nav-item { width: 48px; flex-shrink: 0; }
-  .sidebar .nav-item[aria-current] { border-radius: 999px; }
+  .sidebar .nav-item { border-radius: 12px; }
+  .sidebar .nav-item[aria-current] { border-radius: 999px; transform: none; backdrop-filter: none; }
+  .sidebar .navigation::before, .sidebar .navigation::after { content: none; }
   .mobile-navigation, .section-nav { display: none; }
   .sidebar-profile { display: block; flex-shrink: 0; margin-block-start: auto; }
   .nav-item > .nav-label-short { display: none; }
@@ -726,11 +777,15 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 .select-option + .select-option { border-top: 1px solid var(--glass-hairline); }
 .select-option[aria-selected="true"] { background: #e3eafd99; font-weight: 750; }
 .select-option.is-active { outline: 2px solid var(--brand); outline-offset: -2px; }
-.select-option:hover { background-color: var(--brand-soft); }
+.select-option.is-disabled { color: var(--muted); opacity: .6; cursor: not-allowed; }
+.select-option:hover:not(.is-disabled) { background-color: var(--brand-soft); }
+.form-field { position: relative; }
+.select-required { position: absolute; bottom: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .select-group-label { padding: 8px 12px 4px; color: var(--muted); font-size: 12px; font-weight: 750; }
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
+    --glass-nav-fill: var(--surface);
     --glass-fill: var(--surface);
     --glass-fill-strong: var(--surface);
     --glass-popup-fill: var(--surface);
@@ -742,9 +797,11 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
     --glass-recessed: var(--surface-alt);
   }
   body::before { background: var(--bg); }
+  .navigation::after, .utility-bar .profile-trigger::after { display: none; }
 }
 @supports not ((backdrop-filter: blur(1px)) and (color: color-mix(in srgb, white, black))) {
   :root {
+    --glass-nav-fill: var(--surface);
     --glass-fill: var(--surface);
     --glass-fill-strong: var(--surface);
     --glass-popup-fill: var(--surface);
@@ -756,6 +813,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
     --glass-recessed: var(--surface-alt);
   }
   body::before { background: var(--bg); }
+  .navigation::after, .utility-bar .profile-trigger::after { display: none; }
 }
 
 /* Password field with a show/hide toggle (components/password-input.tsx). */

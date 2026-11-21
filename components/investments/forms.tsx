@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useId, useState, type ComponentProps, type ReactNode } from "react";
+import { useId, useState, type ComponentProps } from "react";
 import { Select } from "../select";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
@@ -45,20 +45,21 @@ function Input({ label, hint, ...props }: ComponentProps<"input"> & { label: str
   </div>;
 }
 
-function Choice({ label, children, ...props }: ComponentProps<"select"> & { label: string; children: ReactNode }) {
+type Opt = { value: string; label: string; disabled?: boolean };
+function Choice({ label, options, ...props }: { label: string; options: Opt[]; name?: string; required?: boolean } & (
+  { value: string; onChange: (value: string) => void; defaultValue?: never } | { defaultValue?: string; value?: never; onChange?: never }
+)) {
   const id = useId();
   return <div className="form-field">
     <label htmlFor={id}>{label}</label>
-    <select {...props} className="field" id={id}>{children}</select>
-  </div>;
+    <Select {...(props as { name: string; defaultValue?: string })} id={id} options={options} />
+    </div>;
 }
 
 const dateBounds = { type: "date", min: "2000-01-01", max: "2100-12-31", required: true } as const;
 
-function optionRows(rows: (InstrumentDto | AccountDto)[], archived: string, currentId?: string) {
-  return rows.map((row) => <option key={row.id} value={row.id} disabled={row.archived && row.id !== currentId}>
-    {row.name}{row.archived ? ` · ${archived}` : ""}
-  </option>);
+function optionRows(rows: (InstrumentDto | AccountDto)[], archived: string, currentId?: string): Opt[] {
+  return rows.map((row) => ({ value: row.id, label: row.name + (row.archived ? ` · ${archived}` : ""), disabled: row.archived && row.id !== currentId }));
 }
 
 type TransactionProps = {
@@ -108,17 +109,12 @@ function TransactionForm({ locale, today, accounts, instruments, transaction }: 
     {transaction && <h3 id={headingId} className="visually-hidden">{copy.editTransaction}</h3>}
     <p id={noteId} className="hint investment-note">{copy.valuationCurrency}</p>
     <div className="form-grid">
-      <Choice label={copy.type} name="type" value={type} onChange={(event) => setType(event.target.value as TransactionDto["type"])}>
-        {Object.entries(copy.types).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </Choice>
-      <Choice label={copy.account} name="accountId" defaultValue={transaction?.accountId ?? ""} required>
-        <option value="" disabled>{copy.select}</option>
-        {optionRows(accounts, shared.archivedSuffix, transaction?.accountId)}
-      </Choice>
-      <Choice label={copy.instrument} name="instrumentId" defaultValue={transaction?.instrumentId ?? ""} required>
-        <option value="" disabled>{copy.select}</option>
-        {optionRows(instruments, shared.archivedSuffix, transaction?.instrumentId)}
-      </Choice>
+      <Choice label={copy.type} name="type" value={type} onChange={(value) => setType(value as TransactionDto["type"])}
+        options={Object.entries(copy.types).map(([value, label]) => ({ value, label }))} />
+      <Choice label={copy.account} name="accountId" defaultValue={transaction?.accountId ?? ""} required
+        options={[{ value: "", label: copy.select, disabled: true }, ...optionRows(accounts, shared.archivedSuffix, transaction?.accountId)]} />
+      <Choice label={copy.instrument} name="instrumentId" defaultValue={transaction?.instrumentId ?? ""} required
+        options={[{ value: "", label: copy.select, disabled: true }, ...optionRows(instruments, shared.archivedSuffix, transaction?.instrumentId)]} />
       <Input label={copy.tradeDate} name="tradeDate" {...dateBounds} defaultValue={transaction?.tradeDate ?? today} />
       {transaction && <Input label={copy.ordinal} name="ordinal" type="number" min="1" max="2147483647" step="1"
         hint={copy.ordinalHint} required defaultValue={transaction.ordinal} />}

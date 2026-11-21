@@ -4,11 +4,12 @@ import { Fragment, useEffect, useId, useRef, useState, type CSSProperties, type 
 import { createPortal } from "react-dom";
 import { Icon } from "./icon";
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; disabled?: boolean };
 export type SelectGroup = { label: string; options: Option[] };
 type Props = {
   id: string;
   disabled?: boolean;
+  required?: boolean;
   "aria-describedby"?: string;
 } & ({ options: Option[]; groups?: never } | { groups: SelectGroup[]; options?: never }) & (
   { value: string; onChange: (value: string) => void; name?: never; defaultValue?: never }
@@ -68,7 +69,7 @@ export function Select(props: Props) {
 
   function choose(index: number) {
     const option = options[index];
-    if (!option) return;
+    if (!option || option.disabled) return;
     if (option.value !== value) {
       if (props.value === undefined) setStored(option.value);
       props.onChange?.(option.value);
@@ -150,11 +151,14 @@ export function Select(props: Props) {
   let offset = 0;
   return (
     <>
-      {props.name && <input type="hidden" name={props.name} value={value} disabled={props.disabled} />}
+      {props.name && (props.required && value === ""
+        // A hidden input skips validation; an invisible empty required one blocks submit like a native select.
+        ? <input className="select-required" name={props.name} value="" onChange={() => {}} required tabIndex={-1} aria-hidden disabled={props.disabled} />
+        : <input type="hidden" name={props.name} value={value} disabled={props.disabled} />)}
       <button
         ref={trigger} id={props.id} className="field select-trigger" type="button" role="combobox"
         disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-controls={expanded ? popupId : undefined}
-        aria-activedescendant={expanded ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]}
+        aria-activedescendant={expanded ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
         onClick={() => expanded ? setOpen(false) : show()} onKeyDown={keyDown}
         onBlur={() => setOpen(false)}
       >
@@ -167,8 +171,8 @@ export function Select(props: Props) {
             const items = group.options.map((option) => {
               const index = offset++;
               return <div
-                key={option.value} id={`${popupId}-${index}`} role="option" aria-selected={value === option.value}
-                className={`select-option${index === activeIndex ? " is-active" : ""}`}
+                key={option.value} id={`${popupId}-${index}`} role="option" aria-selected={value === option.value} aria-disabled={option.disabled || undefined}
+                className={`select-option${index === activeIndex ? " is-active" : ""}${option.disabled ? " is-disabled" : ""}`}
                 onClick={() => choose(index)}
               >{option.label}</div>;
             });
