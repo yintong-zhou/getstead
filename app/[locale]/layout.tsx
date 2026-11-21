@@ -22,9 +22,14 @@ export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
 
-// Pages set their own title; the layout only supplies the site origin that relative URLs resolve against.
 export function generateMetadata(): Metadata {
-  return { metadataBase: appOrigin(), title: "getstead" };
+  return {
+    metadataBase: appOrigin(),
+    title: "getstead",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: "getstead" },
+    other: { "apple-mobile-web-app-capable": "yes" },
+  };
 }
 
 export default async function RootLayout({ children, params }: LocaleParams & { children: ReactNode }) {
