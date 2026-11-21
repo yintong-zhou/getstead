@@ -287,7 +287,8 @@ h1 {
   transition: background-color 150ms ease, color 150ms ease, transform 200ms ease, box-shadow 200ms ease;
 }
 
-.nav-item:hover { background: #ffffff59; color: var(--ink); }
+/* Hover only where a pointer hovers: on touch it sticks after a tap and draws a second shape around the active tab. */
+@media (hover: hover) { .nav-item:not([aria-current]):hover { background: #ffffff59; color: var(--ink); } }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .admin-navigation .nav-item svg { transition: transform 180ms ease; }
   .admin-navigation .nav-item:hover svg { transform: translateY(-1px); }
@@ -298,7 +299,6 @@ h1 {
 
 /* Active tab is a glass lens: it sits slightly proud of the bar and magnifies-brightens what is behind it. */
 .nav-item[aria-current] {
-  border-radius: 999px;
   background:
     radial-gradient(90% 80% at 25% 10%, #ffffffb3, transparent 60%),
     linear-gradient(160deg, #ffffff73, #f6d3ea40 55%, #cfdcff59);
@@ -716,7 +716,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   }
   .nav-item { width: 48px; flex-shrink: 0; }
   .sidebar .nav-item { border-radius: 12px; }
-  .sidebar .nav-item[aria-current] { border-radius: 999px; transform: none; backdrop-filter: none; }
+  .sidebar .nav-item[aria-current] { transform: none; backdrop-filter: none; }
   .sidebar .navigation::before, .sidebar .navigation::after { content: none; }
   .mobile-navigation, .section-nav { display: none; }
   .sidebar-profile { display: block; flex-shrink: 0; margin-block-start: auto; }
