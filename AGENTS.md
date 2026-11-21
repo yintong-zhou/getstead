@@ -80,7 +80,9 @@ In: cash flow and budget, net worth, investments, home and property (bills, subs
 
 Out for now: goals and projections, automatic bank or broker connection (open banking), bill OCR, native mobile app, billing for the product, investment advice (the app tracks, it never recommends).
 
-Build milestones in order: M0 foundations, M1 cash flow and budget, M2 net worth, M3 investments, M4 home and property. If a request falls outside v1 scope, say so and ask before building it.
+Build milestones in order: M0 foundations, M1 cash flow and budget, M2 net worth, M3 investments, M4 home and property, M5 admin. If a request falls outside v1 scope, say so and ask before building it.
+
+M5 admin (added by the owner on 2026-11-21): an `ADMIN` role on the normal login, usable only with two-step verification. Admins see account metadata only (email, name, created, last sign-in, 2FA, status), never financial data. They can create users and reset passwords (a temporary password shown once, which must be changed at the next sign-in) and disable or enable accounts. They can also read a filterable, paginated log of server errors and security events, kept for 30 days. Out of scope: support tickets (support stays by email), email delivery, impersonation, account deletion.
 
 ## Autonomy
 
@@ -93,3 +95,13 @@ Ask first: adding a dependency, running migrations against any non-local databas
 - `.tmp/` holds intermediate files (parsed CSVs, temporary exports). Everything there can be deleted and regenerated.
 - The deliverables are the code in this repository and the running app.
 
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

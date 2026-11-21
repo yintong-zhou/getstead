@@ -16,6 +16,15 @@ model User {
   passwordHash String           @map("password_hash") @db.VarChar(180)
   totpSecret   Bytes?           @map("totp_secret")
   lastTotpStep Int?             @map("last_totp_step")
+  // dbgenerated keeps Prisma from sending `role` on INSERT: the runtime role may not write it.
+  // ponytail: `prisma migrate diff` reports a no-op SET DEFAULT for this column (Prisma quirk); ignore it.
+  role         UserRole         @default(dbgenerated("'USER'::stead_user_role"))
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastLoginAt  DateTime?        @map("last_login_at") @db.Timestamptz(3)
+  disabledAt   DateTime?        @map("disabled_at") @db.Timestamptz(3)
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  events       EventLog[]       @relation("EventSubject")
+  actions      EventLog[]       @relation("EventActor")
   challenges   LoginChallenge[]
   sessions     Session[]
   accounts     Account[]
@@ -37,6 +46,39 @@ model User {
   condoCharges CondoCharge[]
 
   @@map("stead_users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+
+  @@map("stead_user_role")
+}
+
+enum EventKind {
+  ERROR
+  SECURITY
+
+  @@map("stead_event_kind")
+}
+
+/// Server errors and security events for the admin area. Codes and routes only: never emails,
+/// payloads, messages, stacks, IPs or amounts. Rows older than 30 days are pruned.
+model EventLog {
+  id        String    @id @default(uuid()) @map("event_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  kind      EventKind
+  code      String    @db.VarChar(64)
+  route     String?   @db.VarChar(200)
+  method    String?   @db.VarChar(8)
+  userId    String?   @map("user_id") @db.Uuid
+  actorId   String?   @map("actor_id") @db.Uuid
+  user      User?     @relation("EventSubject", fields: [userId], references: [id], onDelete: SetNull)
+  actor     User?     @relation("EventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([kind, createdAt])
+  @@map("stead_event_logs")
 }
 
 model LoginChallenge {

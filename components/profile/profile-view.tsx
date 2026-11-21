@@ -20,6 +20,9 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
   const [email, setEmail] = useState(profile.email);
 
   return <div className="profile-grid">
+    {profile.mustChangePassword && <p className="notice notice-warn profile-must-change" role="alert">
+      {copy.mustChangePassword} <a className="text-link" href="#profile-password-title">{copy.password}</a>
+    </p>}
     <GlassSettings locale={locale} />
     <TotpSettings locale={locale} initialEnabled={profile.totpEnabled} />
     <section className="card profile-card" aria-labelledby="profile-name-title">

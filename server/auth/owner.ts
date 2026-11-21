@@ -17,6 +17,14 @@ export async function createOwner(emailInput: string, password: string) {
   await db().user.create({ data: { email, passwordHash: hash }, select: { id: true } });
 }
 
+/** Makes an existing account an admin. Only possible on the admin connection: the runtime role cannot write `role`. */
+export async function promoteOwner(emailInput: string) {
+  const email = normalizeEmail(emailInput);
+  if (!email) throw new Error("Enter a valid email.");
+  const { count } = await db().user.updateMany({ where: { email }, data: { role: "ADMIN" } });
+  return count === 1;
+}
+
 export async function resetOwner(emailInput: string, password: string) {
   const email = validatedOwner(emailInput, password);
   const hash = await hashPassword(password);

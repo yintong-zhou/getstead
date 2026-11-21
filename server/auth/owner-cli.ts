@@ -2,7 +2,7 @@ import { emitKeypressEvents, type Key } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import { localPostgresUrl } from "./config.ts";
 import { disconnectDb } from "./database.ts";
-import { createOwner, resetOwner } from "./owner.ts";
+import { createOwner, promoteOwner, resetOwner } from "./owner.ts";
 
 function askHidden(prompt: string) {
   const input = process.stdin;
@@ -35,14 +35,19 @@ function askHidden(prompt: string) {
 
 async function main() {
   const action = process.argv[2];
-  if ((action !== "create" && action !== "reset") || !process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("Run auth:owner with create or reset in an interactive terminal.");
+  if ((action !== "create" && action !== "reset" && action !== "promote") || !process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error("Run auth:owner with create, reset or promote in an interactive terminal.");
   }
 
   process.env.DATABASE_URL = localPostgresUrl(process.env.DATABASE_ADMIN_URL).href;
 
   const prompts = createInterface({ input: process.stdin, output: process.stdout });
   const email = await prompts.question("getstead account email: ").finally(() => prompts.close());
+  if (action === "promote") {
+    if (!await promoteOwner(email)) throw new Error("Owner account not found.");
+    console.log("Account promoted to admin. The admin area requires two-step verification.");
+    return;
+  }
   const password = await askHidden("getstead password: ");
   const confirmation = await askHidden("Confirm getstead password: ");
   if (password !== confirmation) throw new Error("Passwords must match.");

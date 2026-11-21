@@ -23,6 +23,9 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const logout = useLogout(locale);
+  // Menu order: profile, admin (admins only), language, sign out.
+  const languageIndex = profile.admin ? 2 : 1;
+  const lastIndex = languageIndex + 1;
 
   function items() { return Array.from(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []); }
   function show(index: number) {
@@ -72,7 +75,7 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
       onClick={() => open ? close() : show(0)}
       onKeyDown={(event) => {
         if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-          event.preventDefault(); show(event.key === "ArrowUp" || event.key === "End" ? 2 : 0);
+          event.preventDefault(); show(event.key === "ArrowUp" || event.key === "End" ? lastIndex : 0);
         } else if (event.key === "Escape" && open) { event.preventDefault(); close(true); }
       }}>
       <Icon name="user" />
@@ -86,12 +89,14 @@ export function ProfileMenu({ locale, profile, currentPath, query }: {
       <div role="menu" aria-label={copy.title} aria-describedby={`${id}-who`}>
       <Link role="menuitem" tabIndex={active === 0 ? 0 : -1} href={`/${locale}/profile`}
         onFocus={() => setActive(0)} onClick={() => close()}>{copy.title}</Link>
-      <Link role="menuitem" tabIndex={active === 1 ? 0 : -1} href={`/${alternative}${currentPath}${query}`}
-        lang={alternative} hrefLang={alternative} onFocus={() => setActive(1)} onClick={() => close()}>
+      {profile.admin && <Link role="menuitem" tabIndex={active === 1 ? 0 : -1} href={`/${locale}/admin`}
+        onFocus={() => setActive(1)} onClick={() => close()}>{copy.admin}</Link>}
+      <Link role="menuitem" tabIndex={active === languageIndex ? 0 : -1} href={`/${alternative}${currentPath}${query}`}
+        lang={alternative} hrefLang={alternative} onFocus={() => setActive(languageIndex)} onClick={() => close()}>
         {alternative === "it" ? "Italiano" : "English"}
       </Link>
-      <button role="menuitem" type="button" tabIndex={active === 2 ? 0 : -1} aria-disabled={logout.pending}
-        onFocus={() => setActive(2)} onClick={() => { if (!logout.pending) void logout.signOut(); }}>
+      <button role="menuitem" type="button" tabIndex={active === lastIndex ? 0 : -1} aria-disabled={logout.pending}
+        onFocus={() => setActive(lastIndex)} onClick={() => { if (!logout.pending) void logout.signOut(); }}>
         {logout.pending ? copy.signingOut : copy.signOut}
       </button>
       </div>

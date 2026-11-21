@@ -13,7 +13,7 @@ export default async function Overview({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
 
-  const user = await readPageUser();
+  const user = await readPageUser(locale);
   if (user.status === "anonymous") redirect(`/${locale}/login`);
   if (user.status === "unavailable") return <UnavailableNotice locale={locale} path="" />;
 

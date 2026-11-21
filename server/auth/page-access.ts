@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { challengeCookie, sessionCookie } from "./http.ts";
 import { readChallenge, readSession } from "./service.ts";
 import { getProfile } from "../profile/service.ts";
+import type { Locale } from "../locale.ts";
 
 export async function readPageSession() {
   try {
@@ -21,15 +23,25 @@ export async function readPageChallenge() {
   }
 }
 
-/** The signed-in user's id for a protected page, or why there is none. */
-export async function readPageUser() {
+async function pageUser() {
   try {
     const token = (await cookies()).get(sessionCookie)?.value;
     const session = await readSession(token);
     if (!session) return { status: "anonymous" } as const;
     const profile = await getProfile(session.userId);
-    return { status: "authenticated", userId: session.userId, profile } as const;
+    return { status: "authenticated", userId: session.userId, admin: session.admin && session.hasTotp, profile } as const;
   } catch {
     return { status: "unavailable" } as const;
   }
+}
+
+/**
+ * The signed-in user's id for a protected page, or why there is none. A user still on a temporary
+ * password is sent to the profile page (the only page allowed to skip this) to choose a new one.
+ */
+export async function readPageUser(locale: Locale, { allowPasswordChange = false } = {}) {
+  const user = await pageUser();
+  // redirect() throws, so it must stay outside the try/catch above.
+  if (user.status === "authenticated" && user.profile.mustChangePassword && !allowPasswordChange) redirect(`/${locale}/profile`);
+  return user;
 }

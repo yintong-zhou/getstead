@@ -1,6 +1,9 @@
 import { authResponse, challengeCookie, readAuthBody, sameOrigin, sessionCookie, writeAuthCookie } from "@/server/auth/http";
 import { normalizeEmail, validPasswordInput } from "@/server/auth/inputs";
 import { signIn } from "@/server/auth/service";
+import { recordEvent } from "@/server/admin/logs";
+
+const LIMIT_WINDOW_MS = 15 * 60_000;
 
 export const runtime = "nodejs";
 
@@ -12,7 +15,17 @@ export function POST(request: Request) {
     if (!email || !validPasswordInput(password)) return authResponse(400);
 
     const result = await signIn(email, password);
-    if (result.status === "limited" || result.status === "invalid") return authResponse(result.status === "limited" ? 429 : 401);
+    const event = { kind: "SECURITY", route: "/api/auth/login", method: "POST" } as const;
+    // Single wrong passwords are not logged: only a tripped limiter (once per window) or a disabled account.
+    if (result.status === "limited") {
+      await recordEvent({ ...event, code: "login_limited", userId: result.userId }, LIMIT_WINDOW_MS);
+      return authResponse(429);
+    }
+    if (result.status === "disabled") {
+      await recordEvent({ ...event, code: "login_disabled", userId: result.userId });
+      return authResponse(401);
+    }
+    if (result.status === "invalid") return authResponse(401);
 
     const response = authResponse(result.status === "mfa" ? 202 : 204);
     if (result.status === "mfa") {
