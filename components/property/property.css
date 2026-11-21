@@ -18,3 +18,8 @@
 @media (min-width: 768px) {
   .property-metrics { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 }
+.property-view .cost-strong { font-size: 1.05em; }
+.property-year { align-items: center; gap: 4px; }
+.property-year a { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; font-size: 22px; line-height: 1; text-decoration: none; }
+.property-view .costs-note { margin-top: 8px; }
+.property-year .year-gap { display: inline-block; min-width: 44px; }

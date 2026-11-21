@@ -3,7 +3,7 @@
 // 422 instead of a silently wrong total.
 
 import { toSafeCents } from "../investments/calc.ts";
-import type { IsoDate } from "../cash-flow/dates.ts";
+import { occurrencesThrough, type IsoDate, type Recurrence } from "../cash-flow/dates.ts";
 
 export const propertyKinds = ["PRIMARY_RESIDENCE", "SECOND_HOME", "RENTAL", "LAND", "OTHER"] as const;
 export const chargeKinds = ["BALANCING", "EXTRAORDINARY"] as const;
@@ -55,4 +55,60 @@ export function votingWeight(unit: number, total: number) {
 /** Value share minus the debt balance. A debt account balance is negative, so equity adds it. */
 export function equityCents(shareValue: number, debtBalanceCents: number): number {
   return toSafeCents(BigInt(shareValue) + BigInt(debtBalanceCents));
+}
+
+// ---------------------------------------------------------------- costs (M4b)
+
+export type CostKind = "ORDINARY" | "EXTRAORDINARY" | "BALANCING";
+/** A settled cost: `cents` is positive (what left the account), `date` is the movement's booking date. */
+export type PaidCost = { kind: CostKind; cents: number; date: IsoDate };
+export type PendingCharge = { cents: number; dueDate: IsoDate };
+/** An instalment schedule: `resolved` holds the due dates Recurring has confirmed, matched or skipped. */
+export type CostSchedule = { rule: Recurrence; amountCents: number; archived: boolean; resolved: ReadonlySet<IsoDate> };
+
+export type CostTotals = {
+  paidOrdinary: bigint; paidExtraordinary: bigint; paidBalancing: bigint; paidTotal: bigint;
+  pendingCharges: bigint; overdueOrdinary: bigint; forecastOrdinary: bigint; expectedTotal: bigint;
+};
+const ZERO: CostTotals = { paidOrdinary: 0n, paidExtraordinary: 0n, paidBalancing: 0n, paidTotal: 0n, pendingCharges: 0n, overdueOrdinary: 0n, forecastOrdinary: 0n, expectedTotal: 0n };
+
+/**
+ * Costs of one property in one calendar year, in bigint cents.
+ * - paid: settled costs by booking date; pending charges by due date, unsettled and not voided;
+ * - unresolved instalments of active schedules in the year, priced at the schedule amount: due before
+ *   `today` they are overdue (never dropped), from `today` on they are forecast.
+ */
+export function propertyCosts(input: { year: number; today: IsoDate; paid: readonly PaidCost[]; pending: readonly PendingCharge[]; schedules: readonly CostSchedule[] }): CostTotals {
+  const first = `${input.year}-01-01`, last = `${input.year}-12-31`;
+  const inYear = (date: IsoDate) => date >= first && date <= last;
+  const totals = { ...ZERO };
+  for (const row of input.paid) {
+    if (!inYear(row.date)) continue;
+    const cents = BigInt(row.cents);
+    if (row.kind === "ORDINARY") totals.paidOrdinary += cents;
+    else if (row.kind === "EXTRAORDINARY") totals.paidExtraordinary += cents;
+    else totals.paidBalancing += cents;
+  }
+  for (const row of input.pending) if (inYear(row.dueDate)) totals.pendingCharges += BigInt(row.cents);
+  for (const schedule of input.schedules) {
+    if (schedule.archived) continue;
+    for (const date of occurrencesThrough(schedule.rule, last)) {
+      if (date < first || schedule.resolved.has(date)) continue;
+      if (date < input.today) totals.overdueOrdinary += BigInt(schedule.amountCents);
+      else totals.forecastOrdinary += BigInt(schedule.amountCents);
+    }
+  }
+  totals.paidTotal = totals.paidOrdinary + totals.paidExtraordinary + totals.paidBalancing;
+  totals.expectedTotal = totals.paidTotal + totals.pendingCharges + totals.overdueOrdinary + totals.forecastOrdinary;
+  return totals;
+}
+
+export function addCosts(a: CostTotals, b: CostTotals): CostTotals {
+  return Object.fromEntries(Object.keys(ZERO).map((key) => [key, a[key as keyof CostTotals] + b[key as keyof CostTotals]])) as CostTotals;
+}
+export const emptyCosts = (): CostTotals => ({ ...ZERO });
+
+/** Back to numbers; an overflow is the typed `value_out_of_range`, never a wrong total. */
+export function costsToNumbers(totals: CostTotals) {
+  return Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, toSafeCents(value)])) as Record<keyof CostTotals, number>;
 }

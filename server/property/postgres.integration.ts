@@ -12,11 +12,12 @@ import { db, disconnectDb } from "../auth/database.ts";
 import { createAccount, createCategory, updateAccount } from "../cash-flow/catalog.ts";
 import { getDashboard } from "../cash-flow/dashboard.ts";
 import { createMovement, pairMovements, transferCandidates, updateMovement } from "../cash-flow/movements.ts";
-import { resolveOccurrence } from "../cash-flow/recurring.ts";
+import { addDays } from "../cash-flow/dates.ts";
+import { resolveOccurrence, updateTemplate } from "../cash-flow/recurring.ts";
 import { chargeContext, encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
 import {
-  createCharge, createProperty, createSchedule, createTable, createValuation, deleteTable, deleteValuation, getOverview,
+  createCharge, createProperty, createSchedule, createTable, createValuation, deleteSchedule, deleteTable, deleteValuation, getCosts, getOverview,
   listCharges, listValuations, updateCharge, updateProperty,
 } from "./service.ts";
 
@@ -308,4 +309,196 @@ test("property value shows in net worth and on the dashboard even with no accoun
   assert.equal((await listCharges(userId)).length, 1);
   assert.equal((await listValuations(other.userId)).length, 0, "another user's reads are empty");
   assert.equal((await listCharges(other.userId)).length, 0);
+});
+
+// ---------------------------------------------------------------- costs (M4b)
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test("costs: paid by kind, overdue, forecast and pending; reopening moves amounts back; voided and other users never count", async () => {
+  const a = await fixture(), b = await fixture();
+  const due = new Date("2026-11-20T12:00:00Z"), now = new Date("2026-11-21T12:00:00Z");
+  const schedule = await createSchedule(a.userId, { propertyId: a.property.id, accountId: a.checking.id, description: "Synthetic instalment", amountCents: 5_000, frequency: "MONTHLY", startDate: "2026-08-20" });
+  const templateId = schedule.template.id;
+  await resolveOccurrence(a.userId, { action: "confirm", templateId, dueDate: "2026-08-20" }, due);
+  await resolveOccurrence(a.userId, { action: "skip", templateId, dueDate: "2026-09-20" }, due);
+  const payment = await createMovement(a.userId, { accountId: a.checking.id, bookingDate: "2026-10-21", description: "Synthetic payment", amountCents: -5_200, categoryId: null });
+  await resolveOccurrence(a.userId, { action: "match", templateId, dueDate: "2026-10-20", movementId: payment.id }, due);
+  // 20 November is unresolved and past (overdue), 20 December is ahead (forecast).
+
+  const settled = await createCharge(a.userId, charge(a.property.id, { kind: "EXTRAORDINARY", dueDate: "2026-09-01", amountCents: 500_000 }));
+  await settle(a.userId, settled.id, a.checking.id);
+  await createCharge(a.userId, charge(a.property.id, { dueDate: "2026-12-10", amountCents: 12_345 }));
+  const voided = await createCharge(a.userId, charge(a.property.id, { dueDate: "2026-10-10", amountCents: 99_999 }));
+  await updateCharge(a.userId, voided.id, { voided: true });
+  const old = await createCharge(a.userId, charge(a.property.id, { dueDate: "2025-12-31", amountCents: 7_000 }));
+  await settle(a.userId, old.id, a.checking.id);
+  await createCharge(b.userId, charge(b.property.id, { amountCents: 777_777 }));
+
+  const mine = async (year = 2026) => (await getCosts(a.userId, { year }, now)).total;
+  assert.deepEqual(await mine(), {
+    paidOrdinary: 10_200, paidExtraordinary: 500_000, paidBalancing: 0, paidTotal: 510_200,
+    pendingCharges: 12_345, overdueOrdinary: 5_000, forecastOrdinary: 5_000, expectedTotal: 532_545,
+  });
+  const prior = await mine(2025);
+  assert.equal(prior.paidBalancing, 7_000, "dated by the movement's booking date, so 2025");
+  assert.equal(prior.expectedTotal, 7_000);
+  assert.equal((await getCosts(a.userId, { year: 2026, propertyId: a.property.id }, now)).properties.length, 1);
+
+  await updateCharge(a.userId, settled.id, { action: "reopen" });
+  let after = await mine();
+  assert.deepEqual([after.paidExtraordinary, after.pendingCharges], [0, 512_345], "a reopened charge is pending again");
+  await resolveOccurrence(a.userId, { action: "reopen", templateId, dueDate: "2026-08-20" }, now);
+  after = await mine();
+  assert.deepEqual([after.paidOrdinary, after.overdueOrdinary], [5_200, 10_000], "a reopened instalment is overdue again");
+
+  const theirs = await getCosts(b.userId, { year: 2026 }, now);
+  assert.equal(theirs.total.pendingCharges, 777_777, "positive control: b sees its own charge");
+  assert.equal(theirs.total.paidTotal, 0);
+  assert.equal(theirs.properties.length, 1, "b sees only its own property");
+  await rejects(getCosts(b.userId, { year: 2026, propertyId: a.property.id }, now), 404);
+  await rejects(getCosts(a.userId, { year: 1999 }, now), 422, "validation");
+});
+
+test("unlinking an instalment schedule is refused once it has a payment, and waits for a concurrent confirmation", async () => {
+  const { userId, checking, property } = await fixture();
+  const now = new Date("2026-11-20T12:00:00Z");
+  const make = (description: string) => createSchedule(userId, { propertyId: property.id, accountId: checking.id, description, amountCents: 5_000, frequency: "MONTHLY", startDate: "2026-11-20" });
+  const unused = await make("Unused"), skipped = await make("Skipped only"), paid = await make("Paid");
+  await resolveOccurrence(userId, { action: "skip", templateId: skipped.template.id, dueDate: "2026-11-20" }, now);
+  await resolveOccurrence(userId, { action: "confirm", templateId: paid.template.id, dueDate: "2026-11-20" }, now);
+  await rejects(deleteSchedule(userId, paid.id), 409, "schedule_has_payments");
+  await deleteSchedule(userId, unused.id);
+  await deleteSchedule(userId, skipped.id);
+  await resolveOccurrence(userId, { action: "reopen", templateId: paid.template.id, dueDate: "2026-11-20" }, now);
+  await deleteSchedule(userId, paid.id);
+  assert.equal((await getOverview(userId, now)).properties[0].schedules.length, 0, "payment-free schedules unlink; the reopened one too");
+
+  // Controlled race: a confirmation holds the template lock and has inserted its occurrence but not
+  // committed. The unlink must wait for it, then see the payment and refuse.
+  const racing = await make("Racing");
+  const movement = await createMovement(userId, { accountId: checking.id, bookingDate: "2026-11-20", description: "Synthetic payment", amountCents: -5_000, categoryId: null });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let locked!: () => void;
+  const holding = new Promise<void>((resolve) => { locked = resolve; });
+  const confirming = admin.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT template_id FROM stead_recurring_templates WHERE user_id = ${userId}::uuid AND template_id = ${racing.template.id}::uuid FOR UPDATE`;
+    await tx.recurringOccurrence.create({ data: { userId, templateId: racing.template.id, dueDate: new Date("2026-11-20"), status: "CONFIRMED", movementId: movement.id } });
+    locked();
+    await gate;
+  });
+  await holding;
+  const unlink = deleteSchedule(userId, racing.id).then(() => "deleted", (error: { code?: string }) => error.code ?? "failed");
+  assert.equal(await Promise.race([unlink, sleep(700).then(() => "blocked")]), "blocked", "the unlink waits for the template lock");
+  release();
+  await confirming;
+  assert.equal(await unlink, "schedule_has_payments", "and then sees the committed payment");
+});
+
+test("costs: archived schedules add nothing, resettling a charge counts it again, and a weekly date beyond index 5,000 resolves and shows as paid", async () => {
+  const { userId, checking, property } = await fixture();
+  const now = new Date("2026-11-21T12:00:00Z");
+  const costs = async (year: number, at = now) => (await getCosts(userId, { year }, at)).total;
+
+  const monthly = await createSchedule(userId, { propertyId: property.id, accountId: checking.id, description: "Synthetic", amountCents: 5_000, frequency: "MONTHLY", startDate: "2026-10-20" });
+  assert.deepEqual([(await costs(2026)).overdueOrdinary, (await costs(2026)).forecastOrdinary], [10_000, 5_000]);
+  await updateTemplate(userId, monthly.template.id, { archived: true });
+  assert.equal((await costs(2026)).expectedTotal, 0, "archived: no overdue and no forecast");
+  await updateTemplate(userId, monthly.template.id, { archived: false });
+  assert.equal((await costs(2026)).expectedTotal, 15_000, "restored: counted again");
+
+  const one = await createCharge(userId, charge(property.id, { dueDate: "2026-11-05", amountCents: 20_000 }));
+  await settle(userId, one.id, checking.id);
+  await updateCharge(userId, one.id, { action: "reopen" });
+  assert.equal((await costs(2026)).pendingCharges, 20_000);
+  await settle(userId, one.id, checking.id);
+  assert.deepEqual([(await costs(2026)).paidBalancing, (await costs(2026)).pendingCharges], [20_000, 0], "settled again: paid, no longer pending");
+
+  const weekly = await createSchedule(userId, { propertyId: property.id, accountId: checking.id, description: "Weekly since 2000", amountCents: 100, frequency: "WEEKLY", startDate: "2000-01-01" });
+  const late = addDays("2000-01-01", 5_100 * 7);
+  const lateNow = new Date(`${addDays(late, 1)}T12:00:00Z`);
+  await resolveOccurrence(userId, { action: "confirm", templateId: weekly.template.id, dueDate: late }, lateNow);
+  assert.equal((await costs(Number(late.slice(0, 4)), lateNow)).paidOrdinary, 100, "overdue before, paid after the confirmation");
+});
+
+test("costs read one snapshot while instalments are confirmed and reopened concurrently", async () => {
+  const { userId, checking, property } = await fixture();
+  const due = new Date("2026-09-20T12:00:00Z"), now = new Date("2026-11-21T12:00:00Z");
+  const schedule = await createSchedule(userId, { propertyId: property.id, accountId: checking.id, description: "Synthetic", amountCents: 5_000, frequency: "MONTHLY", startDate: "2026-09-20" });
+  const templateId = schedule.template.id;
+  // Each instalment is overdue or paid at the same 5,000 EUR cents, so the expected total never changes.
+  const before = (await getCosts(userId, { year: 2026 }, now)).total.expectedTotal;
+  let running = true;
+  const toggler = (async () => {
+    for (let i = 0; i < 25; i++) {
+      await resolveOccurrence(userId, { action: "confirm", templateId, dueDate: "2026-09-20" }, due);
+      await resolveOccurrence(userId, { action: "reopen", templateId, dueDate: "2026-09-20" }, due);
+    }
+    running = false;
+  })();
+  const seen = new Set<number>();
+  while (running) seen.add((await getCosts(userId, { year: 2026 }, now)).total.expectedTotal);
+  await toggler;
+  assert.deepEqual([...seen], [before], "every read saw a consistent state");
+});
+
+/**
+ * Orders two real writers deterministically: an outside transaction holds the template row lock, the
+ * first writer queues on it, then the second; releasing it lets them run in queue order.
+ */
+async function queuedPair(userId: string, templateId: string, first: () => Promise<unknown>, second: () => Promise<unknown>) {
+  const outcome = (promise: Promise<unknown>) => promise.then(() => ({ ok: true as const }), (error: { code?: string }) => ({ ok: false as const, code: error.code }));
+  let release!: () => void, locked!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const holding = new Promise<void>((resolve) => { locked = resolve; });
+  const holder = admin.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT template_id FROM stead_recurring_templates WHERE user_id = ${userId}::uuid AND template_id = ${templateId}::uuid FOR UPDATE`;
+    locked();
+    await gate;
+  });
+  await holding;
+  const one = outcome(first());
+  await sleep(400);
+  const two = outcome(second());
+  await sleep(400);
+  release();
+  await holder;
+  return [await one, await two];
+}
+
+test("unlink versus the real confirm and match writers: the payment that commits first decides, and nothing is lost", async () => {
+  const { userId, checking, property } = await fixture();
+  const now = new Date("2026-11-20T12:00:00Z");
+  const make = (description: string) => createSchedule(userId, { propertyId: property.id, accountId: checking.id, description, amountCents: 5_000, frequency: "MONTHLY", startDate: "2026-11-20" });
+  const paidThisYear = async () => (await getCosts(userId, { year: 2026 }, now)).total.paidOrdinary;
+  const schedulesLeft = async () => (await getOverview(userId, now)).properties[0].schedules.length;
+
+  // Payment first (confirm, then match): the unlink waits, sees the committed payment and refuses.
+  const confirmed = await make("Confirm first");
+  const [confirmOk, unlinkRefused] = await queuedPair(userId, confirmed.template.id,
+    () => resolveOccurrence(userId, { action: "confirm", templateId: confirmed.template.id, dueDate: "2026-11-20" }, now),
+    () => deleteSchedule(userId, confirmed.id));
+  assert.deepEqual([confirmOk.ok, unlinkRefused], [true, { ok: false, code: "schedule_has_payments" }]);
+  assert.equal(await paidThisYear(), 5_000, "the payment keeps its property");
+
+  const matched = await make("Match first");
+  const payment = await createMovement(userId, { accountId: checking.id, bookingDate: "2026-11-20", description: "Synthetic payment", amountCents: -4_800, categoryId: null });
+  const [matchOk, matchUnlink] = await queuedPair(userId, matched.template.id,
+    () => resolveOccurrence(userId, { action: "match", templateId: matched.template.id, dueDate: "2026-11-20", movementId: payment.id }, now),
+    () => deleteSchedule(userId, matched.id));
+  assert.deepEqual([matchOk.ok, matchUnlink], [true, { ok: false, code: "schedule_has_payments" }]);
+  assert.equal(await paidThisYear(), 9_800);
+  assert.equal(await schedulesLeft(), 2, "both schedules are still linked");
+
+  // Unlink first: the confirmation waits for the delete, then books against the surviving, unlinked template.
+  const unlinkFirst = await make("Unlink first");
+  const [deleted, lateConfirm] = await queuedPair(userId, unlinkFirst.template.id,
+    () => deleteSchedule(userId, unlinkFirst.id),
+    () => resolveOccurrence(userId, { action: "confirm", templateId: unlinkFirst.template.id, dueDate: "2026-11-20" }, now));
+  assert.deepEqual([deleted.ok, lateConfirm.ok], [true, true]);
+  assert.equal(await schedulesLeft(), 2, "the unlinked schedule is gone from the property");
+  assert.equal(await paidThisYear(), 9_800, "the late payment is a normal recurring expense, not a property cost");
+  const occurrence = await db().recurringOccurrence.findFirst({ where: { userId, templateId: unlinkFirst.template.id }, select: { status: true, movementId: true } });
+  assert.deepEqual([occurrence?.status, occurrence?.movementId !== null], ["CONFIRMED", true], "the template survived and holds the movement link");
 });

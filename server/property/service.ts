@@ -13,7 +13,10 @@ import { createTemplate } from "../cash-flow/recurring.ts";
 import { chargeContext, decryptText, encryptText, movementContext, templateContext } from "../cash-flow/text-crypto.ts";
 import { MAX_CENTS, Reader } from "../cash-flow/validate.ts";
 import { getNetWorth } from "../net-worth/service.ts";
-import { chargeKinds, equityCents, millesimiShareCents, propertiesAt, propertyKinds, votingWeight } from "./calc.ts";
+import {
+  addCosts, chargeKinds, costsToNumbers, emptyCosts, equityCents, millesimiShareCents, propertiesAt, propertyCosts, propertyKinds, votingWeight,
+  type CostSchedule, type PaidCost,
+} from "./calc.ts";
 
 type Client = Prisma.TransactionClient;
 const MAX_PROPERTIES = 50;
@@ -205,11 +208,20 @@ export async function createSchedule(userId: string, input: Record<string, unkno
     return { id: row.id, propertyId, template: created };
   });
 }
+/**
+ * Unlinking removes the only property-to-template association, which cost reports need for paid
+ * history, so it is refused once any instalment has a movement (archive the template instead).
+ * The template row lock is the one `resolveOccurrence` takes: a confirmation committed first is seen
+ * by the check; one arriving later waits for the delete and books against a template that is no
+ * longer a property schedule, which is what the unlink meant.
+ */
 export async function deleteSchedule(userId: string, id: string) {
   await write(userId, async (client) => {
     const current = await client.condoSchedule.findUnique({ where: { userId_id: { userId, id } } });
     if (!current) throw notFound();
     await lockProperty(client, userId, current.propertyId);
+    await client.$queryRaw`SELECT template_id FROM stead_recurring_templates WHERE user_id = ${userId}::uuid AND template_id = ${current.templateId}::uuid FOR UPDATE`;
+    if (await client.recurringOccurrence.count({ where: { userId, templateId: current.templateId, movementId: { not: null } } })) throw conflict("schedule_has_payments");
     await client.condoSchedule.delete({ where: { userId_id: { userId, id } } });
   });
 }
@@ -414,3 +426,80 @@ export async function listCharges(userId: string) {
   const rows = await db().condoCharge.findMany({ where: { userId }, include: { table: true }, orderBy: [{ dueDate: "asc" }, { id: "asc" }] });
   return rows.map((row) => chargeDto(userId, row, row.table));
 }
+
+// ---------------------------------------------------------------- costs
+
+const costYear = (value: number) => {
+  if (!Number.isInteger(value) || value < 2000 || value > 2100) throw new ApiError(422, "validation", "year");
+  return value;
+};
+/** Parses the optional `year` and `propertyId` query values; the year defaults to the current Rome year. */
+export function parseCostQuery(params: URLSearchParams, now = new Date()) {
+  const raw = params.get("year");
+  const year = raw === null ? Number(romeToday(now).slice(0, 4)) : costYear(/^\d{4}$/.test(raw) ? Number(raw) : NaN);
+  const id = params.get("propertyId");
+  return { year, propertyId: id === null ? undefined : new Reader({ propertyId: id }).uuid("propertyId") };
+}
+
+/**
+ * Condominium costs per property for one calendar year, plus a total. Read-only: no lock is taken.
+ * Paid figures are the currently linked settlements (a reopened charge or instalment is not paid any
+ * more), dated by the movement's booking date; see `propertyCosts` for overdue and forecast.
+ */
+export async function getCosts(userId: string, query: { year: number; propertyId?: string }, now = new Date()) {
+  const year = costYear(query.year);
+  const today = romeToday(now);
+  const first = toDate(`${year}-01-01`), last = toDate(`${year}-12-31`);
+  const propertyFilter = query.propertyId ? { id: query.propertyId } : {};
+  // One RepeatableRead snapshot: a confirmation or reopening committing between two reads must not
+  // make an instalment count as neither paid nor overdue, or as both.
+  const { properties, occurrences, charges, schedules, resolved } = await db().$transaction(async (tx) => {
+    const properties = await tx.property.findMany({ where: { userId, ...propertyFilter }, orderBy: [{ name: "asc" }, { id: "asc" }] });
+    if (query.propertyId && !properties.length) throw notFound();
+    const ids = properties.map((row) => row.id);
+    const inYear = { bookingDate: { gte: first, lte: last }, voidedAt: null };
+    const occurrences = await tx.recurringOccurrence.findMany({
+      where: { userId, movementId: { not: null }, movement: { is: inYear }, template: { condoSchedule: { is: { propertyId: { in: ids } } } } },
+      select: { movement: { select: { amountCents: true, bookingDate: true } }, template: { select: { condoSchedule: { select: { propertyId: true } } } } },
+    });
+    const charges = await tx.condoCharge.findMany({
+      where: { userId, propertyId: { in: ids }, voidedAt: null },
+      select: { propertyId: true, kind: true, dueDate: true, amountCents: true, movementId: true, movement: { select: { amountCents: true, bookingDate: true, voidedAt: true } } },
+    });
+    const schedules = await tx.condoSchedule.findMany({ where: { userId, propertyId: { in: ids } }, include: { template: true } });
+    const resolved = await tx.recurringOccurrence.findMany({
+      where: { userId, dueDate: { gte: first, lte: last }, template: { condoSchedule: { is: { propertyId: { in: ids } } } } },
+      select: { templateId: true, dueDate: true },
+    });
+    return { properties, occurrences, charges, schedules, resolved };
+  }, { isolationLevel: "RepeatableRead", timeout: 30_000 });
+
+  const resolvedBy = new Map<string, Set<IsoDate>>();
+  for (const row of resolved) {
+    const set = resolvedBy.get(row.templateId) ?? new Set<IsoDate>();
+    set.add(fromDate(row.dueDate));
+    resolvedBy.set(row.templateId, set);
+  }
+  let total = emptyCosts();
+  const rows = properties.map((property) => {
+    const paid: PaidCost[] = [];
+    for (const row of occurrences) {
+      if (row.template.condoSchedule?.propertyId === property.id && row.movement) paid.push({ kind: "ORDINARY", cents: -row.movement.amountCents, date: fromDate(row.movement.bookingDate) });
+    }
+    const pending = [];
+    for (const row of charges) {
+      if (row.propertyId !== property.id) continue;
+      if (row.movementId === null) pending.push({ cents: row.amountCents, dueDate: fromDate(row.dueDate) });
+      else if (row.movement && !row.movement.voidedAt) paid.push({ kind: row.kind, cents: -row.movement.amountCents, date: fromDate(row.movement.bookingDate) });
+    }
+    const costSchedules: CostSchedule[] = schedules.filter((item) => item.propertyId === property.id).map((item) => ({
+      rule: { frequency: item.template.frequency, startDate: fromDate(item.template.startDate), endDate: item.template.endDate ? fromDate(item.template.endDate) : null },
+      amountCents: item.template.amountCents, archived: item.template.archivedAt !== null, resolved: resolvedBy.get(item.templateId) ?? new Set<IsoDate>(),
+    }));
+    const totals = propertyCosts({ year, today, paid, pending, schedules: costSchedules });
+    total = addCosts(total, totals);
+    return { propertyId: property.id, name: property.name, archived: property.archivedAt !== null, ...costsToNumbers(totals) };
+  });
+  return { year, today, properties: rows, total: costsToNumbers(total) };
+}
+export type Costs = Awaited<ReturnType<typeof getCosts>>;

@@ -82,8 +82,11 @@ function occurrence({ frequency, startDate }: Recurrence, index: number): IsoDat
   return `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(clamped).padStart(2, "0")}`;
 }
 
+/** One horizon for listing, next-date lookup, validation and cost reports: 100 weekly years need about 5,200. */
+export const MAX_OCCURRENCES = 10_000;
+
 /** Occurrences from the start date through `until` (inclusive), bounded by the optional end date. */
-export function occurrencesThrough(rule: Recurrence, until: IsoDate, limit = 5_000): IsoDate[] {
+export function occurrencesThrough(rule: Recurrence, until: IsoDate, limit = MAX_OCCURRENCES): IsoDate[] {
   const result: IsoDate[] = [];
   for (let index = 0; index < limit; index++) {
     const date = occurrence(rule, index);
@@ -94,7 +97,7 @@ export function occurrencesThrough(rule: Recurrence, until: IsoDate, limit = 5_0
 }
 
 /** The first occurrence strictly after `date`, or null once the end date has passed. */
-export function nextOccurrenceAfter(rule: Recurrence, date: IsoDate, limit = 5_000): IsoDate | null {
+export function nextOccurrenceAfter(rule: Recurrence, date: IsoDate, limit = MAX_OCCURRENCES): IsoDate | null {
   for (let index = 0; index < limit; index++) {
     const candidate = occurrence(rule, index);
     if (rule.endDate && candidate > rule.endDate) return null;
