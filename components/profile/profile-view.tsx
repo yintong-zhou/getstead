@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PasswordInput } from "../password-input";
 import type { Locale } from "@/server/locale";
 import type { Profile } from "@/server/profile/service";
 import { call } from "../cash-flow/api";
@@ -80,16 +81,16 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
       }}>
         <div className="form-field">
           <label htmlFor="password-current">{copy.currentPassword}</label>
-          <input className="field" id="password-current" name="currentPassword" type="password" autoComplete="current-password" required />
+          <PasswordInput locale={locale} className="field" id="password-current" name="currentPassword" autoComplete="current-password" required />
         </div>
         <div className="form-field">
           <label htmlFor="password-new">{copy.newPassword}</label>
-          <input className="field" id="password-new" name="newPassword" type="password" autoComplete="new-password" required aria-describedby="profile-password-hint" />
+          <PasswordInput locale={locale} className="field" id="password-new" name="newPassword" autoComplete="new-password" required aria-describedby="profile-password-hint" />
           <p className="profile-hint" id="profile-password-hint">{copy.passwordHint}</p>
         </div>
         <div className="form-field">
           <label htmlFor="password-confirm">{copy.confirmPassword}</label>
-          <input className="field" id="password-confirm" name="confirmPassword" type="password" autoComplete="new-password" required />
+          <PasswordInput locale={locale} className="field" id="password-confirm" name="confirmPassword" autoComplete="new-password" required />
         </div>
         <button className="button" disabled={passwordAction.pending}>{passwordAction.pending ? copy.saving : copy.save}</button>
         <NoticeLine notice={passwordAction.notice} />

@@ -7,6 +7,7 @@ test("accepts a valid sign-up and normalizes the email", () => {
     status: "ok",
     email: "ada@example.com",
     locale: "it",
+    turnstile: undefined,
   });
 });
 

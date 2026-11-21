@@ -3,6 +3,7 @@ import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { BrandMark } from "../brand-mark";
 import { Icon } from "../icon";
 import { landingCopy } from "./copy";
+import { euros } from "@/components/euros";
 
 /*
  * Product previews for the public home. Every figure here is made up (the footer says so) and kept in
@@ -62,17 +63,17 @@ export function OverviewMock({ locale }: Props) {
       <div className="mock-grid">
         <section className="card" aria-hidden="true">
           <p className="mock-label">{copy.net}</p>
-          <p className="mock-big amount">{formatEuros(net, locale, { showPlus: true })}</p>
+          <p className="mock-big amount">{euros(net, locale, { showPlus: true })}</p>
           <ul className="rows summary-rows">
             <li className="data-row">
               <span className="row-icon tone-green"><Icon name="arrowDown" size={20} /></span>
               <span className="row-text">{copy.income}</span>
-              <span className="row-amount amount positive">{formatEuros(trend[5].income, locale, { showPlus: true })}</span>
+              <span className="row-amount amount positive">{euros(trend[5].income, locale, { showPlus: true })}</span>
             </li>
             <li className="data-row">
               <span className="row-icon tone-red"><Icon name="arrowUp" size={20} /></span>
               <span className="row-text">{copy.expenses}</span>
-              <span className="row-amount amount">{formatEuros(-trend[5].expense, locale)}</span>
+              <span className="row-amount amount">{euros(-trend[5].expense, locale)}</span>
             </li>
           </ul>
         </section>
@@ -83,7 +84,7 @@ export function OverviewMock({ locale }: Props) {
           </header>
           <div className="cash-chart" role="img" aria-label={label}>
             <div className="cash-axis" aria-hidden="true">
-              {[chartCap, chartCap / 2, 0].map((tick) => <span key={tick}>{formatEuros(tick, locale, { wholeEuros: true })}</span>)}
+              {[chartCap, chartCap / 2, 0].map((tick) => <span key={tick}>{euros(tick, locale, { wholeEuros: true })}</span>)}
             </div>
             <div className="cash-plot" aria-hidden="true">
               {trend.map(({ income, expense }, index) => (
@@ -129,10 +130,10 @@ export function BudgetMock({ locale }: Props) {
                 <li key={name} className={`budget-row${over ? " budget-over" : ""}`} style={{ "--budget-color": over ? "var(--negative)" : color } as CSSProperties}>
                   <div className="budget-caption">
                     <span className="budget-name"><i />{name}</span>
-                    <span className="amount budget-amount"><strong>{formatEuros(spent, locale)}</strong> / {formatEuros(limit, locale, { wholeEuros: true })}</span>
+                    <span className="amount budget-amount"><strong>{euros(spent, locale)}</strong> / {euros(limit, locale, { wholeEuros: true })}</span>
                   </div>
                   <progress value={Math.min(spent, limit)} max={limit} aria-label={name} />
-                  {over && <p className="mock-flag">▲ {formatEuros(spent - limit, locale)} {copy.over}</p>}
+                  {over && <p className="mock-flag">▲ {euros(spent - limit, locale)} {copy.over}</p>}
                 </li>
               );
             })}
@@ -145,13 +146,13 @@ export function BudgetMock({ locale }: Props) {
               <li className="data-row" key={title}>
                 <span className={`row-icon tone-${tone}`}><Icon name={icon} size={20} /></span>
                 <div className="row-text"><p>{title}</p><span>{meta}</span></div>
-                <span className={`row-amount amount${cents > 0 ? " positive" : ""}`}>{formatEuros(cents, locale, { showPlus: true })}</span>
+                <span className={`row-amount amount${cents > 0 ? " positive" : ""}`}>{euros(cents, locale, { showPlus: true })}</span>
               </li>
             ))}
             <li className="data-row">
               <span className="row-icon tone-amber"><Icon name="recurring" size={20} /></span>
               <div className="row-text"><p>{copy.electricity}</p><span>{copy.due} {shortDate(locale, "2026-11-22")}</span></div>
-              <span className="row-amount amount">{formatEuros(-8_640, locale)}</span>
+              <span className="row-amount amount">{euros(-8_640, locale)}</span>
             </li>
           </ul>
         </section>
@@ -176,7 +177,7 @@ export function NetWorthMock({ locale }: Props) {
       <section className="card net-worth mock-worth">
         <span className="net-worth-icon" aria-hidden="true"><Icon name="netWorth" size={20} /></span>
         <p className="net-worth-label">{copy.netWorth}</p>
-        <p className="net-worth-amount amount">{formatEuros(last, locale, { wholeEuros: true })}</p>
+        <p className="net-worth-amount amount">{euros(last, locale, { wholeEuros: true })}</p>
         <p className="trend">
           <span className="trend-chip">▲ {percent(locale, (last - previous) / previous, false)}</span>
           {copy.vsLast}
@@ -214,7 +215,7 @@ export function InvestmentsMock({ locale }: Props) {
     <Frame title={copy.window}>
       <section className="card" aria-hidden="true">
         <header className="card-head"><p className="mock-title">{copy.portfolio}</p></header>
-        <p className="mock-big amount">{formatEuros(total, locale)}</p>
+        <p className="mock-big amount">{euros(total, locale)}</p>
         <div className="allocation" style={{ marginBlock: "16px 12px" }}>
           {segments.map(({ name, share, color }) => <span key={name} style={{ flexGrow: share, background: color }} />)}
         </div>
@@ -228,7 +229,7 @@ export function InvestmentsMock({ locale }: Props) {
             <li className="data-row" key={name}>
               <span className={`row-icon tone-${tone}`}><Icon name={icon} size={20} /></span>
               <div className="row-text"><p>{name}</p><span>{meta}</span></div>
-              <span className="row-amount amount">{formatEuros(value, locale)}<br /><small className="positive">▲ {percent(locale, change, false)}</small></span>
+              <span className="row-amount amount">{euros(value, locale)}<br /><small className="positive">▲ {percent(locale, change, false)}</small></span>
             </li>
           ))}
         </ul>
@@ -249,17 +250,17 @@ export function PropertyMock({ locale }: Props) {
         <section className="card" aria-hidden="true">
           <header className="card-head"><p className="mock-title">{copy.flat}</p><span className="period">{copy.share} 100%</span></header>
           <p className="mock-label">{copy.equityValue}</p>
-          <p className="mock-big amount">{formatEuros(valuation - mortgage, locale)}</p>
+          <p className="mock-big amount">{euros(valuation - mortgage, locale)}</p>
           <ul className="rows">
             <li className="data-row">
               <span className="row-icon tone-blue"><Icon name="home" size={20} /></span>
               <span className="row-text">{copy.valuation}</span>
-              <span className="row-amount amount">{formatEuros(valuation, locale)}</span>
+              <span className="row-amount amount">{euros(valuation, locale)}</span>
             </li>
             <li className="data-row">
               <span className="row-icon tone-red"><Icon name="accounts" size={20} /></span>
               <span className="row-text">{copy.mortgage}</span>
-              <span className="row-amount amount">{formatEuros(-mortgage, locale)}</span>
+              <span className="row-amount amount">{euros(-mortgage, locale)}</span>
             </li>
           </ul>
         </section>
@@ -269,12 +270,12 @@ export function PropertyMock({ locale }: Props) {
             <li className="data-row">
               <span className="row-icon tone-amber"><Icon name="recurring" size={20} /></span>
               <div className="row-text"><p>{copy.condo}</p><span>{copy.due} {shortDate(locale, "2026-11-30")}</span></div>
-              <span className="row-amount amount">{formatEuros(-31_200, locale)}</span>
+              <span className="row-amount amount">{euros(-31_200, locale)}</span>
             </li>
             <li className="data-row">
               <span className="row-icon tone-amber"><Icon name="bills" size={20} /></span>
               <div className="row-text"><p>{copy.heating}</p><span>{copy.due} {shortDate(locale, "2026-12-15")}</span></div>
-              <span className="row-amount amount">{formatEuros(-64_000, locale)}</span>
+              <span className="row-amount amount">{euros(-64_000, locale)}</span>
             </li>
           </ul>
         </section>

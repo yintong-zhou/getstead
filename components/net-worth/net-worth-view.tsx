@@ -12,6 +12,7 @@ import { formatMonth } from "../format";
 import { parseLimit } from "../money";
 import { Select } from "../select";
 import { netWorthCopy } from "./copy";
+import { euros } from "@/components/euros";
 import "./net-worth.css";
 
 function Trend({ data, locale }: { data: NetWorthData; locale: Locale }) {
@@ -61,14 +62,14 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
       <Trend data={data} locale={locale} />
       <section className="card hero" aria-labelledby="worth-total-title">
         <h2 id="worth-total-title" className="hero-label">{copy.title}</h2>
-        <p className="hero-amount amount">{formatEuros(data.netCents, locale)}</p>
-        <p className="worth-change"><span className="trend-chip">{formatEuros(data.changeCents, locale, { showPlus: true })}</span> {copy.change}</p>
+        <p className="hero-amount amount">{euros(data.netCents, locale)}</p>
+        <p className="worth-change"><span className="trend-chip">{euros(data.changeCents, locale, { showPlus: true })}</span> {copy.change}</p>
         <p className="hero-note">{copy.asOf} <time dateTime={data.today}>{data.today}</time></p>
       </section>
 
       <dl className="worth-totals">
-        <div className="card"><dt>{copy.assets}</dt><dd className="amount">{formatEuros(data.assetsCents, locale)}</dd></div>
-        <div className="card"><dt>{copy.liabilities}</dt><dd className="amount">{formatEuros(data.liabilitiesCents, locale)}</dd></div>
+        <div className="card"><dt>{copy.assets}</dt><dd className="amount">{euros(data.assetsCents, locale)}</dd></div>
+        <div className="card"><dt>{copy.liabilities}</dt><dd className="amount">{euros(data.liabilitiesCents, locale)}</dd></div>
       </dl>
 
       <section className="card" aria-labelledby="worth-accounts-title">
@@ -83,7 +84,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
               <span>{shared.accountTypes[account.type]} · {account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
               {account.archived && account.balanceCents !== 0 && <p className="worth-flag">{copy.archivedBalance}</p>}
             </div>
-            <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{formatEuros(account.balanceCents, locale)}</span>
+            <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{euros(account.balanceCents, locale)}</span>
           </li>
         ))}{data.holdingsCents > 0 && (
           <li className="manage-row worth-account">
@@ -91,7 +92,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
               <p>{copy.holdings}</p>
               <Link className="text-link" href={`/${locale}/investments`}>{copy.holdingsLink}</Link>
             </div>
-            <span className="amount">{formatEuros(data.holdingsCents, locale)}</span>
+            <span className="amount">{euros(data.holdingsCents, locale)}</span>
           </li>
         )}{data.propertiesCents > 0 && (
           <li className="manage-row worth-account">
@@ -99,7 +100,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
               <p>{copy.properties}</p>
               <Link className="text-link" href={`/${locale}/property`}>{copy.propertiesLink}</Link>
             </div>
-            <span className="amount">{formatEuros(data.propertiesCents, locale)}</span>
+            <span className="amount">{euros(data.propertiesCents, locale)}</span>
           </li>
         )}</ul>}
         {(data.perAccount.length > 0 || data.holdingsCents > 0 || data.propertiesCents > 0) && <p><Link className="text-link" href={`/${locale}/accounts`}>{shared.goToAccounts}</Link></p>}
@@ -150,7 +151,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
         {checks.length === 0 ? <p className="empty-inline">{copy.empty}</p> : <ul className="rows">{checks.map((check) => (
           <li className="manage-row worth-account" key={check.id}>
             <div className="row-text"><p>{names.get(check.accountId)}</p><time dateTime={check.asOf}>{check.asOf}</time></div>
-            <span className="amount">{formatEuros(check.balanceCents, locale)}</span>
+            <span className="amount">{euros(check.balanceCents, locale)}</span>
             <button className="button button-quiet" type="button" disabled={action.pending}
               aria-label={`${shared.delete}: ${names.get(check.accountId)}, ${check.asOf}`}
               onClick={() => action.run(() => call("DELETE", `/balances/${check.id}`, undefined, "/api/net-worth"), copy.removed)}>{shared.delete}</button>

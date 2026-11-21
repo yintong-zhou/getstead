@@ -7,6 +7,7 @@ import { AppShell } from "./app-shell";
 import { dashboardCopy, type DashboardCopy } from "./dashboard-copy";
 import { formatDay, formatMonth } from "./format";
 import { Icon } from "./icon";
+import { euros } from "@/components/euros";
 
 const palette = ["var(--brand)", "var(--chart-2)", "var(--warning)", "#a855f7", "#f43f5e"];
 
@@ -34,7 +35,7 @@ function CashFlow({ values, locale, copy }: { values: DashboardData["trend"]; lo
         ({ month, incomeCents, expenseCents }) => `${formatMonth(month, locale, "short")}: ${copy.income} ${formatEuros(incomeCents, locale)}, ${copy.expenses} ${formatEuros(expenseCents, locale)}`,
       ).join("; ")}`}>
         <div className="cash-axis" aria-hidden="true">
-          {[cap, cap / 2, 0].map((tick) => <span key={tick}>{formatEuros(tick, locale, { wholeEuros: true })}</span>)}
+          {[cap, cap / 2, 0].map((tick) => <span key={tick}>{euros(tick, locale, { wholeEuros: true })}</span>)}
         </div>
         <div className="cash-plot" aria-hidden="true">
           {values.map(({ month, incomeCents, expenseCents }, index) => (
@@ -76,7 +77,7 @@ function ActivityRow({ item, locale, today, copy }: {
         <span>{label} · {item.accountName} · {formatDay(item.bookingDate, locale, today, copy)}</span>
       </div>
       <span className={`row-amount amount${item.amountCents > 0 ? " positive" : ""}`}>
-        {formatEuros(item.amountCents, locale, { showPlus: true })}
+        {euros(item.amountCents, locale, { showPlus: true })}
       </span>
     </li>
   );
@@ -108,7 +109,7 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
           <h2 id="dashboard-worth-title">{copy.netWorth}</h2>
           <Link className="text-link" href={`/${locale}/net-worth`}>{copy.seeAll}</Link>
         </header>
-        <p className="amount">{formatEuros(data.netWorthCents, locale)}</p>
+        <p className="amount">{euros(data.netWorthCents, locale)}</p>
       </section>}
       {!data.hasAccounts ? (
         <section className="card onboarding" aria-labelledby="onboarding-title">
@@ -129,7 +130,7 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
           <div className="dashboard-grid">
             <section className="card hero" aria-labelledby="hero-title">
               <h2 id="hero-title" className="hero-label">{copy.monthlyNet}</h2>
-              <p className="hero-amount amount">{formatEuros(data.monthlyNetCents, locale, { showPlus: true })}</p>
+              <p className="hero-amount amount">{euros(data.monthlyNetCents, locale, { showPlus: true })}</p>
               <p className="hero-note">{copy.netNote}</p>
             </section>
 
@@ -141,7 +142,7 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
                     <span className={`row-icon tone-${tone}`}><Icon name={icon} size={20} /></span>
                     <span className="row-text">{name}</span>
                     <span className={`row-amount amount${cents > 0 ? " positive" : ""}`}>
-                      {formatEuros(cents, locale, { showPlus: cents > 0 })}
+                      {euros(cents, locale, { showPlus: cents > 0 })}
                     </span>
                   </li>
                 ))}
@@ -170,11 +171,11 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
                         <div className="budget-caption">
                           <span className="budget-name"><i aria-hidden="true" />{name}</span>
                           <span className="amount budget-amount">
-                            <strong>{formatEuros(spentCents, locale)}</strong> / {formatEuros(limitCents ?? 0, locale, { wholeEuros: true })}
+                            <strong>{euros(spentCents, locale)}</strong> / {euros(limitCents ?? 0, locale, { wholeEuros: true })}
                           </span>
                         </div>
                         <progress value={Math.max(0, Math.min(spentCents, limitCents ?? 0))} max={Math.max(limitCents ?? 0, 1)} aria-label={name} />
-                        {over && <p className="budget-flag">▲ {formatEuros(-(varianceCents ?? 0), locale)} {copy.over}</p>}
+                        {over && <p className="budget-flag">▲ {euros(-(varianceCents ?? 0), locale)} {copy.over}</p>}
                       </li>
                     );
                   })}
@@ -206,7 +207,7 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
                     <li className="data-row" key={`${item.description}-${item.dueDate}`}>
                       <span className="row-icon tone-amber"><Icon name="recurring" size={20} /></span>
                       <div className="row-text"><p>{item.description}</p><span>{copy.due} {formatDay(item.dueDate, locale)}</span></div>
-                      <span className="row-amount amount">{formatEuros(-item.amountCents, locale)}</span>
+                      <span className="row-amount amount">{euros(-item.amountCents, locale)}</span>
                     </li>
                   ))}
                 </ul>

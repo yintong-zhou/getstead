@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { Locale } from "@/server/locale";
+import { useTurnstile } from "../use-turnstile";
 import { landingCopy } from "./copy";
 
 type ErrorKey = keyof (typeof landingCopy)["en"]["waitlist"]["errors"];
@@ -12,6 +13,7 @@ export function WaitlistForm({ locale }: { locale: Locale }) {
   const [error, setError] = useState<ErrorKey | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const turnstile = useTurnstile("waitlist");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,13 +29,18 @@ export function WaitlistForm({ locale }: { locale: Locale }) {
       const response = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, consent: true, locale, website: String(data.get("website") ?? "") }),
+        body: JSON.stringify({ email, consent: true, locale, website: String(data.get("website") ?? ""), turnstile: String(data.get("cf-turnstile-response") ?? "") }),
       });
-      if (response.ok) setDone(true);
-      else setError(response.status === 400 ? "invalid" : response.status === 429 ? "limit" : "failed");
+      if (response.ok) {
+        turnstile.remove(); // the form is replaced by the success line, so the widget node disappears
+        return setDone(true);
+      }
+      setError(response.status === 400 ? "invalid" : response.status === 429 ? "limit" : "failed");
     } catch {
       setError("failed");
     }
+    // A token works once: ask for a fresh one whatever the outcome.
+    turnstile.reset();
     setPending(false);
   }
 
@@ -60,6 +67,7 @@ export function WaitlistForm({ locale }: { locale: Locale }) {
       <div className="waitlist-trap" aria-hidden="true">
         <input name="website" type="text" tabIndex={-1} autoComplete="off" />
       </div>
+      {turnstile.widget}
       <div className="waitlist-consent">
         <input id="waitlist-consent" name="consent" type="checkbox" aria-describedby={error === "consent" ? "consent-error" : undefined} />
         <label htmlFor="waitlist-consent">

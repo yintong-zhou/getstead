@@ -2,6 +2,8 @@ import { authResponse, challengeCookie, readAuthBody, sameOrigin, sessionCookie,
 import { normalizeEmail, validPasswordInput } from "@/server/auth/inputs";
 import { signIn } from "@/server/auth/service";
 import { recordEvent } from "@/server/admin/logs";
+import { verifyTurnstile } from "@/server/turnstile";
+import { clientAddress } from "@/server/waitlist/service";
 
 const LIMIT_WINDOW_MS = 15 * 60_000;
 
@@ -14,8 +16,14 @@ export function POST(request: Request) {
     const password = body?.password;
     if (!email || !validPasswordInput(password)) return authResponse(400);
 
-    const result = await signIn(email, password);
     const event = { kind: "SECURITY", route: "/api/auth/login", method: "POST" } as const;
+    // Bots are stopped before any password is checked. An unreachable Cloudflare answers 503 through sameOrigin.
+    if (!await verifyTurnstile(body?.turnstile, "login", clientAddress(request.headers))) {
+      await recordEvent({ ...event, code: "login_challenge_failed" }, LIMIT_WINDOW_MS);
+      return authResponse(403);
+    }
+
+    const result = await signIn(email, password);
     // Single wrong passwords are not logged: only a tripped limiter (once per window) or a disabled account.
     if (result.status === "limited") {
       await recordEvent({ ...event, code: "login_limited", userId: result.userId }, LIMIT_WINDOW_MS);

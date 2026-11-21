@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useId, useState, type ComponentProps, type ReactNode } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { Overview } from "@/server/property/service";
-import { formatEuros, type Locale } from "@/server/locale";
+import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { editableEuros } from "../money";
 import { propertyCopy } from "./copy";
 import { MAX_BUILDING_CENTS, MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, millesimiShare, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers";
+import { euros } from "@/components/euros";
 
 export type PropertyRow = Overview["properties"][number];
 
@@ -103,7 +104,7 @@ export function Valuations({ locale, property, today }: { locale: Locale; proper
     <h4>{copy.valuationsTitle}</h4>
     {property.valuations.length === 0 ? <p className="empty-inline">{copy.noValuations}</p> : <ul className="rows">
       {property.valuations.map((row) => <li className="property-line" key={row.id}>
-        <span><time dateTime={row.asOf}>{row.asOf}</time> · <span className="amount">{formatEuros(row.valueCents, locale)}</span></span>
+        <span><time dateTime={row.asOf}>{row.asOf}</time> · <span className="amount">{euros(row.valueCents, locale)}</span></span>
         <button className="button button-quiet" type="button" disabled={action.pending}
           onClick={() => action.run(() => propertyCall("DELETE", `/valuations/${row.id}`), copy.valuationRemoved)}>{copy.remove}</button>
       </li>)}
@@ -174,7 +175,7 @@ export function Schedules({ locale, property, accounts, today }: { locale: Local
     <p className="hint">{copy.schedulesHint}</p>
     {property.schedules.length === 0 ? <p className="empty-inline">{copy.noSchedules}</p> : <ul className="rows">
       {property.schedules.map((row) => <li className="property-line" key={row.id}>
-        <span>{row.description} · <span className="amount">{formatEuros(row.amountCents, locale)}</span> · {copy.frequencies[row.frequency]}
+        <span>{row.description} · <span className="amount">{euros(row.amountCents, locale)}</span> · {copy.frequencies[row.frequency]}
           {" · "}{row.archived ? copy.endedOrArchived : row.nextDue ? <>{copy.nextDue} <time dateTime={row.nextDue}>{row.nextDue}</time></> : null}</span>
         <span className="property-actions">
           <Link className="button button-quiet" href={`/${locale}/recurring`}>{copy.openRecurring}</Link>
@@ -253,7 +254,7 @@ function ChargeForm({ locale, property, today }: { locale: Locale; property: Pro
       {tableId && <Input label={copy.buildingTotal} value={building} onChange={(event) => setBuilding(event.target.value)} inputMode="decimal" maxLength={14} hint={copy.buildingHint} />}
       <Input label={copy.chargeAmount} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" maxLength={13} required />
     </div>
-    {guide !== null && <p className="hint">{copy.expectedShare}: <strong className="amount">{formatEuros(guide, locale)}</strong>{" "}
+    {guide !== null && <p className="hint">{copy.expectedShare}: <strong className="amount">{euros(guide, locale)}</strong>{" "}
       <button className="button button-quiet" type="button" onClick={() => setAmount(editableEuros(guide, locale))}>{copy.useShare}</button></p>}
     <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.addCharge} /></div>
     <NoticeLine notice={action.notice} />
@@ -270,8 +271,8 @@ function ChargeRow({ locale, charge, accounts, today }: { locale: Locale; charge
   const patch = (body: unknown, success: string) => action.run(() => propertyCall("PATCH", `/charges/${charge.id}`, body), success);
   return <li className="property-charge">
     <div className="property-line">
-      <span><strong>{charge.title}</strong> · {copy.chargeKinds[charge.kind]} · <time dateTime={charge.dueDate}>{charge.dueDate}</time> · <span className="amount">{formatEuros(charge.amountCents, locale)}</span>
-        {charge.expectedShareCents !== null && <> · {copy.expectedShare}: <span className="amount">{formatEuros(charge.expectedShareCents, locale)}</span></>}
+      <span><strong>{charge.title}</strong> · {copy.chargeKinds[charge.kind]} · <time dateTime={charge.dueDate}>{charge.dueDate}</time> · <span className="amount">{euros(charge.amountCents, locale)}</span>
+        {charge.expectedShareCents !== null && <> · {copy.expectedShare}: <span className="amount">{euros(charge.expectedShareCents, locale)}</span></>}
       </span>
       <span className={`badge ${charge.settled ? "badge-green" : charge.voided ? "badge-blue" : "badge-amber"}`}>{status}</span>
     </div>
