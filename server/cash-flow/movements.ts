@@ -397,6 +397,9 @@ export async function nearestCandidates(query: CandidateQuery) {
         OR (NOT ${query.sameAccount}::boolean AND m.account_id <> ${query.accountId}::uuid))
       AND (${query.amountCents}::int IS NULL OR m.amount_cents = ${query.amountCents}::int)
       AND (NOT ${query.outflowOnly}::boolean OR m.amount_cents < 0)
+      AND (NOT ${query.outflowOnly}::boolean OR NOT EXISTS (
+        SELECT 1 FROM stead_categories k WHERE k.user_id = m.user_id AND k.category_id = m.category_id AND k.kind = 'INCOME'
+      ))
       AND m.voided_at IS NULL AND m.transfer_id IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM stead_recurring_occurrences o WHERE o.user_id = m.user_id AND o.movement_id = m.movement_id

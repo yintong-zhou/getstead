@@ -797,15 +797,19 @@ test("recurring expenses: due occurrences confirm, match or skip exactly once", 
   const inflow = await movement(user, checking.id, "2026-11-02", 2_000);
   const gone = await movement(user, checking.id, "2026-11-02", -2_000);
   await updateMovement(user, gone.id, { voided: true });
+  const incomeCategory = await category(user, "Synthetic refund category", "INCOME");
+  const incomeTagged = await movement(user, checking.id, "2026-11-02", -2_000, { categoryId: incomeCategory.id });
   const foreign = await account(other);
   const foreignMovement = await movement(other, foreign.id, "2026-11-02", -2_000);
   await rejectsApi(attempt("2026-11-02", wrongAccount.id), 409, "account_mismatch");
   await rejectsApi(attempt("2026-11-02", inflow.id), 409, "sign_mismatch");
+  await rejectsApi(attempt("2026-11-02", incomeTagged.id), 409, "sign_mismatch");
   await rejectsApi(attempt("2026-11-02", gone.id), 409, "voided");
   await rejectsMissing(attempt("2026-11-02", foreignMovement.id));
 
   const candidates = (await occurrenceCandidates(user, new URLSearchParams({ templateId: weekly.id, dueDate: "2026-11-02" }))).movements;
   assert.ok(candidates.every((item) => item.accountId === checking.id && item.amountCents < 0 && !item.voided));
+  assert.ok(!candidates.some((item) => item.id === incomeTagged.id), "an outflow in an INCOME category is not offered");
   const good = await movement(user, checking.id, "2026-11-03", -1_950);
   assert.ok((await occurrenceCandidates(user, new URLSearchParams({ templateId: weekly.id, dueDate: "2026-11-02" }))).movements.some((item) => item.id === good.id));
 

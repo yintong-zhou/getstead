@@ -1,7 +1,7 @@
 ---
 type: handoff
 date: 2026-11-21
-status: M4b (property costs) built and verified, NOT committed, NOT pushed; last test-only round not independently inspected
+status: M4b (property costs) committed and pushed (8120b08); final Codex inspection APPROVED M4b; one M1 matcher finding fixed afterwards without re-inspection
 seq: 9
 prev: docs/handoff/2026-11-20-stead-m4a-property.md
 tags: [stead, m4b, property, costs, condominium, codex, claude]
@@ -19,6 +19,10 @@ M4b rescoped by the owner on 2026-11-21: in this phase a property is **a cost on
 - Proof (Claude, on the final tree): `lint`, `typecheck`, `test` 85/85, cash-flow + investments + property integration 63/63 on `stead_auth_test`, `build`. Negative controls: no `userId` filter in `getCosts` fails the isolation test; no template lock in `deleteSchedule` fails both the controlled race and the ordered real-writer race; READ COMMITTED instead of RepeatableRead fails the snapshot stress test 3 of 3. Browser (Orca, synthetic seed): costs card at 320, 360, 390, 1280 px, EN and IT, no horizontal scroll, totals equal the hand-computed ones, an invalid `?year=` falls back to the current year.
 - Inspection by Codex (base `39f66e6`, Claude built): round 1 REVISE, 3 findings fixed (snapshot read, one recurrence horizon, year-arrow bounds); round 2 REVISE, 1 medium finding, test coverage only (races with the real confirm and match writers). I added `queuedPair` and "unlink versus the real confirm and match writers" after the budget of 2 rounds was used, so **that test addition has no independent inspection**.
 - Not covered by any inspection: the M4a `value_out_of_range` fix for charge caps (still pending from the previous handoff).
+
+## Final inspection (after the first push)
+
+- M4b alone (base `39f66e6`): APPROVED, no findings (it also covered the unlink race tests). M4a plus M4b (base `b67fe8b`, which includes the M4a cap fix): one medium finding, no problem with the cap fix. The recurring matcher accepted an outflow in an INCOME category as an instalment payment, so costs counted it as paid while cash-flow reports counted negative income. Fixed: `resolveOccurrence` match rejects it (409 `sign_mismatch`, "Choose an expense, not an income."), and `nearestCandidates` with `outflowOnly` (used only by recurring) no longer offers such movements; regression asserts in the cash-flow integration test, negative controls fail. This fix has no independent inspection.
 
 ## Decisions
 

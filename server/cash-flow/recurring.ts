@@ -261,10 +261,12 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
       await lockMovements(tx, userId, [movementId!]);
       const movement = await tx.movement.findUniqueOrThrow({
         where: { userId_id: { userId, id: movementId! } },
-        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, occurrence: { select: { id: true } }, condoCharge: { select: { id: true } } },
+        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, category: { select: { kind: true } }, occurrence: { select: { id: true } }, condoCharge: { select: { id: true } } },
       });
       if (movement.accountId !== template.accountId) throw conflict("account_mismatch");
       if (movement.amountCents >= 0) throw conflict("sign_mismatch");
+      // An INCOME category would count the payment as negative income and zero spending in every report.
+      if (movement.category?.kind === "INCOME") throw conflict("sign_mismatch");
       if (movement.voidedAt) throw conflict("voided");
       if (movement.transferId) throw conflict("paired");
       // A movement settles at most one thing: an occurrence or a condominium charge (checked under the movement lock).
