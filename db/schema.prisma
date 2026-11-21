@@ -102,6 +102,17 @@ model Session {
   @@map("stead_sessions")
 }
 
+// Public waitlist. Not user data: no userId. The runtime role may INSERT only; the owner reads it
+// on the admin connection (see db/grant-runtime.sql).
+model WaitlistEntry {
+  id        String   @id @default(uuid()) @map("entry_id") @db.Uuid
+  email     String   @unique @db.VarChar(254)
+  locale    String   @db.VarChar(2)
+  consentAt DateTime @default(now()) @map("consent_at") @db.Timestamptz(3)
+
+  @@map("stead_waitlist")
+}
+
 model AuthLimit {
   phase         String   @db.VarChar(8)
   subjectDigest Bytes    @map("subject_digest")

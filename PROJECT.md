@@ -30,7 +30,7 @@ Open question: what will this app do better than the tools that already exist? T
 
 When the three goals clash, the winner is whatever gets me using the app sooner, with real data.
 
-- **Personal use first.** No "product" features (payments, onboarding, marketing) until I have used v1 for at least 2 months.
+- **Personal use first.** No "product" features (payments, onboarding, marketing) until I have used v1 for at least 2 months. Exception, 2026-11-21: the owner asked for a public home page with a waitlist (`/en`, `/it`); it is static, and the waitlist only collects emails.
 - **Multi-user and security from day one.** Every record belongs to a user and sensitive data is encrypted. Cheap now, essential for income later.
 - **Stack locked in now.** Full-stack Next.js in TypeScript, with no technology switches halfway through: learning is the third priority.
 - **Interchangeable data sources.** Manual entry and CSV today, a bank aggregator tomorrow, with the same internal format.

@@ -11,7 +11,7 @@ import "./cash-flow/cash-flow.css";
 export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile" | "admin";
 
 const sections = [
-  { id: "overview", path: "", icon: "overview", label: "overview" },
+  { id: "overview", path: "/overview", icon: "overview", label: "overview" },
   { id: "cash-flow", path: "/cash-flow", icon: "cashFlow", label: "cashFlow" },
   { id: "budget", path: "/budget", icon: "budget", label: "budget" },
   { id: "net-worth", path: "/net-worth", icon: "netWorth", label: "netWorth" },
@@ -23,7 +23,7 @@ const sections = [
 
 /** The four mobile tabs. A tab stays active on every page of its group; the group's pages are the subtabs shown under the heading. */
 const mobileTabs = [
-  { id: "overview", path: "", icon: "overview", label: "overview", group: ["overview"] },
+  { id: "overview", path: "/overview", icon: "overview", label: "overview", group: ["overview"] },
   { id: "cash-flow", path: "/cash-flow", icon: "cashFlow", label: "cashFlow", group: ["cash-flow", "budget", "recurring", "accounts"] },
   { id: "net-worth", path: "/net-worth", icon: "netWorth", label: "netWorth", group: ["net-worth", "investments"] },
   { id: "property", path: "/property", icon: "home", label: "property", group: ["property"] },

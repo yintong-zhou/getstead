@@ -22,7 +22,7 @@ export default async function LoginPage({ params }: Props) {
   if (!isLocale(locale)) notFound();
 
   const session = await readPageSession();
-  if (session === "authenticated") redirect(`/${locale}`);
+  if (session === "authenticated") redirect(`/${locale}/overview`);
   if (session === "unavailable") return <UnavailableNotice locale={locale} path="/login" />;
 
   return (

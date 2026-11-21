@@ -56,4 +56,7 @@ GRANT INSERT (user_id, email, display_name, password_hash, must_change_password,
 GRANT UPDATE (disabled_at, must_change_password, last_login_at) ON public.stead_users TO stead_auth_app;
 GRANT SELECT, INSERT, DELETE ON public.stead_event_logs TO stead_auth_app;
 
+-- Public waitlist: the app can only add an entry. It cannot read the list back.
+GRANT INSERT ON public.stead_waitlist TO stead_auth_app;
+
 COMMIT;
