@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type ComponentProps, type ReactNode } from "react";
+import { useId, useState, type ComponentProps } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { Overview } from "@/server/property/service";
 import { type Locale } from "@/server/locale";
@@ -9,6 +9,7 @@ import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { editableEuros } from "../money";
+import { Select } from "../select";
 import { propertyCopy } from "./copy";
 import { MAX_BUILDING_CENTS, MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, millesimiShare, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers";
 import { euros } from "@/components/euros";
@@ -31,18 +32,19 @@ function Input({ label, hint, ...props }: ComponentProps<"input"> & { label: str
     {hint && <p id={`${id}-hint`} className="hint">{hint}</p>}
   </div>;
 }
-function Choice({ label, hint, children, ...props }: ComponentProps<"select"> & { label: string; hint?: string; children: ReactNode }) {
+type Opt = { value: string; label: string; disabled?: boolean };
+function Choice({ label, hint, options, ...props }: { label: string; hint?: string; options: Opt[]; name?: string; required?: boolean } & (
+  { value: string; onChange: (value: string) => void; defaultValue?: never } | { defaultValue?: string; value?: never; onChange?: never }
+)) {
   const id = useId();
   return <div className="form-field">
     <label htmlFor={id}>{label}</label>
-    <select {...props} className="field" id={id} aria-describedby={hint ? `${id}-hint` : undefined}>{children}</select>
+    <Select {...(props as { name: string; defaultValue?: string })} id={id} options={options} aria-describedby={hint ? `${id}-hint` : undefined} />
     {hint && <p id={`${id}-hint`} className="hint">{hint}</p>}
-  </div>;
+    </div>;
 }
-function accountOptions(rows: AccountDto[], archived: string, currentId?: string) {
-  return rows.map((row) => <option key={row.id} value={row.id} disabled={row.archived && row.id !== currentId}>
-    {row.name}{row.archived ? ` · ${archived}` : ""}
-  </option>);
+function accountOptions(rows: AccountDto[], archived: string, currentId?: string): Opt[] {
+  return rows.map((row) => ({ value: row.id, label: row.name + (row.archived ? ` · ${archived}` : ""), disabled: row.archived && row.id !== currentId }));
 }
 function SaveButton({ pending, locale, label }: { pending: boolean; locale: Locale; label?: string }) {
   const shared = cashFlowCopy[locale];
@@ -73,15 +75,12 @@ export function PropertyForm({ locale, accounts, property }: { locale: Locale; a
   }}>
     <div className="form-grid">
       <Input label={copy.name} name="name" maxLength={80} required defaultValue={property?.name ?? ""} />
-      <Choice label={copy.kind} name="kind" defaultValue={property?.kind ?? "PRIMARY_RESIDENCE"}>
-        {Object.entries(copy.kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </Choice>
+      <Choice label={copy.kind} name="kind" defaultValue={property?.kind ?? "PRIMARY_RESIDENCE"}
+        options={Object.entries(copy.kinds).map(([value, label]) => ({ value, label }))} />
       <Input label={copy.ownership} name="ownership" inputMode="decimal" maxLength={6} required hint={copy.ownershipHint}
         defaultValue={ownershipText(property?.ownershipBps ?? 10_000, separator)} />
-      <Choice label={copy.mortgage} name="mortgage" defaultValue={property?.mortgageAccountId ?? ""} hint={copy.mortgageHint}>
-        <option value="">{copy.noMortgage}</option>
-        {accountOptions(debts, shared.archivedSuffix, property?.mortgageAccountId ?? undefined)}
-      </Choice>
+      <Choice label={copy.mortgage} name="mortgage" defaultValue={property?.mortgageAccountId ?? ""} hint={copy.mortgageHint}
+        options={[{ value: "", label: copy.noMortgage }, ...accountOptions(debts, shared.archivedSuffix, property?.mortgageAccountId ?? undefined)]} />
       {property && <Input label={copy.soldOn} name="soldOn" {...dateBounds} defaultValue={property.soldOn ?? ""} hint={copy.soldHint} />}
     </div>
     <div className="form-actions">
@@ -200,14 +199,11 @@ export function Schedules({ locale, property, accounts, today }: { locale: Local
       <div className="form-grid">
         <Input label={copy.description} name="description" maxLength={200} required />
         <Input label={copy.amount} name="amount" inputMode="decimal" maxLength={13} required />
-        <Choice label={copy.frequency} name="frequency" defaultValue="MONTHLY">
-          {Object.entries(copy.frequencies).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </Choice>
+        <Choice label={copy.frequency} name="frequency" defaultValue="MONTHLY"
+          options={Object.entries(copy.frequencies).map(([value, label]) => ({ value, label }))} />
         <Input label={copy.startDate} name="startDate" {...dateBounds} required defaultValue={today} />
-        <Choice label={copy.account} name="accountId" defaultValue="" required>
-          <option value="" disabled>{copy.select}</option>
-          {accountOptions(payable, shared.archivedSuffix)}
-        </Choice>
+        <Choice label={copy.account} name="accountId" defaultValue="" required
+          options={[{ value: "", label: copy.select, disabled: true }, ...accountOptions(payable, shared.archivedSuffix)]} />
       </div>
       <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.addSchedule} /></div>
       <NoticeLine notice={action.notice} />
@@ -241,16 +237,13 @@ function ChargeForm({ locale, property, today }: { locale: Locale; property: Pro
     if (saved) { form.reset(); setTableId(""); setBuilding(""); setAmount(""); }
   }}>
     <div className="form-grid">
-      <Choice label={copy.chargeKind} name="kind" defaultValue="BALANCING">
-        {Object.entries(copy.chargeKinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </Choice>
+      <Choice label={copy.chargeKind} name="kind" defaultValue="BALANCING"
+        options={Object.entries(copy.chargeKinds).map(([value, label]) => ({ value, label }))} />
       <Input label={copy.title2} name="title" maxLength={120} required />
       <Input label={copy.dueDate} name="dueDate" {...dateBounds} required defaultValue={today} />
       <Input label={copy.approvedOn} name="approvedOn" {...dateBounds} />
-      <Choice label={copy.tableOptional} value={tableId} onChange={(event) => setTableId(event.target.value)}>
-        <option value="">{copy.noTable}</option>
-        {property.tables.map((row) => <option key={row.id} value={row.id}>{row.label} ({row.unitMillesimi}/{row.totalMillesimi})</option>)}
-      </Choice>
+      <Choice label={copy.tableOptional} value={tableId} onChange={setTableId}
+        options={[{ value: "", label: copy.noTable }, ...property.tables.map((row) => ({ value: row.id, label: `${row.label} (${row.unitMillesimi}/${row.totalMillesimi})` }))]} />
       {tableId && <Input label={copy.buildingTotal} value={building} onChange={(event) => setBuilding(event.target.value)} inputMode="decimal" maxLength={14} hint={copy.buildingHint} />}
       <Input label={copy.chargeAmount} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" maxLength={13} required />
     </div>
@@ -289,10 +282,8 @@ function ChargeRow({ locale, charge, accounts, today }: { locale: Locale; charge
       if (saved) setSettling(false);
     }}>
       <div className="form-grid">
-        <Choice label={copy.settleAccount} name="accountId" defaultValue="" required>
-          <option value="" disabled>{copy.select}</option>
-          {accountOptions(payable, shared.archivedSuffix)}
-        </Choice>
+        <Choice label={copy.settleAccount} name="accountId" defaultValue="" required
+          options={[{ value: "", label: copy.select, disabled: true }, ...accountOptions(payable, shared.archivedSuffix)]} />
         <Input label={copy.settleDate} name="bookingDate" {...dateBounds} required defaultValue={charge.dueDate <= today ? charge.dueDate : today} />
       </div>
       <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.settleConfirm} /></div>
