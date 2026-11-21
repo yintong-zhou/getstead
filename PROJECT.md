@@ -148,6 +148,8 @@ With 5â€“10 hours a week, the complete v1 takes about 6 months: modules arr
 
 From February 2027 I already use the app for cash flow and budget while building the rest. Dates are estimates: I update them at the end of each milestone.
 
+M5 admin (added 2026-11-21) adds an admin area: user metadata overview, user creation, password reset with temporary passwords, account disable and enable, and a 30-day log of server errors and security events. It never shows financial data. Support tickets are not included: support stays by email.
+
 ## Risks and next action
 
 The main risk is the project growing before it reaches a version I actually use.

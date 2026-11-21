@@ -9,12 +9,14 @@ import { lockUser } from "../auth/service.ts";
 import { ApiError } from "../cash-flow/errors.ts";
 import { normalizeDisplayName } from "./inputs.ts";
 
-export type Profile = { email: string; displayName: string | null; totpEnabled: boolean };
-const profileFields = { email: true, displayName: true, totpSecret: true } as const;
+export type Profile = { email: string; displayName: string | null; totpEnabled: boolean; admin: boolean; mustChangePassword: boolean };
+const profileFields = { email: true, displayName: true, totpSecret: true, role: true, mustChangePassword: true } as const;
 const invalidCredential = () => new ApiError(403, "invalid");
 
-function profileResult({ email, displayName, totpSecret }: { email: string; displayName: string | null; totpSecret: Uint8Array | null }): Profile {
-  return { email, displayName, totpEnabled: totpSecret !== null };
+function profileResult({ email, displayName, totpSecret, role, mustChangePassword }: {
+  email: string; displayName: string | null; totpSecret: Uint8Array | null; role: string; mustChangePassword: boolean;
+}): Profile {
+  return { email, displayName, totpEnabled: totpSecret !== null, admin: role === "ADMIN", mustChangePassword };
 }
 
 export async function getProfile(userId: string): Promise<Profile> {
@@ -137,7 +139,7 @@ export async function changePassword(
       where: { tokenDigest, userId, expiresAt: { gt: new Date() } }, select: { userId: true },
     });
     if (!session) throw new ApiError(401, "unauthenticated");
-    await tx.user.update({ where: { id: userId }, data: { passwordHash: nextHash }, select: { id: true } });
+    await tx.user.update({ where: { id: userId }, data: { passwordHash: nextHash, mustChangePassword: false }, select: { id: true } });
     await tx.session.deleteMany({ where: { userId, tokenDigest: { not: tokenDigest } } });
     await tx.loginChallenge.deleteMany({ where: { userId } });
   });

@@ -48,4 +48,12 @@ GRANT DELETE ON public.stead_condo_schedules TO stead_auth_app;
 GRANT UPDATE (kind, title_enc, due_date, amount_cents, approved_on, table_id, building_total_cents, voided_at, movement_id)
   ON public.stead_condo_charges TO stead_auth_app;
 
+
+-- Admin (M5). Users are created with a column list that leaves out `role` (Prisma sends `user_id`
+-- and `created_at` itself), and `role` is never
+-- updatable: promotion to admin only happens through the owner CLI on the admin connection.
+GRANT INSERT (user_id, email, display_name, password_hash, must_change_password, created_at) ON public.stead_users TO stead_auth_app;
+GRANT UPDATE (disabled_at, must_change_password, last_login_at) ON public.stead_users TO stead_auth_app;
+GRANT SELECT, INSERT, DELETE ON public.stead_event_logs TO stead_auth_app;
+
 COMMIT;

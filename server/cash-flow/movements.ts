@@ -115,7 +115,7 @@ const directionWhere = {
 // One total order, so pages never overlap or skip rows: date, then insertion time, then id.
 const registerOrder = [{ bookingDate: "desc" }, { createdAt: "desc" }, { id: "desc" }] satisfies Prisma.MovementOrderByWithRelationInput[];
 
-function integerParam(params: URLSearchParams, name: string, fallback: number, min: number, max: number) {
+export function integerParam(params: URLSearchParams, name: string, fallback: number, min: number, max: number) {
   if (!params.has(name)) return fallback;
   const value = Number(params.get(name));
   if (!Number.isInteger(value) || value < min || value > max) throw new ApiError(422, "validation", name);

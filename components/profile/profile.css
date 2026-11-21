@@ -108,3 +108,4 @@
   font-weight: 700;
 }
 .glass-sample-button { padding: 6px 12px; border-radius: 999px; color: #fff; background: var(--glass-primary); }
+.profile-must-change { grid-column: 1 / -1; margin: 0; }

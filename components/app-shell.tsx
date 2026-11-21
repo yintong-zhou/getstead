@@ -8,7 +8,7 @@ import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
 import "./cash-flow/cash-flow.css";
 
-export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile";
+export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile" | "admin";
 
 const sections = [
   { id: "overview", path: "", icon: "overview", label: "overview" },
@@ -58,7 +58,7 @@ type Props = {
 /** Navigation and profile menu shared by every signed-in page. */
 export function AppShell({ locale, current, title, subtitle, action, query = "", routePath, children, profile }: Props) {
   const copy = dashboardCopy[locale];
-  const currentPath = routePath ?? (current === "profile" ? "/profile" : sections.find((section) => section.id === current)!.path);
+  const currentPath = routePath ?? (current === "profile" ? "/profile" : sections.find((section) => section.id === current)?.path ?? "");
   // "page" only on the exact route; "true" marks the section a deeper route (such as the movements history) belongs to.
   const marker = (id: Section, path: string) => (id !== current ? undefined : (routePath ?? path) === path ? "page" : "true");
   const tab = mobileTabs.find((item) => (item.group as readonly Section[]).includes(current));

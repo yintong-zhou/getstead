@@ -75,6 +75,8 @@ npm run dev
 
 Enter the getstead email and password in the interactive owner command. Sign in with your email and password. To enable two-step verification, open Profile and settings, re-enter your password, add the setup key to a time-based authenticator, and enter its six-digit code. If you lose the authenticator, run `npm run auth:owner -- reset` locally. This replaces the getstead password, revokes sessions, and resets the authenticator enrollment.
 
+To make an account an admin, run `npm run auth:owner -- promote` and enter its email. The admin area (Profile menu → Admin, or `/en/admin`) opens only once the account has two-step verification enabled. From there you can create users, reset passwords, disable or enable accounts, and read the error and security log.
+
 Open [getstead in English](http://127.0.0.1:3000/en) or [getstead in Italian](http://127.0.0.1:3000/it). Use the same loopback hostname as `APP_ORIGIN`.
 
 ## Verify

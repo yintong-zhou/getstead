@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { authResponse, challengeCookie, readAuthBody, sameOrigin, sessionCookie, writeAuthCookie } from "@/server/auth/http";
 import { validTotpCode } from "@/server/auth/inputs";
 import { verifyMfa } from "@/server/auth/service";
+import { recordEvent } from "@/server/admin/logs";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ export function POST(request: NextRequest) {
     if (!validTotpCode(code)) return authResponse(400);
 
     const result = await verifyMfa(request.cookies.get(challengeCookie)?.value, code);
+    if (result.status === "limited") {
+      await recordEvent({ kind: "SECURITY", code: "mfa_limited", route: "/api/auth/mfa", method: "POST", userId: result.userId }, 15 * 60_000);
+    }
     if (result.status !== "ok") {
       const statuses = { limited: 429, expired: 410, invalid: 401 };
       return authResponse(statuses[result.status]);
