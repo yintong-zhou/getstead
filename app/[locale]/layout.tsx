@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { MotionProvider } from "@/components/motion-provider";
 import { glassBootstrap, themeBootstrap } from "@/components/profile/appearance";
 import { appOrigin } from "@/server/auth/config";
 import { isLocale, locales } from "@/server/locale";
@@ -47,7 +48,7 @@ export default async function RootLayout({ children, params }: LocaleParams & { 
   return (
     <html lang={locale} className={plusJakarta.className} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: glassBootstrap }} /><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
-      <body>{children}</body>
+      <body><MotionProvider>{children}</MotionProvider></body>
     </html>
   );
 }

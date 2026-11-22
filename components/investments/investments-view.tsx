@@ -10,6 +10,9 @@ import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numb
 import { Instruments, PriceHistory, QuickPrice, Transactions, type Quote } from "./forms";
 import { euros } from "@/components/euros";
 import { TrendCard } from "@/components/trend-card";
+import { PieCenter } from "@/components/charts/pie-center";
+import { PieChart } from "@/components/charts/pie-chart";
+import { PieSlice } from "@/components/charts/pie-slice";
 import "./investments.css";
 
 type ViewProps = {
@@ -29,12 +32,19 @@ function Gain({ cents, locale }: { cents: number; locale: Locale }) {
 function Allocation({ locale, allocation }: { locale: Locale; allocation: PortfolioData["allocation"] }) {
   const copy = investmentsCopy[locale];
   const percentages = new Intl.NumberFormat(localeTags[locale], { style: "percent", maximumFractionDigits: 1 });
+  const slices = allocation.filter(({ valueCents }) => valueCents > 0)
+    .map(({ kind, valueCents }) => ({ label: copy.kinds[kind], value: valueCents, color: `var(--allocation-${kind.toLowerCase().replaceAll("_", "-")})` }));
+  const total = slices.reduce((sum, { value }) => sum + value, 0);
   return <section className="card investment-allocation" aria-labelledby="investment-allocation-title">
     <h2 id="investment-allocation-title">{copy.allocation}</h2>
     {allocation.length === 0 ? <p className="empty-inline">{copy.noAllocation}</p> : <>
-      <div className="allocation" aria-hidden="true">
-        {allocation.filter(({ valueCents }) => valueCents > 0).map(({ kind, share }) =>
-          <span key={kind} data-kind={kind} style={{ flexGrow: share }} />)}
+      <div className="allocation-donut" role="img" aria-label={`${copy.allocation}: ${slices.map(({ label, value }) => `${label} ${percentages.format(value / total)}`).join(", ")}`}>
+        <PieChart data={slices} size={176} innerRadius={60} padAngle={0.03} cornerRadius={4} hoverOffset={6}>
+          {slices.map((slice, index) => <PieSlice key={slice.label} index={index} />)}
+          <PieCenter defaultLabel={copy.allocation}>
+            {({ value, label }) => <span className="allocation-center"><strong className="amount">{euros(value, locale, { wholeEuros: true })}</strong><small>{label}</small></span>}
+          </PieCenter>
+        </PieChart>
       </div>
       <ul className="allocations">
         {allocation.map(({ kind, valueCents, share }) => <li key={kind}>

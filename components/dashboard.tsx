@@ -9,22 +9,16 @@ import { formatDay, formatMonth } from "./format";
 import { categoryIcon } from "./category-icon";
 import { Icon } from "./icon";
 import { euros } from "@/components/euros";
+import { CashFlowChart } from "./cash-flow-chart";
 
 const palette = ["var(--brand)", "var(--chart-2)", "var(--warning)", "#a855f7", "#f43f5e"];
 
-/** The smallest 1, 2 or 5 times a power of ten that holds the tallest bar, never below 100 euros. */
-function chartCap(maxCents: number) {
-  for (let magnitude = 10_000; ; magnitude *= 10) {
-    for (const step of [1, 2, 5]) if (step * magnitude >= maxCents) return step * magnitude;
-  }
-}
-
 function CashFlow({ values, locale, copy }: { values: DashboardData["trend"]; locale: Locale; copy: DashboardCopy }) {
-  // A month where refunds exceed spending has a negative net expense: its bar is drawn at that size
-  // as an outlined "refund" bar and named in the note below, so the dip is never silently flattened.
-  const cap = chartCap(Math.max(...values.flatMap(({ incomeCents, expenseCents }) => [incomeCents, Math.abs(expenseCents)])));
-  const height = (cents: number) => `${Math.min(100, Math.max(0, (Math.abs(cents) / cap) * 100))}%`;
   const refundMonths = values.filter(({ expenseCents }) => expenseCents < 0);
+  const points = values.map(({ month, incomeCents, expenseCents }) => ({ label: formatMonth(month, locale, "short"), incomeCents, expenseCents }));
+  const summary = `${copy.cashFlowTrend}. ${points.map(
+    ({ label, incomeCents, expenseCents }) => `${label}: ${copy.income} ${formatEuros(incomeCents, locale)}, ${copy.expenses} ${formatEuros(expenseCents, locale)}`,
+  ).join("; ")}`;
 
   return (
     <section id="cash-flow" className="cash-flow card" aria-labelledby="cash-flow-title">
@@ -32,24 +26,7 @@ function CashFlow({ values, locale, copy }: { values: DashboardData["trend"]; lo
         <h2 id="cash-flow-title">{copy.cashFlow}</h2>
         <span className="period">{copy.sixMonths}</span>
       </header>
-      <div className="cash-chart" role="img" aria-label={`${copy.cashFlowTrend}. ${values.map(
-        ({ month, incomeCents, expenseCents }) => `${formatMonth(month, locale, "short")}: ${copy.income} ${formatEuros(incomeCents, locale)}, ${copy.expenses} ${formatEuros(expenseCents, locale)}`,
-      ).join("; ")}`}>
-        <div className="cash-axis" aria-hidden="true">
-          {[cap, cap / 2, 0].map((tick) => <span key={tick}>{euros(tick, locale, { wholeEuros: true })}</span>)}
-        </div>
-        <div className="cash-plot" aria-hidden="true">
-          {values.map(({ month, incomeCents, expenseCents }, index) => (
-            <div className={`cash-month${index === values.length - 1 ? " cash-current" : ""}`} key={month}>
-              <div className="cash-bars">
-                <div className="cash-bar income-bar" style={{ height: height(incomeCents) }} />
-                <div className={`cash-bar expense-bar${expenseCents < 0 ? " refund-bar" : ""}`} style={{ height: height(expenseCents) }} />
-              </div>
-              <span>{formatMonth(month, locale, "short")}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <CashFlowChart points={points} locale={locale} labels={{ income: copy.income, expenses: copy.expenses }} summary={summary} />
       <div className="chart-legend" aria-hidden="true">
         <span><i className="income-bar" />{copy.income}</span>
         <span><i className="expense-bar" />{copy.expenses}</span>

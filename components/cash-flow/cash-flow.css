@@ -18,7 +18,7 @@
   align-items: center;
   color: var(--brand);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 .text-link:hover { text-decoration: underline; }
 
@@ -39,11 +39,10 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 }
 .card .hero-label {
   color: #d0dcff;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 14px;
-  letter-spacing: .6px;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0;
 }
 .hero-amount { margin-top: 8px; font-size: 32px; font-weight: 800; line-height: 38px; letter-spacing: -.5px; }
 .hero-note { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 16px; }
@@ -64,7 +63,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .empty-card { display: grid; gap: 8px; justify-items: start; }
 
 .budget-over { --budget-color: var(--negative); }
-.budget-flag { margin-top: 6px; color: var(--negative); font-size: 12px; font-weight: 700; }
+.budget-flag { margin-top: 8px; color: var(--negative); font-size: 12px; font-weight: 700; }
 
 /* Forms -------------------------------------------------------------------------------------- */
 
@@ -86,7 +85,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   border: 0;
   border-radius: 12px;
   background: var(--glass-recessed);
-  box-shadow: inset 0 1px 3px #1b2b5e14, inset 0 0 0 1px var(--glass-hairline);
+  box-shadow: inset 0 1px 3px #0f172a14, inset 0 0 0 1px var(--glass-hairline);
   color: var(--ink);
   font: inherit;
 }
@@ -114,8 +113,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding-inline: 14px;
+  gap: 8px;
+  padding-inline: 16px;
   border: 0;
   border-radius: 12px;
   background: var(--glass-highlight), var(--glass-fill);
@@ -126,7 +125,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   font: inherit;
   font-size: 13px;
   font-weight: 700;
-  transition: background-color 150ms ease, transform 150ms ease, filter 150ms ease;
+  transition: background-color 150ms var(--ease), transform 150ms var(--ease), filter 150ms var(--ease);
 }
 .button:hover:not(:disabled) { background-color: var(--glass-fill-strong); }
 .button-solid { border-color: transparent; background: var(--brand-soft); color: var(--brand-ink); backdrop-filter: none; }
@@ -182,7 +181,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   background: var(--glass-highlight), var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur-control)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
-  transition: background-color 150ms ease, transform 150ms ease, filter 150ms ease;
+  transition: background-color 150ms var(--ease), transform 150ms var(--ease), filter 150ms var(--ease);
   font-size: 22px;
   line-height: 1;
 }
@@ -191,8 +190,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-block: 16px 4px; }
 .stats > div { padding: 12px; border-radius: 12px; background: var(--glass-recessed); }
-.stats dt { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .6px; line-height: 14px; text-transform: uppercase; }
-.stats dd { margin-top: 4px; font-size: 15px; font-weight: 750; overflow-wrap: anywhere; white-space: normal; }
+.stats dt { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; line-height: 16px; }
+.stats dd { margin-top: 4px; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; white-space: normal; }
 
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; margin-block: 16px 8px; }
 
@@ -201,7 +200,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .movement + .movement { border-top: 1px solid var(--glass-hairline); }
 .movement .data-row + .data-row { border-top: 0; }
 .movement .data-row { min-height: 52px; }
-.row-text p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.row-text p { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .is-voided .row-text p { color: var(--muted); text-decoration: line-through; }
 .is-voided .row-amount { color: var(--muted); text-decoration: line-through; }
 
@@ -211,7 +210,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   background: var(--glass-recessed);
   color: var(--muted);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 16px;
   text-decoration: none;
 }
@@ -226,7 +225,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   border-radius: 12px;
   background: var(--glass-recessed);
 }
-.pair-panel h3 { font-size: 13px; font-weight: 750; }
+.pair-panel h3 { font-size: 13px; font-weight: 700; }
 .due-actions { display: grid; gap: 4px; margin-block: 4px 8px; }
 
 .manage-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 56px; padding-block: 8px; }
@@ -235,8 +234,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .manage-row.is-archived > :not(.more-actions) { opacity: .7; }
 .manage-row .row-text { flex: 1 1 140px; min-width: 0; }
 /* Category kind: the word itself is colored (green income, red expense) so the list scans at a glance. */
-.row-text .meta-positive { color: var(--positive-ink); font-weight: 750; }
-.row-text .meta-negative { color: var(--negative); font-weight: 750; }
+.row-text .meta-positive { color: var(--positive-ink); font-weight: 700; }
+.row-text .meta-negative { color: var(--negative); font-weight: 700; }
 .manage-row > .more-actions { margin-inline-start: auto; }
 
 /* Row "⋯" menu (components/cash-flow/more-actions.tsx), shared by movements, accounts and categories. */
@@ -275,14 +274,14 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .more-actions-list > .button { justify-content: start; white-space: normal; text-align: start; }
 /* "Show archived" switch: a liquid-glass capsule whose thumb is a lens, like the active nav tab (app/globals.css). */
 .button.archived-filter {
-  gap: 10px;
-  padding-inline: 14px 6px;
+  gap: 8px;
+  padding-inline: 16px 8px;
   border-radius: 999px;
   color: var(--muted);
   white-space: nowrap;
   background: linear-gradient(160deg, var(--nav-hover), #ffffff0d);
   backdrop-filter: blur(var(--glass-blur-control)) saturate(180%);
-  box-shadow: inset 1px 1px 1px #ffffffcc, inset 0 0 0 1px var(--glass-stroke), 0 4px 16px #1b2b5e14;
+  box-shadow: inset 1px 1px 1px #ffffffcc, inset 0 0 0 1px var(--glass-stroke), 0 4px 16px #0f172a14;
 }
 .button.archived-filter:hover { color: var(--ink); }
 .button.archived-filter[aria-checked="true"] { color: var(--brand-ink); }
@@ -292,8 +291,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   height: 30px;
   border-radius: 999px;
   background: var(--glass-recessed);
-  box-shadow: inset 0 1px 3px #1b2b5e26, inset 0 0 0 1px var(--glass-hairline);
-  transition: background-color 200ms ease;
+  box-shadow: inset 0 1px 3px #0f172a26, inset 0 0 0 1px var(--glass-hairline);
+  transition: background-color 200ms var(--ease);
 }
 .archived-filter-track::before {
   content: "";
@@ -304,11 +303,11 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   background:
     radial-gradient(90% 80% at 25% 10%, var(--lens-1), transparent 60%),
     linear-gradient(160deg, var(--lens-2), var(--lens-3) 55%, var(--lens-4));
-  backdrop-filter: blur(calc(var(--glass-blur) / 4)) saturate(220%) brightness(1.12);
+  backdrop-filter: blur(calc(var(--glass-blur) / 4)) saturate(180%) brightness(1.06);
   box-shadow:
     inset 1px 1px 1px #fffffff2, inset -1px -1px 2px #ffffff80, inset 0 0 0 1px #ffffff99,
-    0 2px 8px #1b2b5e26;
-  transition: transform 220ms cubic-bezier(.3, 1.4, .5, 1);
+    0 2px 8px #0f172a26;
+  transition: transform 220ms var(--ease);
 }
 .archived-filter[aria-checked="true"] .archived-filter-track { background: var(--glass-primary); }
 .archived-filter[aria-checked="true"] .archived-filter-track::before { transform: translateX(18px); }
@@ -332,7 +331,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .account-logo-panel:not([hidden]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -350,7 +349,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .budget-table { margin-top: 12px; }
 /* One line per category: name and amount, then "Edit" on the same line. The footer dissolves into the
    row grid so its button sits in column 2 and its text runs under the progress bar. */
-.budget-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding-block: 6px; }
+.budget-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding-block: 8px; }
 .budget-item > * { grid-column: 1 / -1; }
 .budget-item + .budget-item { border-top: 1px solid var(--glass-hairline); }
 .budget-item > .budget-caption { grid-column: 1; align-items: center; column-gap: 12px; margin: 0; font-size: 14px; }
@@ -361,7 +360,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .budget-row-footer > div { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding-bottom: 4px; }
 .budget-row-footer > div:empty { display: none; }
 /* Keeps the 44px touch target without adding its height to the row. */
-.budget-row-footer > .button { grid-column: 2; grid-row: 1; margin-block: -4px; padding-inline: 10px; }
+.budget-row-footer > .button { grid-column: 2; grid-row: 1; margin-block: -4px; padding-inline: 8px; }
 .budget-variance { font-size: 13px; font-weight: 700; white-space: normal; }
 .limit-form { max-width: 520px; padding-block: 8px 4px; }
 .limit-form .form-actions { margin-top: 8px; }
@@ -397,10 +396,6 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .badge-amber { background: color-mix(in srgb, var(--warning-soft) 60%, transparent); color: var(--warning-ink); }
 .refund-hint { margin-top: 8px; }
 .refund-note { margin-top: 8px; }
-.cash-bar.refund-bar {
-  border: 2px dashed var(--negative);
-  background: transparent;
-}
 .notice-warn { color: var(--warning-ink); }
 .notice-warn::before { content: "▲ "; }
 

@@ -1,7 +1,10 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   color-scheme: light;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Every color that differs between themes is a light-dark() pair: the left value is light, the right is dark.
      brand = accent for text, icons and outlines. brand-fill = solid button/chip fill that carries white text (same in both). */
   --brand: light-dark(#2f5bea, #86a3ff);
@@ -15,7 +18,7 @@
   --border: light-dark(#e2e8f0, #2b3659);
   --ink: light-dark(#0f172a, #e8edf8);
   --muted: light-dark(#536277, #a6b4cc);
-  --faint: light-dark(var(--faint), #6f7d99);
+  --faint: light-dark(#66758b, #6f7d99);
   /* Navigation icon and label colors, measured on the lightest and darkest glass backdrops (≥ 4.5:1). */
   --nav-fg: var(--muted);
   --nav-fg-hover: var(--ink);
@@ -28,15 +31,13 @@
   --positive-ink: light-dark(#14783a, #6ee7a0);
   --positive-soft: light-dark(#dcfce7, #11351f);
   --negative: light-dark(#dc2626, #f87171);
-  --negative-ink: light-dark(var(--negative-ink), #fca5a5);
+  --negative-ink: light-dark(#b91c1c, #fca5a5);
   --negative-soft: light-dark(#fee2e2, #3b1a20);
   --warning: light-dark(#f59e0b, #fbbf24);
-  --warning-ink: light-dark(var(--warning-ink), #fcd34d);
+  --warning-ink: light-dark(#92400e, #fcd34d);
   --warning-soft: light-dark(#fef3c7, #3a2c0d);
-  --teal-ink: light-dark(var(--teal-ink), #5eead4);
-  --teal-soft: light-dark(var(--teal-soft), #0f3a37);
-  --chart-2: #14b8a6;
-  --chart-4: #a855f7;
+  --teal-ink: light-dark(#0f766e, #5eead4);
+  --teal-soft: light-dark(#ccfbf1, #0f3a37);
   --scrollbar: light-dark(#1b2b5e40, #ffffff40);
   --glass-transparency: 100%;
   --glass-fill: color-mix(in srgb, light-dark(#ffffff8c, #1a2340a6) var(--glass-transparency), var(--surface));
@@ -45,7 +46,7 @@
   --glass-stroke: light-dark(#ffffffb3, #ffffff2e);
   --glass-edge: light-dark(#ffffff59, #ffffff1a);
   --glass-highlight: linear-gradient(180deg, light-dark(#ffffff99, #ffffff29), #ffffff00 2px);
-  --glass-shadow: 0 8px 32px light-dark(#1b2b5e1f, #00000073);
+  --glass-shadow: 0 8px 32px light-dark(#0f172a1a, #00000073);
   --glass-nav-fill: color-mix(in srgb, light-dark(#ffffff38, #ffffff0f) var(--glass-transparency), var(--surface));
   --glass-blur: 24px;
   --glass-blur-control: 16px;
@@ -58,6 +59,42 @@
   --lens-2: light-dark(#ffffff73, #ffffff1f);
   --lens-3: light-dark(#f6d3ea40, #f6d3ea14);
   --lens-4: light-dark(#cfdcff59, #cfdcff1f);
+  /* Chart palette: brand-guidelines color/chart-1..5. Series colors are the same in both themes except the brand blue, which lightens on dark. */
+  --chart-1: light-dark(#2f5bea, #86a3ff);
+  --chart-2: #14b8a6;
+  --chart-3: #f59e0b;
+  --chart-4: #a855f7;
+  --chart-5: #f43f5e;
+  --chart-positive: var(--positive);
+  --chart-negative: var(--negative);
+  --chart-background: transparent;
+  --chart-foreground: var(--ink);
+  --chart-foreground-muted: var(--muted);
+  --chart-label: var(--muted);
+  --chart-line-primary: var(--chart-1);
+  --chart-line-secondary: var(--chart-2);
+  --chart-crosshair: light-dark(#0f172a59, #e8edf859);
+  --chart-grid: var(--glass-hairline);
+  --chart-brush-border: var(--chart-grid);
+  --chart-tooltip-background: var(--surface);
+  --chart-tooltip-foreground: var(--ink);
+  --chart-tooltip-muted: var(--muted);
+  --chart-marker-background: var(--surface-alt);
+  --chart-marker-border: var(--border);
+  --chart-marker-foreground: var(--ink);
+  --chart-scale-mix: var(--surface);
+  --chart-scale-01: var(--surface-alt);
+  --chart-scale-02: color-mix(in oklab, var(--chart-1) 35%, var(--chart-scale-mix));
+  --chart-scale-03: color-mix(in oklab, var(--chart-1) 55%, var(--chart-scale-mix));
+  --chart-scale-04: color-mix(in oklab, var(--chart-1) 78%, var(--chart-scale-mix));
+  --chart-scale-05: var(--chart-1);
+  --chart-scale-pattern-color: var(--surface);
+  --chart-indicator-color: var(--ink);
+  --chart-indicator-secondary-color: var(--surface-alt);
+  --chart-marker-badge-background: var(--ink);
+  --chart-marker-badge-foreground: var(--surface);
+  --chart-segment-background: light-dark(#0f172a0f, #ffffff14);
+  --chart-segment-line: light-dark(#0f172a40, #ffffff40);
 }
 
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
@@ -80,10 +117,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 8% 10%, #2f5bea38, transparent 60%),
-    radial-gradient(ellipse at 90% 40%, #14b8a633, transparent 60%),
-    radial-gradient(ellipse at 45% 95%, #a855f72e, transparent 60%),
-    radial-gradient(ellipse at 75% 8%, #f472b626, transparent 55%),
+    radial-gradient(ellipse at 12% 8%, #2f5bea29, transparent 62%),
     var(--bg);
 }
 
@@ -138,9 +172,9 @@ a, summary { -webkit-tap-highlight-color: transparent; }
 .wordmark {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 17px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 24px;
   letter-spacing: -.2px;
 }
@@ -152,25 +186,18 @@ a, summary { -webkit-tap-highlight-color: transparent; }
   object-fit: contain;
 }
 
-.demo-label, .language-link, .period {
+.language-link, .period {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border-radius: 8px;
   font-weight: 700;
   font-size: 12px;
   line-height: 16px;
 }
 
-.demo-label {
-  margin-inline-start: auto;
-  padding: 6px 8px;
-  background: var(--brand-soft);
-  color: var(--brand-ink);
-  white-space: nowrap;
-}
 
-.demo-label span, .chart-legend i, .allocations i {
+.chart-legend i, .allocations i {
   display: inline-block;
   width: 8px;
   height: 8px;
@@ -187,7 +214,7 @@ a, summary { -webkit-tap-highlight-color: transparent; }
   background: var(--glass-highlight), var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur-control)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
-  transition: background-color 150ms ease, transform 150ms ease, filter 150ms ease;
+  transition: background-color 150ms var(--ease), transform 150ms var(--ease), filter 150ms var(--ease);
 }
 
 .language-link:hover { background-color: var(--glass-fill-strong); }
@@ -204,7 +231,7 @@ h1 {
 .month-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 4px;
   color: var(--muted);
   font-size: 12px;
@@ -227,7 +254,7 @@ h1 {
   font-size: 12px;
   font-weight: 700;
   text-align: center;
-  transition: background-color 150ms ease, transform 150ms ease, filter 150ms ease;
+  transition: background-color 150ms var(--ease), transform 150ms var(--ease), filter 150ms var(--ease);
 }
 
 .primary-link:hover { background: #2249ca; }
@@ -286,7 +313,7 @@ h1 {
   z-index: 0;
   border-radius: 999px;
   background: transparent;
-  box-shadow: 0 6px 20px #1b2b5e1a;
+  box-shadow: 0 6px 20px #0f172a1a;
 }
 
 .nav-item {
@@ -304,14 +331,12 @@ h1 {
   text-align: center;
   overflow-wrap: normal;
   word-break: normal;
-  transition: background-color 150ms ease, color 150ms ease, transform 200ms ease, box-shadow 200ms ease;
+  transition: background-color 150ms var(--ease), color 150ms var(--ease), transform 200ms var(--ease), box-shadow 200ms var(--ease);
 }
 
 /* Hover only where a pointer hovers: on touch it sticks after a tap and draws a second shape around the active tab. */
 @media (hover: hover) { .nav-item:not([aria-current]):hover { background: var(--nav-hover); color: var(--nav-fg-hover); } }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .admin-navigation .nav-item svg { transition: transform 180ms ease; }
-  .admin-navigation .nav-item:hover svg { transform: translateY(-1px); }
 }
 .nav-item > .nav-label-full { display: none; }
 .nav-item > .nav-label-short { white-space: nowrap; }
@@ -354,12 +379,12 @@ h1 {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 150ms var(--ease), color 150ms var(--ease);
 }
 .section-link:hover { color: var(--ink); }
-.section-link[aria-current] { background: var(--glass-fill-strong); color: var(--brand); box-shadow: 0 1px 4px #1b2b5e1f; }
+.section-link[aria-current] { background: var(--glass-fill-strong); color: var(--brand); box-shadow: 0 1px 4px #0f172a1f; }
 
-.dashboard-grid, .secondary-cards {
+.dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
@@ -376,19 +401,16 @@ h1 {
 }
 
 .card:has(.rows) { background-color: var(--glass-fill-strong); }
-.financial-trend-labels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; color: var(--muted); font-size: 12px; }
-.financial-trend-labels > :nth-child(2) { text-align: center; }
-.financial-trend-labels > :last-child { text-align: end; }
 
 /* Value + performance + period chart (components/trend-card.tsx), on net worth and investments. */
 .trend-card { --trend-color: var(--brand); display: grid; gap: 8px; min-width: 0; }
 .trend-card[data-tone="positive"] { --trend-color: var(--positive); }
 .trend-card[data-tone="negative"] { --trend-color: var(--negative); }
 .trend-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-inline: -8px; }
-.trend-toolbar .button { gap: 6px; padding-inline: 8px; color: var(--muted); font-size: 13px; }
+.trend-toolbar .button { gap: 8px; padding-inline: 8px; color: var(--muted); font-size: 13px; }
 .trend-toolbar .button:hover, .trend-toolbar .button[aria-pressed="true"] { color: var(--ink); }
 .trend-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
-.trend-card .trend-value.amount { margin-top: 2px; font-size: 36px; font-weight: 750; line-height: 1.1; white-space: nowrap; }
+.trend-card .trend-value.amount { margin-top: 2px; font-size: 36px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
 .trend-value small { font-size: .55em; font-weight: 650; }
 .trend-change { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
 .trend-card[data-tone] .trend-change { color: var(--trend-color); }
@@ -397,14 +419,14 @@ h1 {
 .trend-period { color: var(--muted); font-weight: 600; }
 .trend-ranges { display: flex; gap: 2px; }
 .trend-ranges button {
-  min-width: 44px; min-height: 36px; padding-inline: 10px; border-radius: 8px;
+  min-width: 44px; min-height: 36px; padding-inline: 8px; border-radius: 8px;
   color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 150ms var(--ease), color 150ms var(--ease);
 }
 .trend-ranges button[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
 .trend-ranges button:hover:not([aria-pressed="true"]) { color: var(--ink); }
 .trend-ranges button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.trend-chart { display: block; width: 100%; height: 160px; margin-top: 8px; color: var(--trend-color); }
+.trend-chart { --chart-line-primary: var(--trend-color); width: 100%; margin-top: 8px; }
 .trend-note { margin-top: 4px; }
 @media (max-width: 520px) {
   .trend-ranges { flex: 1 1 100%; }
@@ -414,7 +436,7 @@ h1 {
 
 .card h2 {
   font-size: 17px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 24px;
   letter-spacing: -.2px;
 }
@@ -436,11 +458,10 @@ h1 {
 
 .net-worth .net-worth-label {
   color: #d0dcff;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 14px;
-  letter-spacing: .6px;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0;
 }
 
 .net-worth-icon {
@@ -481,7 +502,7 @@ h1 {
   border-radius: 999px;
   background: #284748;
   color: #a8f4bf;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .net-worth-chart { margin-top: auto; padding-top: 12px; }
@@ -495,16 +516,6 @@ h1 {
 
 .net-worth-plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
-.net-worth-point {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  transform: translate(-50%, -50%);
-  border: 2px solid var(--brand-dark);
-  border-radius: 50%;
-  background: #d0dcff;
-  box-shadow: 0 0 0 2px #9db6ff;
-}
 
 .net-worth-months {
   display: flex;
@@ -515,7 +526,6 @@ h1 {
   line-height: 16px;
 }
 
-.net-worth-months span:last-child, .cash-current > span { font-weight: 800; }
 
 .rows { margin-top: 8px; }
 
@@ -546,7 +556,7 @@ h1 {
 
 .row-text { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
 .row-text span { color: var(--muted); font-size: 12px; font-weight: 500; }
-.row-amount { margin-inline-start: auto; font-size: 14px; font-weight: 750; }
+.row-amount { margin-inline-start: auto; font-size: 14px; font-weight: 700; }
 .positive { color: var(--positive-ink); }
 .summary-rows .data-row:last-child { padding-bottom: 0; }
 
@@ -557,56 +567,8 @@ h1 {
   white-space: nowrap;
 }
 
-.cash-chart {
-  --plot-height: 114px;
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 8px;
-  margin-block: 20px 12px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.cash-axis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: calc(var(--plot-height) + 16px);
-  margin-top: -8px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.cash-plot {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  background: repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 50%) top / 100% calc(var(--plot-height) + 1px) no-repeat;
-}
-
-.cash-month { display: grid; gap: 8px; text-align: center; }
-.cash-current > span { color: var(--ink); }
-
-.cash-bars {
-  display: flex;
-  height: var(--plot-height);
-  align-items: end;
-  justify-content: center;
-  gap: clamp(3px, 1vw, 8px);
-  border-bottom: 1px solid var(--border);
-  opacity: .55;
-}
-
-.cash-current .cash-bars { opacity: 1; }
-
-.cash-bar {
-  width: 26%;
-  max-width: 22px;
-  border-radius: 5px 5px 0 0;
-}
-
-.cash-bar.income-bar, .chart-legend .income-bar { background: var(--positive); }
-.cash-bar.expense-bar, .chart-legend .expense-bar { background: var(--negative); }
+.chart-legend .income-bar { background: var(--positive); }
+.chart-legend .expense-bar { background: var(--negative); }
 
 .chart-legend {
   display: flex;
@@ -623,10 +585,7 @@ h1 {
   gap: 8px;
 }
 
-.budget-list { display: grid; gap: 18px; margin-top: 20px; }
-.budget-groceries { --budget-color: var(--brand); }
-.budget-dining { --budget-color: var(--warning); }
-.budget-transport { --budget-color: var(--chart-2); }
+.budget-list { display: grid; gap: 16px; margin-top: 20px; }
 
 .budget-caption {
   display: flex;
@@ -637,7 +596,7 @@ h1 {
   font-size: 12px;
 }
 
-.budget-name, .budget-amount strong { font-weight: 750; }
+.budget-name, .budget-amount strong { font-weight: 700; }
 .budget-name svg { flex-shrink: 0; color: var(--budget-color); }
 .budget-amount { color: var(--muted); }
 .budget-amount strong { color: var(--ink); }
@@ -656,34 +615,15 @@ progress::-webkit-progress-bar { border-radius: 999px; background: var(--surface
 progress::-webkit-progress-value { border-radius: 999px; background: var(--budget-color); }
 progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-color); }
 
-.all-activity { border-top: 1px solid var(--glass-hairline); }
 
-.all-activity summary {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  color: var(--brand);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 750;
-  list-style: none;
-}
 
-.all-activity summary::-webkit-details-marker { display: none; }
-.all-activity summary:hover { text-decoration: underline; }
-.all-activity[open] summary svg { transform: rotate(180deg); }
-.all-activity .rows { margin-top: 0; }
 
-.portfolio-label { margin-top: 12px; color: var(--muted); font-size: 12px; }
-.portfolio-amount { margin-top: 4px; font-size: 22px; font-weight: 800; line-height: 28px; }
 .allocation { display: flex; gap: 4px; height: 8px; margin-block: 16px 12px; }
 .allocation span { flex-basis: 0; border-radius: 999px; background: var(--brand); }
 .allocation span + span { background: var(--chart-2); }
 .allocations { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
 .allocations li { display: flex; justify-content: space-between; gap: 8px; }
-.allocations li > .amount { color: var(--ink); font-weight: 750; }
+.allocations li > .amount { color: var(--ink); font-weight: 700; }
 .allocations i { background: var(--segment); }
 
 @media (max-width: 399px) {
@@ -703,12 +643,6 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   .utility-bar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .utility-bar .demo-label {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    justify-self: start;
-    margin-inline-start: 0;
   }
 }
 
@@ -771,7 +705,6 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   .primary-link { padding-inline: 16px; font-size: 14px; }
   .month-label { font-size: 14px; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-  .secondary-cards { align-content: start; gap: 20px; }
 }
 
 @media (min-width: 1280px) {
@@ -792,12 +725,10 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   .nav-item { width: auto; flex-direction: row; justify-content: start; gap: 12px; padding-inline: 12px; font-size: 14px; line-height: 20px; }
   .page { padding: 24px 32px 40px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; }
-  .secondary-cards { gap: 24px; }
   .card { padding: 20px; }
   .net-worth { padding: 24px; }
   .net-worth-icon { inset: 20px 20px auto auto; }
   .net-worth-plot { height: 96px; }
-  .cash-chart { --plot-height: 126px; gap: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -818,22 +749,22 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   z-index: 40;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 6px;
+  padding: 8px;
   border-radius: 16px;
   background: var(--glass-highlight), var(--glass-popup-fill);
   color: var(--ink);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
-.select-option { display: flex; min-height: 44px; align-items: center; padding: 10px 12px; border-radius: 10px; overflow-wrap: anywhere; cursor: pointer; }
+.select-option { display: flex; min-height: 44px; align-items: center; padding: 8px 12px; border-radius: 10px; overflow-wrap: anywhere; cursor: pointer; }
 .select-option + .select-option { border-top: 1px solid var(--glass-hairline); }
-.select-option[aria-selected="true"] { background: color-mix(in srgb, var(--brand-soft) 60%, transparent); font-weight: 750; }
+.select-option[aria-selected="true"] { background: color-mix(in srgb, var(--brand-soft) 60%, transparent); font-weight: 700; }
 .select-option.is-active { outline: 2px solid var(--brand); outline-offset: -2px; }
 .select-option.is-disabled { color: var(--muted); opacity: .6; cursor: not-allowed; }
 .select-option:hover:not(.is-disabled) { background-color: var(--brand-soft); }
 .form-field { position: relative; }
 .select-required { position: absolute; bottom: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.select-group-label { padding: 8px 12px 4px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.select-group-label { padding: 8px 12px 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
@@ -911,11 +842,11 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 }
 @media (width < 768px) { .toast-region { bottom: calc(96px + env(safe-area-inset-bottom)); } }
 .toast {
-  display: flex; align-items: center; gap: 10px; max-width: min(440px, 100%); padding: 6px 6px 6px 12px; border-radius: 16px;
+  display: flex; align-items: center; gap: 8px; max-width: min(440px, 100%); padding: 8px 8px 8px 12px; border-radius: 16px;
   background: var(--glass-popup-fill); color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.4; pointer-events: auto;
   backdrop-filter: blur(var(--glass-blur)) saturate(180%); box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
 }
-@media (prefers-reduced-motion: no-preference) { .toast { animation: toast-in 180ms ease-out; } }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: toast-in 180ms var(--ease); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 .toast-mark { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 13px; font-weight: 800; }
 .toast-ok .toast-mark { background: var(--positive-soft); color: var(--positive-ink); }
@@ -926,3 +857,49 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 @media (pointer: coarse) { .toast-close { width: 44px; height: 44px; } }
 .toast-close:hover { background: var(--brand-soft); color: var(--ink); }
 .toast-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+@theme inline {
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-muted: var(--surface-alt);
+  --color-foreground: var(--ink);
+  --color-chart-line-primary: var(--chart-line-primary);
+  --color-chart-line-secondary: var(--chart-line-secondary);
+  --color-chart-brush-border: var(--chart-brush-border);
+  --color-chart-tooltip-background: var(--chart-tooltip-background);
+  --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+  --color-chart-scale-02: var(--chart-scale-02);
+  --color-chart-scale-03: var(--chart-scale-03);
+  --color-chart-scale-04: var(--chart-scale-04);
+  --color-chart-scale-05: var(--chart-scale-05);
+  --color-chart-segment-line: var(--chart-segment-line);
+  --color-chart-segment-background: var(--chart-segment-background);
+  --color-chart-marker-badge-foreground: var(--chart-marker-badge-foreground);
+  --color-chart-marker-badge-background: var(--chart-marker-badge-background);
+  --color-chart-indicator-secondary-color: var(--chart-indicator-secondary-color);
+  --color-chart-indicator-color: var(--chart-indicator-color);
+  --color-chart-scale-pattern-color: var(--chart-scale-pattern-color);
+  --color-chart-scale-01: var(--chart-scale-01);
+  --color-chart-scale-mix: var(--chart-scale-mix);
+  --color-chart-label: var(--chart-label);
+  --color-chart-marker-foreground: var(--chart-marker-foreground);
+  --color-chart-marker-border: var(--chart-marker-border);
+  --color-chart-marker-background: var(--chart-marker-background);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-crosshair: var(--chart-crosshair);
+  --color-chart-foreground-muted: var(--chart-foreground-muted);
+  --color-chart-foreground: var(--chart-foreground);
+  --color-chart-background: var(--chart-background);
+  --color-chart-negative: var(--chart-negative);
+  --color-chart-positive: var(--chart-positive);
+}
+
+
+/* Tailwind's default border color is currentColor; keep borders on the app's hairline token unless a rule says otherwise. */
+@layer base {
+  * { border-color: var(--border); }
+}

@@ -28,13 +28,13 @@
   backdrop-filter: blur(var(--glass-blur));
   box-shadow: inset 0 0 0 1px var(--glass-stroke), var(--glass-shadow);
 }
-.category-popover h3 { font-size: 13px; font-weight: 750; }
+.category-popover h3 { font-size: 13px; font-weight: 700; }
 .category-popover .form-actions { margin-top: 0; }
 
 /* Compact rows -------------------------------------------------------------------------------- */
 
 .movement-description { display: block; font-weight: 700; }
-.movement-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.movement-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); font-size: 12px; font-weight: 500; }
 /* `.row-text span` mutes every span; badges keep their own colours. */
 .movement-meta .badge { color: var(--muted); }
 .movement-meta .badge-blue { color: var(--brand-ink); }

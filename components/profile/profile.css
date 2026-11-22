@@ -18,7 +18,7 @@
     display: flex;
     align-items: center;
     width: 100%;
-    gap: 10px;
+    gap: 8px;
     padding-inline: 12px;
     text-align: start;
   }
@@ -28,7 +28,7 @@
     min-width: 0;
     overflow: hidden;
     font-size: 14px;
-    font-weight: 750;
+    font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -109,5 +109,5 @@
   font-size: 13px;
   font-weight: 700;
 }
-.glass-sample-button { padding: 6px 12px; border-radius: 999px; color: #fff; background: var(--glass-primary); }
+.glass-sample-button { padding: 8px 12px; border-radius: 999px; color: #fff; background: var(--glass-primary); }
 .profile-must-change { grid-column: 1 / -1; margin: 0; }

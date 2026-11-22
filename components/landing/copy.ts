@@ -43,9 +43,9 @@ const en = {
   how: {
     title: "How it works",
     steps: [
-      { title: "Add your accounts.", body: "A bank account, a card, cash, a brokerage, a crypto wallet, a debt." },
-      { title: "Enter your movements.", body: "By hand, a few seconds each. There’s no bank sync and no CSV import yet." },
-      { title: "Read where you stand.", body: "Overview, budget and net worth update as you go." },
+      { title: "Add your accounts", body: "A bank account, a card, cash, a brokerage, a crypto wallet, a debt." },
+      { title: "Enter your movements", body: "By hand, a few seconds each. There’s no bank sync and no CSV import yet." },
+      { title: "Read where you stand", body: "Overview, budget and net worth update as you go." },
     ],
   },
   data: {
@@ -74,7 +74,7 @@ const en = {
     privacy: "Read the privacy notice",
     submit: "Join the waitlist",
     sending: "Sending…",
-    done: "You’re on the list. Thank you.",
+    done: "You’re on the list",
     errors: {
       invalid: "Write an email address like name@example.com.",
       consent: "Tick the box so we know you are happy to hear from us.",
@@ -172,9 +172,9 @@ const it: LandingCopy = {
   how: {
     title: "Come funziona",
     steps: [
-      { title: "Aggiungi i conti.", body: "Conto corrente, carta, contanti, deposito titoli, wallet crypto, un debito." },
-      { title: "Inserisci i movimenti.", body: "A mano, pochi secondi l'uno. Per ora niente collegamento con la banca e niente import da CSV." },
-      { title: "Guarda a che punto sei.", body: "Panoramica, budget e patrimonio si aggiornano mentre lavori." },
+      { title: "Aggiungi i conti", body: "Conto corrente, carta, contanti, deposito titoli, wallet crypto, un debito." },
+      { title: "Inserisci i movimenti", body: "A mano, pochi secondi l'uno. Per ora niente collegamento con la banca e niente import da CSV." },
+      { title: "Guarda a che punto sei", body: "Panoramica, budget e patrimonio si aggiornano mentre lavori." },
     ],
   },
   data: {
@@ -203,7 +203,7 @@ const it: LandingCopy = {
     privacy: "Leggi l'informativa sulla privacy",
     submit: "Entra in lista d'attesa",
     sending: "Invio…",
-    done: "Sei in lista. Grazie.",
+    done: "Sei in lista",
     errors: {
       invalid: "Scrivi un indirizzo email come nome@esempio.it.",
       consent: "Spunta la casella, così sappiamo che ti va di ricevere un messaggio.",
