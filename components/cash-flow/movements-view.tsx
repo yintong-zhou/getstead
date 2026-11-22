@@ -504,6 +504,14 @@ export function Row({ locale, movement, accounts, categories, today }: {
                   {copy.reopen}
                 </button>
               )}
+              {chargeLinked && (
+                <button
+                  className="button button-quiet" type="button" disabled={pending}
+                  onClick={() => run(() => call("PATCH", `/charges/${chargeLinked.chargeId}`, { action: "reopen" }, "/api/property"), copy.reopenedCharge)}
+                >
+                  {copy.reopenCharge}
+                </button>
+              )}
               {chargeLinked && <Link className="button button-quiet" href={`/${locale}/property`}>{copy.openProperty}</Link>}
               {!paired && !linked && !chargeLinked && (
                 <button

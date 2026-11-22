@@ -2,40 +2,66 @@
 
 :root {
   color-scheme: light;
-  --brand: #2f5bea;
+  /* Every color that differs between themes is a light-dark() pair: the left value is light, the right is dark.
+     brand = accent for text, icons and outlines. brand-fill = solid button/chip fill that carries white text (same in both). */
+  --brand: light-dark(#2f5bea, #86a3ff);
+  --brand-fill: #2f5bea;
   --brand-dark: #1b2b5e;
-  --brand-soft: #e3eafd;
-  --bg: #f5f6fa;
-  --surface: #fff;
-  --surface-alt: #eef1f7;
-  --border: #e2e8f0;
-  --ink: #0f172a;
-  --muted: #536277;
-  --positive: #16a34a;
-  --positive-ink: #14783a;
-  --positive-soft: #dcfce7;
-  --negative: #dc2626;
-  --negative-soft: #fee2e2;
-  --warning: #f59e0b;
-  --warning-soft: #fef3c7;
+  --brand-ink: light-dark(#1b2b5e, #d6e0ff);
+  --brand-soft: light-dark(#e3eafd, #1f2b52);
+  --bg: light-dark(#f5f6fa, #0b1020);
+  --surface: light-dark(#fff, #141b30);
+  --surface-alt: light-dark(#eef1f7, #1c2540);
+  --border: light-dark(#e2e8f0, #2b3659);
+  --ink: light-dark(#0f172a, #e8edf8);
+  --muted: light-dark(#536277, #a6b4cc);
+  --faint: light-dark(var(--faint), #6f7d99);
+  /* Navigation icon and label colors, measured on the lightest and darkest glass backdrops (≥ 4.5:1). */
+  --nav-fg: var(--muted);
+  --nav-fg-hover: var(--ink);
+  --nav-fg-active: color-mix(in srgb, var(--brand) 85%, var(--ink));
+  --nav-hover: light-dark(#ffffff59, #ffffff14);
+  --nav-border: light-dark(#ffffffb3, #ffffff29);
+  --nav-active-fill: light-dark(#ffffff8c, #ffffff1f);
+  --nav-active-border: light-dark(#2f5bea33, #ffffff3d);
+  --positive: light-dark(#16a34a, #4ade80);
+  --positive-ink: light-dark(#14783a, #6ee7a0);
+  --positive-soft: light-dark(#dcfce7, #11351f);
+  --negative: light-dark(#dc2626, #f87171);
+  --negative-ink: light-dark(var(--negative-ink), #fca5a5);
+  --negative-soft: light-dark(#fee2e2, #3b1a20);
+  --warning: light-dark(#f59e0b, #fbbf24);
+  --warning-ink: light-dark(var(--warning-ink), #fcd34d);
+  --warning-soft: light-dark(#fef3c7, #3a2c0d);
+  --teal-ink: light-dark(var(--teal-ink), #5eead4);
+  --teal-soft: light-dark(var(--teal-soft), #0f3a37);
   --chart-2: #14b8a6;
   --chart-4: #a855f7;
+  --scrollbar: light-dark(#1b2b5e40, #ffffff40);
   --glass-transparency: 100%;
-  --glass-fill: color-mix(in srgb, #ffffff8c var(--glass-transparency), var(--surface));
-  --glass-fill-strong: color-mix(in srgb, #ffffffb8 var(--glass-transparency), var(--surface));
-  --glass-popup-fill: color-mix(in srgb, #fffffff0 var(--glass-transparency), var(--surface));
-  --glass-stroke: #ffffffb3;
-  --glass-highlight: linear-gradient(180deg, #ffffff99, #ffffff00 2px);
-  --glass-shadow: 0 8px 32px #1b2b5e1f;
-  --glass-nav-fill: color-mix(in srgb, #ffffff38 var(--glass-transparency), var(--surface));
-  --glass-rim: 5px;
+  --glass-fill: color-mix(in srgb, light-dark(#ffffff8c, #1a2340a6) var(--glass-transparency), var(--surface));
+  --glass-fill-strong: color-mix(in srgb, light-dark(#ffffffb8, #1a2340d1) var(--glass-transparency), var(--surface));
+  --glass-popup-fill: color-mix(in srgb, light-dark(#fffffff0, #182038f2) var(--glass-transparency), var(--surface));
+  --glass-stroke: light-dark(#ffffffb3, #ffffff2e);
+  --glass-edge: light-dark(#ffffff59, #ffffff1a);
+  --glass-highlight: linear-gradient(180deg, light-dark(#ffffff99, #ffffff29), #ffffff00 2px);
+  --glass-shadow: 0 8px 32px light-dark(#1b2b5e1f, #00000073);
+  --glass-nav-fill: color-mix(in srgb, light-dark(#ffffff38, #ffffff0f) var(--glass-transparency), var(--surface));
   --glass-blur: 24px;
   --glass-blur-control: 16px;
-  --glass-hairline: #0f172a0f;
-  --glass-primary: color-mix(in srgb, #2f5beae6 var(--glass-transparency), var(--brand));
+  --glass-hairline: light-dark(#0f172a0f, #ffffff14);
+  --glass-primary: color-mix(in srgb, #2f5beae6 var(--glass-transparency), var(--brand-fill));
   --glass-hero: color-mix(in srgb, #1b2b5ed9 var(--glass-transparency), var(--brand-dark));
-  --glass-recessed: color-mix(in srgb, #eef1f799 var(--glass-transparency), var(--surface-alt));
+  --glass-recessed: color-mix(in srgb, light-dark(#eef1f799, #0b102099) var(--glass-transparency), var(--surface-alt));
+  /* Liquid-glass "lens" (active tab, switch thumb): a bright reflection in light, a faint one in dark. */
+  --lens-1: light-dark(#ffffffb3, #ffffff2e);
+  --lens-2: light-dark(#ffffff73, #ffffff1f);
+  --lens-3: light-dark(#f6d3ea40, #f6d3ea14);
+  --lens-4: light-dark(#cfdcff59, #cfdcff1f);
 }
+
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 body {
   isolation: isolate;
@@ -61,12 +87,12 @@ body::before {
     var(--bg);
 }
 
-* { scrollbar-width: thin; scrollbar-color: #1b2b5e40 transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
 @supports not (scrollbar-color: auto) {
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { border-radius: 999px; background: #1b2b5e40; }
-  ::-webkit-scrollbar-thumb:hover { background: #1b2b5e66; }
+  ::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--scrollbar); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar); filter: brightness(1.4); }
 }
 
 a, summary { -webkit-tap-highlight-color: transparent; }
@@ -140,7 +166,7 @@ a, summary { -webkit-tap-highlight-color: transparent; }
   margin-inline-start: auto;
   padding: 6px 8px;
   background: var(--brand-soft);
-  color: var(--brand-dark);
+  color: var(--brand-ink);
   white-space: nowrap;
 }
 
@@ -160,7 +186,7 @@ a, summary { -webkit-tap-highlight-color: transparent; }
   border: 0;
   background: var(--glass-highlight), var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur-control)) saturate(180%);
-  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px #ffffff59, var(--glass-shadow);
+  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
   transition: background-color 150ms ease, transform 150ms ease, filter 150ms ease;
 }
 
@@ -227,13 +253,12 @@ h1 {
   padding: 8px;
   border: 0;
   border-radius: 28px;
-  box-shadow: 0 10px 30px #1b2b5e1a;
+  box-shadow: var(--glass-shadow);
 }
 
 /* Liquid glass, for navigation and controls only (never content cards).
-   Two sibling layers sample the page: a frosted core, and a thin rim that is barely blurred but brighter and
-   more saturated, which reads as the thick refracting edge of real glass. The host keeps no backdrop-filter,
-   so it is not a backdrop root and the active tab can sample the page through it as its own lens. */
+   Two sibling layers: a frosted core that samples the page, and a 1px hairline edge. Kept minimal on purpose:
+   the shape is defined by the hairline, not by highlights. The host has no backdrop-filter of its own. */
 .navigation::before, .navigation::after,
 .utility-bar .profile-trigger::before, .utility-bar .profile-trigger::after {
   content: "";
@@ -243,20 +268,15 @@ h1 {
   pointer-events: none;
 }
 .navigation::before, .utility-bar .profile-trigger::before {
-  inset: var(--glass-rim);
-  background:
-    radial-gradient(120% 140% at 0% 0%, #f9c6e03d, transparent 55%),
-    radial-gradient(120% 140% at 100% 100%, #c3d4ff3d, transparent 55%),
-    var(--glass-nav-fill);
-  backdrop-filter: blur(var(--glass-blur)) saturate(200%) brightness(1.06);
-  box-shadow: inset 0 0 14px #ffffff40;
+  inset: 0;
+  background: var(--glass-nav-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
 }
 .navigation::after, .utility-bar .profile-trigger::after {
   inset: 0;
-  padding: var(--glass-rim);
-  /* Specular light: bright top-left and bottom-right edges, dim sides. */
-  background: linear-gradient(135deg, #ffffffcc, #ffffff26 30%, #ffffff0d 55%, #ffffff26 75%, #ffffffa6);
-  backdrop-filter: blur(calc(var(--glass-blur) / 12)) saturate(260%) brightness(1.15);
+  padding: 1px;
+  /* Minimal edge: a single even hairline, no specular gradient. */
+  background: var(--nav-border);
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -277,7 +297,7 @@ h1 {
   justify-content: center;
   gap: 2px;
   border-radius: 20px;
-  color: var(--muted);
+  color: var(--nav-fg);
   font-size: 10px;
   font-weight: 700;
   line-height: 12px;
@@ -288,7 +308,7 @@ h1 {
 }
 
 /* Hover only where a pointer hovers: on touch it sticks after a tap and draws a second shape around the active tab. */
-@media (hover: hover) { .nav-item:not([aria-current]):hover { background: #ffffff59; color: var(--ink); } }
+@media (hover: hover) { .nav-item:not([aria-current]):hover { background: var(--nav-hover); color: var(--nav-fg-hover); } }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .admin-navigation .nav-item svg { transition: transform 180ms ease; }
   .admin-navigation .nav-item:hover svg { transform: translateY(-1px); }
@@ -297,17 +317,11 @@ h1 {
 .nav-item > .nav-label-short { white-space: nowrap; }
 .nav-item:focus-visible { outline-offset: -2px; }
 
-/* Active tab is a glass lens: it sits slightly proud of the bar and magnifies-brightens what is behind it. */
+/* Active tab: a flat translucent tint with a hairline edge, no shine, glow or scaling. */
 .nav-item[aria-current] {
-  background:
-    radial-gradient(90% 80% at 25% 10%, #ffffffb3, transparent 60%),
-    linear-gradient(160deg, #ffffff73, #f6d3ea40 55%, #cfdcff59);
-  backdrop-filter: blur(calc(var(--glass-blur) / 4)) saturate(220%) brightness(1.12);
-  box-shadow:
-    inset 1px 1px 1px #fffffff2, inset -1px -1px 2px #ffffff80, inset 0 0 0 1px #ffffff99,
-    0 4px 16px #f0a6cf40, 0 2px 8px #2f5bea1f;
-  color: var(--brand);
-  transform: scale(1.06);
+  background: var(--nav-active-fill);
+  box-shadow: inset 0 0 0 1px var(--nav-active-border);
+  color: var(--nav-fg-active);
 }
 
 /* Below 768px the bar holds four tabs; the sidebar's eight entries return from 768px. */
@@ -358,7 +372,7 @@ h1 {
   border-radius: 24px;
   background: var(--glass-highlight), var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px #ffffff59, var(--glass-shadow);
+  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
 
 .card:has(.rows) { background-color: var(--glass-fill-strong); }
@@ -527,8 +541,8 @@ h1 {
 .tone-blue { background: var(--brand-soft); color: var(--brand); }
 .tone-green { background: var(--positive-soft); color: var(--positive-ink); }
 .tone-red { background: var(--negative-soft); color: var(--negative); }
-.tone-amber { background: var(--warning-soft); color: #8d5107; }
-.tone-teal { background: #ccfbf1; color: #0f766e; }
+.tone-amber { background: var(--warning-soft); color: var(--warning-ink); }
+.tone-teal { background: var(--teal-soft); color: var(--teal-ink); }
 
 .row-text { flex: 1; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
 .row-text span { color: var(--muted); font-size: 12px; font-weight: 500; }
@@ -539,7 +553,7 @@ h1 {
 .period {
   background: var(--surface-alt);
   padding: 4px 8px;
-  color: #526177;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -809,11 +823,11 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   background: var(--glass-highlight), var(--glass-popup-fill);
   color: var(--ink);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px #ffffff59, var(--glass-shadow);
+  box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
 .select-option { display: flex; min-height: 44px; align-items: center; padding: 10px 12px; border-radius: 10px; overflow-wrap: anywhere; cursor: pointer; }
 .select-option + .select-option { border-top: 1px solid var(--glass-hairline); }
-.select-option[aria-selected="true"] { background: #e3eafd99; font-weight: 750; }
+.select-option[aria-selected="true"] { background: color-mix(in srgb, var(--brand-soft) 60%, transparent); font-weight: 750; }
 .select-option.is-active { outline: 2px solid var(--brand); outline-offset: -2px; }
 .select-option.is-disabled { color: var(--muted); opacity: .6; cursor: not-allowed; }
 .select-option:hover:not(.is-disabled) { background-color: var(--brand-soft); }
@@ -883,12 +897,13 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   background: var(--glass-popup-fill); color: var(--ink); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
 }
-.confirm-dialog { overscroll-behavior: contain; }
+/* Tailwind's reset zeroes the margin that centers a modal <dialog>, so restore it. */
+.confirm-dialog { margin: auto; overscroll-behavior: contain; }
 .confirm-dialog::backdrop { background: #0f172a52; backdrop-filter: blur(2px); }
 .confirm-dialog p { margin: 0 0 16px; font-size: 15px; line-height: 1.5; }
 .confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .button.confirm-danger { background: var(--negative-soft); color: var(--negative); }
-.button.confirm-danger:hover:not(:disabled) { background: #fbd0d0; }
+.button.confirm-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--negative-soft), var(--negative) 15%); }
 
 .toast-region {
   position: fixed; inset-inline: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 60;
@@ -896,15 +911,15 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 }
 @media (width < 768px) { .toast-region { bottom: calc(96px + env(safe-area-inset-bottom)); } }
 .toast {
-  display: flex; align-items: flex-start; gap: 10px; max-width: min(440px, 100%); padding: 10px 6px 10px 12px; border-radius: 16px;
+  display: flex; align-items: center; gap: 10px; max-width: min(440px, 100%); padding: 6px 6px 6px 12px; border-radius: 16px;
   background: var(--glass-popup-fill); color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.4; pointer-events: auto;
   backdrop-filter: blur(var(--glass-blur)) saturate(180%); box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
 }
 @media (prefers-reduced-motion: no-preference) { .toast { animation: toast-in 180ms ease-out; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
-.toast-mark { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; font-size: 13px; font-weight: 800; }
+.toast-mark { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 13px; font-weight: 800; }
 .toast-ok .toast-mark { background: var(--positive-soft); color: var(--positive-ink); }
-.toast-warn .toast-mark { background: var(--warning-soft); color: #8d5107; }
+.toast-warn .toast-mark { background: var(--warning-soft); color: var(--warning-ink); }
 .toast-error .toast-mark { background: var(--negative-soft); color: var(--negative); }
 .toast-text { flex: 1; min-width: 0; padding-block: 1px; overflow-wrap: anywhere; }
 .toast-close { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }

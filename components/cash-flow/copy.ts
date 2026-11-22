@@ -54,6 +54,7 @@ const en = {
     frozen_month: "Past months are read-only.",
     forbidden: "The request was blocked. Reload the page and try again.",
     account_in_use: "This account has movements, balance checks or other linked entries. Archive it instead.",
+    category_in_use: "This category has movements or recurring items. Archive it instead.",
     linked: "This movement settles a recurring expense or a condominium charge. Reopen that occurrence or charge first, then change or void the movement.",
   } as Record<string, string>,
   fields: {
@@ -184,6 +185,7 @@ const en = {
   removed: "Removed.",
   moreActionsFor: (name: string) => `More actions for ${name}`,
   confirmDeleteAccount: (name: string) => `Delete the account “${name}”? This can’t be undone.`,
+  confirmDeleteCategory: (name: string) => `Delete the category “${name}”? Its rules and budget limits are deleted too. This can’t be undone.`,
 
   // refunds, pagination, matching, reopen
   kindRefund: "Refund",
@@ -213,6 +215,8 @@ const en = {
   chargeBadge: "Condominium",
   chargeLinkedHint: "This movement settles a condominium charge, so its account and direction are fixed. Reopen the charge in Property to change them.",
   openProperty: "Open Property",
+  reopenCharge: "Reopen charge",
+  reopenedCharge: "Charge reopened. The movement stays booked: void or adjust it as needed.",
 
   // budget
   applyFrom: (month: string) => `Apply from ${month}`,
@@ -287,6 +291,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
       frozen_month: "I mesi passati sono in sola lettura.",
       forbidden: "La richiesta è stata bloccata. Ricarica la pagina e riprova.",
       account_in_use: "Questo conto ha movimenti, saldi o altre voci collegate. Archivialo invece di eliminarlo.",
+      category_in_use: "Questa categoria ha movimenti o voci ricorrenti. Archiviala invece di eliminarla.",
       linked: "Questo movimento salda una spesa ricorrente o un addebito condominiale. Riapri prima quella scadenza o quell’addebito, poi modifica o annulla il movimento.",
     },
     fields: {
@@ -413,6 +418,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
     removed: "Rimosso.",
     moreActionsFor: (name: string) => `Altre azioni per ${name}`,
     confirmDeleteAccount: (name: string) => `Eliminare il conto «${name}»? L’operazione non si può annullare.`,
+    confirmDeleteCategory: (name: string) => `Eliminare la categoria «${name}»? Vengono eliminate anche le sue regole e i suoi limiti di budget. L’operazione non si può annullare.`,
 
     kindRefund: "Rimborso",
     refundHint: "Soldi che tornano per un acquisto. Riducono la spesa della categoria scelta, nel mese in cui arrivano.",
@@ -441,6 +447,8 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
     chargeBadge: "Condominio",
     chargeLinkedHint: "Questo movimento salda un addebito condominiale, quindi conto e direzione sono bloccati. Riapri l’addebito in Immobili per cambiarli.",
     openProperty: "Apri Immobili",
+    reopenCharge: "Riapri addebito",
+    reopenedCharge: "Addebito riaperto. Il movimento resta registrato: annullalo o modificalo come serve.",
 
     applyFrom: (month: string) => `Applica da ${month}`,
     applyOnlyFor: (month: string) => `Solo per ${month}`,

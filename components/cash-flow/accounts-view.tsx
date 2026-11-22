@@ -6,6 +6,8 @@ import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
 import { supportsAccountLogo } from "@/server/cash-flow/logo-catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
+import { categoryIcon } from "../category-icon";
+import { Icon } from "../icon";
 import { Select } from "../select";
 import { AccountLogoControls, AccountLogoThumbnail, accountLogoLabel, accountLogoPath } from "./account-logo";
 import { call } from "./api";
@@ -23,8 +25,8 @@ function formData(event: FormEvent<HTMLFormElement>) {
   return new FormData(event.currentTarget);
 }
 
-function Row({ locale, name, meta, archived, logo, menuItems, onRename, onArchive, onDelete }: {
-  locale: Locale; name: string; meta: string; archived: boolean;
+function Row({ locale, name, meta, archived, logo, menuItems, confirmDelete, metaTone, onRename, onArchive, onDelete }: {
+  locale: Locale; name: string; meta: string; archived: boolean; confirmDelete: string; metaTone?: "positive" | "negative";
   logo?: ReactNode; menuItems?: ReactNode;
   onRename: (name: string) => void; onArchive: () => void; onDelete?: () => void;
 }) {
@@ -58,13 +60,13 @@ function Row({ locale, name, meta, archived, logo, menuItems, onRename, onArchiv
         <>
           <div className="row-text">
             <p>{name}</p>
-            <span>{meta}{archived ? ` · ${copy.archivedSuffix}` : ""}</span>
+            <span>{metaTone ? <strong className={`meta-${metaTone}`}>{meta}</strong> : meta}{archived ? ` · ${copy.archivedSuffix}` : ""}</span>
           </div>
           <MoreActions label={copy.moreActionsFor(name)} title={copy.actions} triggerRef={trigger}>
             <button className="button button-quiet" type="button" onClick={() => setEditing(true)}>{copy.edit}</button>
             {menuItems}
             <button className="button button-quiet" type="button" onClick={onArchive}>{archived ? copy.restore : copy.archive}</button>
-            {onDelete && <button className="button button-quiet" type="button" onClick={async () => { if (await confirm(copy.confirmDeleteAccount(name), copy.delete, true)) onDelete(); }}>{copy.delete}</button>}
+            {onDelete && <button className="button button-quiet" type="button" onClick={async () => { if (await confirm(confirmDelete, copy.delete, true)) onDelete(); }}>{copy.delete}</button>}
           </MoreActions>
         </>
       )}
@@ -86,6 +88,7 @@ function AccountRow({ locale, account, lookup, action }: {
   return (
     <Row
       locale={locale} name={account.name} archived={account.archived} meta={copy.accountTypes[account.type]}
+      confirmDelete={copy.confirmDeleteAccount(account.name)}
       logo={withLogo
         ? <AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} />
         : <AccountLogoThumbnail src={null} />}
@@ -196,9 +199,12 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
             {visibleCategories.map((category) => (
               <Row
                 key={category.id} locale={locale} name={category.name} archived={category.archived}
-                meta={copy.kinds[category.kind]}
+                meta={copy.kinds[category.kind]} metaTone={category.kind === "INCOME" ? "positive" : "negative"}
+                logo={<span className="account-logo-thumbnail" aria-hidden="true"><Icon name={categoryIcon(category.name, category.kind)} size={20} /></span>}
                 onRename={(name) => categoriesAction.run(() => call("PATCH", `/categories/${category.id}`, { name }), copy.saved)}
                 onArchive={() => categoriesAction.run(() => call("PATCH", `/categories/${category.id}`, { archived: !category.archived }), copy.saved)}
+                confirmDelete={copy.confirmDeleteCategory(category.name)}
+                onDelete={() => void categoriesAction.run(() => call("DELETE", `/categories/${category.id}`), copy.removed)}
               />
             ))}
           </ul>

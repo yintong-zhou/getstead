@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { glassBootstrap } from "@/components/profile/appearance";
+import { glassBootstrap, themeBootstrap } from "@/components/profile/appearance";
 import { appOrigin } from "@/server/auth/config";
 import { isLocale, locales } from "@/server/locale";
 import "../globals.css";
@@ -22,6 +22,14 @@ export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
 
+// Browser chrome color follows the device setting; it matches --bg in each theme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f6fa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1020" },
+  ],
+};
+
 export function generateMetadata(): Metadata {
   return {
     metadataBase: appOrigin(),
@@ -38,7 +46,7 @@ export default async function RootLayout({ children, params }: LocaleParams & { 
 
   return (
     <html lang={locale} className={plusJakarta.className} suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{ __html: glassBootstrap }} /></head>
+      <head><script dangerouslySetInnerHTML={{ __html: glassBootstrap }} /><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
       <body>{children}</body>
     </html>
   );

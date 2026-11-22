@@ -36,10 +36,10 @@
 .movement-description { display: block; font-weight: 700; }
 .movement-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--muted); font-size: 12px; font-weight: 500; }
 /* `.row-text span` mutes every span; badges keep their own colours. */
-.movement-meta .badge { color: #526177; }
-.movement-meta .badge-blue { color: var(--brand-dark); }
+.movement-meta .badge { color: var(--muted); }
+.movement-meta .badge-blue { color: var(--brand-ink); }
 .movement-meta .badge-green { color: var(--positive-ink); }
-.movement-meta .badge-amber { color: #8d5107; }
+.movement-meta .badge-amber { color: var(--warning-ink); }
 
 .movement .data-row { gap: 8px; }
 
