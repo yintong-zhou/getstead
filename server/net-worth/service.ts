@@ -3,7 +3,8 @@ import { db } from "../auth/database.ts";
 import { fromDate, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
-import { monthlySeries, netWorthAt } from "./calc.ts";
+import { monthlySeries, netWorthAt, netWorthTrend, seriesAt } from "./calc.ts";
+import { buildTrend } from "../trend.ts";
 import { quoteInput, transactionInput } from "../investments/service.ts";
 import { toSafeCents } from "../investments/calc.ts";
 
@@ -48,7 +49,8 @@ export async function deleteCheck(userId: string, id: string) {
 export type NetWorthData = Awaited<ReturnType<typeof getNetWorth>>;
 export type CheckDto = Awaited<ReturnType<typeof listChecks>>[number];
 
-export async function getNetWorth(userId: string, now = new Date()) {
+/** `trend` adds the period chart; only the net worth page asks for it. */
+export async function getNetWorth(userId: string, now = new Date(), { trend = false } = {}) {
   const today = romeToday(now);
   const [accounts, checks, rows, instruments, transactions, quotes, propertyRows, valuationRows] = await db().$transaction([
     db().account.findMany({
@@ -88,5 +90,15 @@ export async function getNetWorth(userId: string, now = new Date()) {
       lastCheckDate: datedChecks.filter((check) => check.accountId === account.id).map((check) => check.asOf).sort().at(-1) ?? null,
     })),
     series,
+    // ponytail: recomputes every range on each page load; cache per user if large histories make it slow.
+    trend: trend ? buildTrend(today, earliestDate(datedChecks.map((row) => row.asOf), movements.map((row) => row.bookingDate),
+      investments.transactions.map((row) => row.tradeDate), realEstate.valuations.map((row) => row.asOf)),
+    (dates) => netWorthTrend(seriesAt(accounts, datedChecks, movements, dates, investments, realEstate))) : undefined,
   };
+}
+
+function earliestDate(...lists: string[][]) {
+  let earliest: string | null = null;
+  for (const list of lists) for (const date of list) if (!earliest || date < earliest) earliest = date;
+  return earliest;
 }

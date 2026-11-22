@@ -358,6 +358,10 @@ test("net worth recalculates history from checks and movements, including archiv
   assert.deepEqual([data.assetsCents, data.liabilitiesCents, data.netCents, data.changeCents], [8_500, 2_500, 6_000, -3_000]);
   assert.equal(data.series.length, 12);
   assert.equal(data.series.at(-2)?.netCents, 9_000);
+  assert.equal(data.trend, undefined, "the dashboard and API skip the period chart");
+  const { trend } = await getNetWorth(user, now, { trend: true });
+  assert.ok(trend && Object.values(trend).every((points) => points.at(-1)?.valueCents === data.netCents));
+  assert.equal(trend["1M"].at(-1)!.gainCents - trend["1M"][0].gainCents, data.netCents - trend["1M"][0].valueCents);
   const archived = data.perAccount.find((row) => row.id === card.id)!;
   assert.deepEqual([archived.archived, archived.balanceCents, archived.lastCheckDate], [true, -2_500, "2026-11-01"]);
   assert.equal((await getDashboard(user, now)).netWorthCents, data.netCents);

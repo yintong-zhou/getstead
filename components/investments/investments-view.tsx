@@ -1,15 +1,15 @@
 ﻿"use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { cashFlowCopy } from "../cash-flow/copy";
-import { formatMonth } from "../format";
 import { investmentsCopy } from "./copy";
 import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numbers";
 import { Instruments, PriceHistory, QuickPrice, Transactions, type Quote } from "./forms";
 import { euros } from "@/components/euros";
+import { TrendCard } from "@/components/trend-card";
 import "./investments.css";
 
 type ViewProps = {
@@ -24,32 +24,6 @@ type ViewProps = {
 function Gain({ cents, locale }: { cents: number; locale: Locale }) {
   const tone = cents > 0 ? "positive" : cents < 0 ? "negative" : "";
   return <span className={`amount ${tone}`}>{euros(cents, locale, { showPlus: true })}</span>;
-}
-
-function Trend({ locale, series }: { locale: Locale; series: PortfolioData["series"] }) {
-  const copy = investmentsCopy[locale];
-  const gradient = useId();
-  const high = Math.max(1, ...series.map((point) => point.valueCents));
-  const points = series.map(({ valueCents }, index) => `${20 + index * 560 / 11},${174 - valueCents / high * 152}`);
-  const path = `M ${points.join(" L ")}`;
-  const detail = series.map(({ month, valueCents }) => `${formatMonth(month, locale)} ${formatEuros(valueCents, locale)}`).join(", ");
-
-  return <section className="financial-trend" aria-labelledby="investment-trend-title">
-    <h2 id="investment-trend-title">{copy.trend}</h2>
-    <p className="hint">{copy.trendNote}</p>
-    <svg className="investment-chart" viewBox="0 0 600 188" role="img" aria-label={detail}>
-      <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="var(--brand)" stopOpacity=".24" />
-        <stop offset="100%" stopColor="var(--brand)" stopOpacity=".02" />
-      </linearGradient></defs>
-      <path d="M 20,174 H 580" stroke="var(--border)" />
-      <path d={`${path} L 580,174 L 20,174 Z`} fill={`url(#${gradient})`} />
-      <path d={path} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-    <div className="financial-trend-labels" aria-hidden="true">
-      {[series[0], series[5], series[11]].map(({ month }) => <span key={month}>{formatMonth(month, locale)}</span>)}
-    </div>
-  </section>;
 }
 
 function Allocation({ locale, allocation }: { locale: Locale; allocation: PortfolioData["allocation"] }) {
@@ -171,18 +145,8 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
   const copy = investmentsCopy[locale];
 
   return <div className="stack investment-view">
-    <Trend locale={locale} series={data.series} />
-    <div className="investment-split investment-overview">
-      <section className="card hero investment-hero" aria-labelledby="investments-value-title">
-        <h2 id="investments-value-title" className="hero-label">{copy.value}</h2>
-        <p className="hero-amount amount">{euros(data.valueCents, locale)}</p>
-        <p className="investment-hero-gain">
-          <span className="trend-chip">{euros(data.gainCents, locale, { showPlus: true })}</span> {copy.gain}
-        </p>
-        <p className="hero-note">{copy.asOf} <time dateTime={data.today}>{data.today}</time></p>
-      </section>
-      <Allocation locale={locale} allocation={data.allocation} />
-    </div>
+    {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend} />}
+    <Allocation locale={locale} allocation={data.allocation} />
     <Holdings locale={locale} data={data} instruments={instruments} />
     <Performance locale={locale} data={data} />
     <Transactions locale={locale} today={data.today} accounts={accounts} instruments={instruments} transactions={transactions} />

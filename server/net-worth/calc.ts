@@ -1,6 +1,7 @@
 import { addDays, addMonths, monthOf, monthStart, type IsoDate } from "../cash-flow/dates.ts";
 import { cashEffects, holdingsValue, toSafeCents, type Instrument, type Transaction, type Quote } from "../investments/calc.ts";
 import { propertiesAt, type Property, type Valuation } from "../property/calc.ts";
+import type { TrendPoint } from "../trend.ts";
 
 export type Check = { accountId: string; asOf: IsoDate; balanceCents: number };
 export type Movement = { accountId: string; bookingDate: IsoDate; amountCents: number; voidedAt?: Date | null };
@@ -36,8 +37,8 @@ export function netWorthAt(accounts: readonly Account[], checks: readonly Check[
   return { holdingsCents: toSafeCents(holdings), propertiesCents: toSafeCents(properties), assetsCents: toSafeCents(assets), liabilitiesCents: toSafeCents(liabilities), netCents: toSafeCents(assets - liabilities), perAccount };
 }
 
-/** Historical months use their last calendar day; the current month stops at today. */
-export function monthlySeries(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], today: IsoDate, investments: Investments = emptyInvestments, realEstate: Properties = emptyProperties) {
+/** Totals at each date in one forward pass over checks and movements. `dates` must be ascending. */
+export function seriesAt(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], dates: readonly IsoDate[], investments: Investments = emptyInvestments, realEstate: Properties = emptyProperties) {
   const grouped = new Map(accounts.map(({ id }) => [id, {
     checks: [] as Check[], movements: [] as Movement[], checkIndex: 0, movementIndex: 0,
     latest: undefined as Check | undefined, balance: 0n,
@@ -50,10 +51,7 @@ export function monthlySeries(accounts: readonly Account[], checks: readonly Che
     group.checks.sort((a, b) => a.asOf < b.asOf ? -1 : a.asOf > b.asOf ? 1 : 0);
     group.movements.sort((a, b) => a.bookingDate < b.bookingDate ? -1 : a.bookingDate > b.bookingDate ? 1 : 0);
   }
-  const current = monthOf(today);
-  return Array.from({ length: 12 }, (_, index) => {
-    const month = addMonths(current, index - 11);
-    const date = index === 11 ? today : addDays(monthStart(addMonths(month, 1)), -1);
+  return dates.map((date) => {
     let assetsCents = holdingCents(investments, date) + BigInt(propertiesAt(realEstate.properties, realEstate.valuations, date).totalCents);
     let liabilitiesCents = 0n;
     for (const { id } of accounts) {
@@ -73,6 +71,22 @@ export function monthlySeries(accounts: readonly Account[], checks: readonly Che
       if (group.balance > 0n) assetsCents += group.balance;
       else liabilitiesCents -= group.balance;
     }
-    return { month, netCents: toSafeCents(assetsCents - liabilitiesCents), assetsCents: toSafeCents(assetsCents), liabilitiesCents: toSafeCents(liabilitiesCents) };
+    return { date, netCents: toSafeCents(assetsCents - liabilitiesCents), assetsCents: toSafeCents(assetsCents), liabilitiesCents: toSafeCents(liabilitiesCents) };
   });
+}
+
+/** Historical months use their last calendar day; the current month stops at today. */
+export function monthlySeries(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], today: IsoDate, investments: Investments = emptyInvestments, realEstate: Properties = emptyProperties) {
+  const months = Array.from({ length: 12 }, (_, index) => addMonths(monthOf(today), index - 11));
+  const dates = months.map((month, index) => index === 11 ? today : addDays(monthStart(addMonths(month, 1)), -1));
+  return seriesAt(accounts, checks, movements, dates, investments, realEstate)
+    .map(({ netCents, assetsCents, liabilitiesCents }, index) => ({ month: months[index], netCents, assetsCents, liabilitiesCents }));
+}
+
+/** Net worth performance is its change since the first date, measured against the first value. */
+export function netWorthTrend(series: readonly { date: IsoDate; netCents: number }[]): TrendPoint[] {
+  const first = series[0]?.netCents ?? 0;
+  return series.map(({ date, netCents }) => ({
+    date, valueCents: netCents, gainCents: toSafeCents(BigInt(netCents) - BigInt(first)), baseCents: Math.max(0, first),
+  }));
 }

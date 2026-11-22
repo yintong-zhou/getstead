@@ -1,49 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { addDays } from "@/server/cash-flow/dates";
 import type { CheckDto, NetWorthData } from "@/server/net-worth/service";
-import { formatEuros, type Locale } from "@/server/locale";
+import { type Locale } from "@/server/locale";
 import { call } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
-import { formatMonth } from "../format";
 import { parseLimit } from "../money";
 import { Select } from "../select";
 import { netWorthCopy } from "./copy";
 import { euros } from "@/components/euros";
+import { TrendCard } from "@/components/trend-card";
 import "./net-worth.css";
-
-function Trend({ data, locale }: { data: NetWorthData; locale: Locale }) {
-  const copy = netWorthCopy[locale];
-  const gradient = useId();
-  const low = Math.min(0, ...data.series.map((point) => point.netCents));
-  const high = Math.max(0, ...data.series.map((point) => point.netCents));
-  const y = (value: number) => 172 - (value - low) / Math.max(1, high - low) * 152;
-  const points = data.series.map((point, index) => `${20 + index * 560 / 11},${y(point.netCents)}`);
-  const line = `M ${points.join(" L ")}`;
-  return (
-    <section className="financial-trend" aria-labelledby="worth-trend-title">
-      <h2 id="worth-trend-title">{copy.trend}</h2>
-      <p className="hint">{copy.trendLabel}</p>
-      <svg className="worth-chart" viewBox="0 0 600 192" role="img" aria-label={`${copy.trendLabel}. ${data.series.map(
-        (point) => `${formatMonth(point.month, locale)}: ${formatEuros(point.netCents, locale)}`,
-      ).join("; ")}`}>
-        <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--brand)" stopOpacity=".24" />
-          <stop offset="100%" stopColor="var(--brand)" stopOpacity=".02" />
-        </linearGradient></defs>
-        <path d={`M 20,${y(0)} H 580`} stroke="var(--border)" />
-        <path d={`${line} L 580,${y(0)} L 20,${y(0)} Z`} fill={`url(#${gradient})`} />
-        <path d={line} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
-      <div className="financial-trend-labels" aria-hidden="true">
-        {[data.series[0], data.series[5], data.series[11]].map((point) => <span key={point.month}>{formatMonth(point.month, locale)}</span>)}
-      </div>
-    </section>
-  );
-}
 
 export function NetWorthView({ locale, data, checks }: { locale: Locale; data: NetWorthData; checks: CheckDto[] }) {
   const copy = netWorthCopy[locale];
@@ -59,13 +29,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
 
   return (
     <div className="stack worth-view">
-      <Trend data={data} locale={locale} />
-      <section className="card hero" aria-labelledby="worth-total-title">
-        <h2 id="worth-total-title" className="hero-label">{copy.title}</h2>
-        <p className="hero-amount amount">{euros(data.netCents, locale)}</p>
-        <p className="worth-change"><span className="trend-chip">{euros(data.changeCents, locale, { showPlus: true })}</span> {copy.change}</p>
-        <p className="hero-note">{copy.asOf} <time dateTime={data.today}>{data.today}</time></p>
-      </section>
+      {data.trend && <TrendCard locale={locale} title={copy.title} note={copy.trendNote} today={data.today} trend={data.trend} />}
 
       <dl className="worth-totals">
         <div className="card"><dt>{copy.assets}</dt><dd className="amount">{euros(data.assetsCents, locale)}</dd></div>

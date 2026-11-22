@@ -26,7 +26,7 @@ export default async function NetWorthPage({ params }: Props) {
   if (user.status === "unavailable") return <UnavailableNotice locale={locale} path="/net-worth" />;
   let loaded;
   try {
-    const [data, checks] = await Promise.all([getNetWorth(user.userId), listChecks(user.userId)]);
+    const [data, checks] = await Promise.all([getNetWorth(user.userId, undefined, { trend: true }), listChecks(user.userId)]);
     loaded = { data, checks };
   } catch {
     return <UnavailableNotice locale={locale} path="/net-worth" />;

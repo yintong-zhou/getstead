@@ -5,7 +5,8 @@ import { db } from "../auth/database.ts";
 import { addDays, addMonths, fromDate, monthOf, monthStart, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
-import { allocation, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
+import { allocation, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, portfolioTrend, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
+import { buildTrend } from "../trend.ts";
 
 type Client = Prisma.TransactionClient;
 const MAX_TRANSACTION_CENTS = 100_000_000_000;
@@ -221,7 +222,8 @@ export async function deleteQuote(userId: string, id: string) {
   });
 }
 
-export async function getPortfolio(userId: string, now = new Date()) {
+/** `trend` adds the period chart; only the investments page asks for it. */
+export async function getPortfolio(userId: string, now = new Date(), { trend = false } = {}) {
   const today = romeToday(now);
   const [instruments, rows, prices] = await db().$transaction([
     db().instrument.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }] }),
@@ -243,6 +245,8 @@ export async function getPortfolio(userId: string, now = new Date()) {
       const asOf = index === 11 ? today : addDays(monthStart(addMonths(month, 1)), -1);
       return { month, valueCents: toSafeCents(holdingsValue(instruments, transactions, quotes, asOf).reduce((sum, row) => sum + BigInt(row.valueCents), 0n)) };
     }),
+    trend: trend ? buildTrend(today, transactions.reduce<string | null>((first, row) => row.voidedAt || (first && first <= row.tradeDate) ? first : row.tradeDate, null),
+      (dates) => portfolioTrend(instruments, transactions, quotes, dates)) : undefined,
   };
 }
 export type PortfolioData = Awaited<ReturnType<typeof getPortfolio>>;

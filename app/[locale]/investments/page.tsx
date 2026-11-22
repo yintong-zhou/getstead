@@ -29,7 +29,7 @@ export default async function InvestmentsPage({ params }: Props) {
   let loaded;
   try {
     const [data, instruments, transactions, accounts, quotes] = await Promise.all([
-      getPortfolio(user.userId), listInstruments(user.userId), listTransactions(user.userId),
+      getPortfolio(user.userId, undefined, { trend: true }), listInstruments(user.userId), listTransactions(user.userId),
       listAccounts(user.userId, true), listQuotes(user.userId),
     ]);
     loaded = { data, instruments, transactions, quotes: quotes.map(({ id, instrumentId, asOf, unitPrice }) => ({ id, instrumentId, asOf, unitPrice })),

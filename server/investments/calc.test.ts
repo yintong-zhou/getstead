@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { Decimal } from "@prisma/client/runtime/client";
 import { ApiError } from "../cash-flow/errors.ts";
 import {
-  allocation, cashEffects, decimalInput, holdingsValue, income, indicativeTax, position,
+  allocation, cashEffects, decimalInput, holdingsValue, income, indicativeTax, portfolioTrend, position,
   toSafeCents, validateHistory, valueInCents, type Instrument, type Transaction,
 } from "./calc.ts";
 
@@ -224,4 +224,20 @@ test("indicative taxes net gains and losses within a calendar year and tax class
     { year: 2026, taxClass: "OTHER", gainCents: 1000, lossCents: 600, taxCents: 104 },
     { year: 2027, taxClass: "OTHER", gainCents: 100, lossCents: 0, taxCents: 26 },
   ]);
+});
+
+test("portfolio performance ignores buys and sells and only moves with prices", () => {
+  const quote = (date: string, unitPrice: string) => ({ instrumentId: stock.id, asOf: date, unitPrice });
+  const rows = [
+    trade({ id: "b1", tradeDate: "2026-11-01" }),
+    trade({ id: "b2", tradeDate: "2026-11-03", amountCents: 3000n }),
+    trade({ id: "s1", tradeDate: "2026-11-04", type: "SELL", amountCents: 3000n }),
+  ];
+  const quotes = [quote("2026-11-01", "12.5"), quote("2026-11-02", "15")];
+  const points = portfolioTrend([stock], rows, quotes, ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"]);
+  assert.deepEqual(points.map(({ valueCents }) => valueCents), [2500, 3000, 6000, 3000]);
+  assert.deepEqual(points.map(({ gainCents }) => gainCents), [0, 500, 500, 500]);
+  assert.deepEqual(points.map(({ baseCents }) => baseCents), [2500, 2500, 5500, 5500]);
+  const share = (index: number) => (points[index].gainCents - points[0].gainCents) / points[index].baseCents;
+  assert.equal(share(3), share(2), "a sale leaves the percentage unchanged");
 });

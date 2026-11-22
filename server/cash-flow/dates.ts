@@ -65,6 +65,13 @@ function daysInMonth(year: number, monthIndex: number) {
   return new Date(Date.UTC(year, monthIndex, 0)).getUTCDate();
 }
 
+/** Moves a date by whole months, clamping the day: 31 March minus one month is the last day of February. */
+export function addMonthsToDate(date: IsoDate, count: number): IsoDate {
+  const [year, month] = addMonths(monthOf(date), count).split("-").map(Number);
+  const day = Math.min(Number(date.slice(8, 10)), daysInMonth(year, month));
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 export type Recurrence = { frequency: "WEEKLY" | "MONTHLY" | "YEARLY"; startDate: IsoDate; endDate?: IsoDate | null };
 
 /**
