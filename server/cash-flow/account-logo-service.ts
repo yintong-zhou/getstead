@@ -4,7 +4,7 @@ import { db } from "../auth/database.ts";
 import { reserveAttempt } from "../auth/limits.ts";
 import { getRemoteLogo } from "./bank-logos.ts";
 import { ApiError, notFound } from "./errors.ts";
-import { findCatalogLogo, logoAccountTypes, logoCatalog, supportsAccountLogo } from "./logo-catalog.ts";
+import { findCatalogLogo, logoCatalog } from "./logo-catalog.ts";
 import { decryptBytes, encryptBytes } from "./text-crypto.ts";
 import { Reader } from "./validate.ts";
 
@@ -13,7 +13,7 @@ const identity = (userId: string, accountId: string) => ({ userId, accountId });
 
 async function requireLogoAccount(userId: string, accountId: string) {
   const account = await db().account.findFirst({
-    where: { id: accountId, userId, type: { in: [...logoAccountTypes] } },
+    where: { id: accountId, userId },
     select: { name: true },
   });
   if (!account) throw notFound();
@@ -22,7 +22,7 @@ async function requireLogoAccount(userId: string, accountId: string) {
 
 export async function readAccountLogo(userId: string, accountId: string) {
   const row = await db().accountLogo.findFirst({
-    where: { ...identity(userId, accountId), account: { type: { in: [...logoAccountTypes] } } },
+    where: identity(userId, accountId),
     select: { image: true },
   });
   if (!row) throw notFound();
@@ -33,10 +33,10 @@ async function saveLogo(userId: string, accountId: string, bytes: Uint8Array, au
   const key = identity(userId, accountId);
   const image = encryptBytes(userId, logoContext(accountId), bytes);
   await db().$transaction(async (tx) => {
-    const [account] = await tx.$queryRaw<{ name: string; type: string }[]>`
-      SELECT name, type FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${accountId}::uuid FOR NO KEY UPDATE
+    const [account] = await tx.$queryRaw<{ name: string }[]>`
+      SELECT name FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${accountId}::uuid FOR NO KEY UPDATE
     `;
-    if (!account || !supportsAccountLogo(account.type)) throw notFound();
+    if (!account) throw notFound();
     if (automaticName !== undefined) {
       if (account.name !== automaticName) throw new ApiError(409, "logo_account_changed");
       await tx.accountLogo.createMany({ data: { ...key, image }, skipDuplicates: true });
@@ -68,5 +68,5 @@ export async function findAccountLogo(userId: string, accountId: string, input: 
 
 export async function removeAccountLogo(userId: string, accountId: string) {
   await requireLogoAccount(userId, accountId);
-  await db().accountLogo.deleteMany({ where: { ...identity(userId, accountId), account: { type: { in: [...logoAccountTypes] } } } });
+  await db().accountLogo.deleteMany({ where: identity(userId, accountId) });
 }

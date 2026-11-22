@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useId, useState } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
-import { catalogLogoPath, logoCatalog } from "@/server/cash-flow/logo-catalog";
+import { catalogLogoPath, logoCatalog, logoGroupsByType, type LogoGroup } from "@/server/cash-flow/logo-catalog";
 import type { Locale } from "@/server/locale";
 import { Icon } from "../icon";
 import { Select } from "../select";
@@ -15,8 +15,9 @@ const copy = {
     manage: "Logo", finding: "Looking up the logo…",
     missing: "No logo found. Choose a provider or paste a link.",
     find: "Match account name",
-    provider: "Bank or broker", pick: "Choose a provider", banks: "Banks and digital accounts",
-    brokers: "Brokers", useCatalog: "Use logo",
+    provider: "Provider", pick: "Choose a provider",
+    groups: { bank: "Banks and digital accounts", broker: "Brokers", card: "Card issuers and payments", crypto: "Crypto platforms" },
+    useCatalog: "Use logo",
     url: "Image or website link", useLink: "Use link", remove: "Remove logo",
     saved: "Logo saved.", removed: "Logo removed.",
     invalid: "Choose a valid PNG, JPEG or WebP image.",
@@ -28,10 +29,11 @@ const copy = {
   },
   it: {
     manage: "Logo", finding: "Ricerca del logo…",
-    missing: "Logo non trovato. Scegli una banca o un broker oppure incolla un link.",
+    missing: "Logo non trovato. Scegli un istituto oppure incolla un link.",
     find: "Cerca dal nome",
-    provider: "Banca o broker", pick: "Scegli un istituto", banks: "Banche e conti digitali",
-    brokers: "Broker", useCatalog: "Usa il logo",
+    provider: "Istituto", pick: "Scegli un istituto",
+    groups: { bank: "Banche e conti digitali", broker: "Broker", card: "Emittenti di carte e pagamenti", crypto: "Piattaforme cripto" },
+    useCatalog: "Usa il logo",
     url: "Link all’immagine o al sito", useLink: "Usa il link", remove: "Rimuovi logo",
     saved: "Logo salvato.", removed: "Logo rimosso.",
     invalid: "Scegli un’immagine PNG, JPEG o WebP valida.",
@@ -44,10 +46,8 @@ const copy = {
 };
 
 export const accountLogoPath = (id: string) => `/accounts/${id}/logo`;
-const catalogOptions = (group: "bank" | "broker") =>
+const catalogOptions = (group: LogoGroup) =>
   logoCatalog.filter((provider) => provider.group === group).map(({ id, name }) => ({ value: id, label: name }));
-const bankOptions = catalogOptions("bank");
-const brokerOptions = catalogOptions("broker");
 
 export function AccountLogoThumbnail({ src }: { src: string | null }) {
   const [broken, setBroken] = useState(false);
@@ -63,11 +63,13 @@ export function AccountLogoThumbnail({ src }: { src: string | null }) {
 export const accountLogoLabel = (locale: Locale) => copy[locale].manage;
 
 /** The logo thumbnail and its panel. The row menu owns the toggle, so `open` is controlled by the row. */
-export function AccountLogoControls({ account, locale, lookup, open }: {
+export function AccountLogoControls({ account, locale, lookup, open, onDone }: {
   account: AccountDto;
   locale: Locale;
   lookup?: "pending" | "failed";
   open: boolean;
+  /** Called after a change succeeded, so the row can close the panel. */
+  onDone: () => void;
 }) {
   const labels = copy[locale];
   const panel = useId();
@@ -86,12 +88,15 @@ export function AccountLogoControls({ account, locale, lookup, open }: {
   const hasLogo = visibleLogo ?? account.hasLogo;
   const path = accountLogoPath(account.id);
   const image = hasLogo ? `/api/cash-flow${path}?v=${version}` : null;
+  const groups = logoGroupsByType[account.type] ?? [];
 
   async function update(request: () => Promise<ApiResult<unknown>>, keep: boolean) {
     const result = await action.run(request, keep ? labels.saved : labels.removed);
     if (result) {
       setVisibleLogo(keep);
       setVersion((current) => current + 1);
+      setProvider("");
+      onDone();
     }
     return result;
   }
@@ -103,12 +108,12 @@ export function AccountLogoControls({ account, locale, lookup, open }: {
       <div id={panel} className="account-logo-panel" hidden={!open}>
         {lookup === "failed" && !hasLogo && !action.notice && <p className="hint" role="status">{labels.missing}</p>}
         <div className="row-actions">
-          {!hasLogo && <button type="button" className="button button-quiet" disabled={busy}
+          {!hasLogo && groups.length > 0 && <button type="button" className="button button-quiet" disabled={busy}
             onClick={() => void update(() => call("POST", path, { lookup: true }), true)}>{labels.find}</button>}
           {hasLogo && <button type="button" className="button button-quiet" disabled={busy}
             onClick={() => void update(() => call("DELETE", path), false)}>{labels.remove}</button>}
         </div>
-        {open && (
+        {open && groups.length > 0 && (
           <form className="inline-form account-logo-catalog" onSubmit={(event) => {
             event.preventDefault();
             if (provider) void update(() => call("POST", path, { provider }), true);
@@ -118,8 +123,7 @@ export function AccountLogoControls({ account, locale, lookup, open }: {
               <Select id={`${panel}-provider`} value={provider} onChange={setProvider} disabled={busy}
                 groups={[
                   { label: "", options: [{ value: "", label: labels.pick }] },
-                  { label: labels.banks, options: bankOptions },
-                  { label: labels.brokers, options: brokerOptions },
+                  ...groups.map((group) => ({ label: labels.groups[group], options: catalogOptions(group) })),
                 ]}
               />
             </div>

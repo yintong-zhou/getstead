@@ -31,7 +31,7 @@ const en = {
   noAccountsTitle: "Add an account first",
   noAccountsBody: "Movements belong to an account. Create one, then come back here.",
   goToAccounts: "Go to accounts",
-  accountTypes: { CHECKING: "Checking", CARD: "Card", BROKERAGE: "Brokerage", CRYPTO: "Crypto", CASH: "Cash", DEBT: "Debt" },
+  accountTypes: { CHECKING: "Bank account", CARD: "Card", BROKERAGE: "Brokerage", CRYPTO: "Crypto", CASH: "Cash", DEBT: "Debt" },
   kinds: { EXPENSE: "Expense", INCOME: "Income" },
   errors: {
     generic: "Something went wrong. Try again.",

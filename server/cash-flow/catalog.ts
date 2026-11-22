@@ -4,7 +4,6 @@ import type { Account, Category } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
 import { Reader } from "./validate.ts";
 import { conflict, notFound } from "./errors.ts";
-import { supportsAccountLogo } from "./logo-catalog.ts";
 
 export const accountTypes = ["CHECKING", "CARD", "BROKERAGE", "CRYPTO", "CASH", "DEBT"] as const;
 export const categoryKinds = ["EXPENSE", "INCOME"] as const;
@@ -15,7 +14,7 @@ export type CategoryDto = { id: string; name: string; kind: Category["kind"]; ar
 const logoPresence = { logo: { select: { accountId: true } } } as const;
 const accountDto = (row: Account & { logo?: { accountId: string } | null }): AccountDto => ({
   id: row.id, name: row.name, type: row.type, archived: row.archivedAt !== null,
-  hasLogo: supportsAccountLogo(row.type) && Boolean(row.logo),
+  hasLogo: Boolean(row.logo),
 });
 const categoryDto = (row: Category): CategoryDto => ({ id: row.id, name: row.name, kind: row.kind, archived: row.archivedAt !== null });
 

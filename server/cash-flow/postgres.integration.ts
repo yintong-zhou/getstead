@@ -62,7 +62,12 @@ test("checking account logos are private, optional, encrypted and removable by t
 
   await rejectsApi(findAccountLogo(owner, checking.id, { lookup: true }), 422, "logo_not_found");
   assert.equal((await listAccounts(owner)).find(({ id }) => id === checking.id)?.hasLogo, false);
-  await rejectsApi(findAccountLogo(owner, cash.id, choose), 404, "not_found");
+  await rejectsApi(findAccountLogo(other, cash.id, choose), 404, "not_found");
+  await findAccountLogo(owner, cash.id, choose);
+  assert.equal((await listAccounts(owner)).find(({ id }) => id === cash.id)?.hasLogo, true, "every account type can carry a logo");
+  const card = await createAccount(owner, { name: "Synthetic Amex Gold", type: "CARD" });
+  await findAccountLogo(owner, card.id, { lookup: true });
+  assert.equal((await listAccounts(owner)).find(({ id }) => id === card.id)?.hasLogo, true);
   await rejectsApi(findAccountLogo(other, checking.id, choose), 404, "not_found");
   await findAccountLogo(owner, checking.id, choose);
   const bytes = await readAccountLogo(owner, checking.id);
