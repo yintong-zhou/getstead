@@ -13,8 +13,8 @@ import { NoticeLine, useAction } from "./use-action";
 const copy = {
   en: {
     manage: "Logo", finding: "Looking up the logo…",
-    missing: "No logo found. Choose a provider, upload an image or paste a link.",
-    find: "Match account name", file: "Logo image", upload: "Upload image",
+    missing: "No logo found. Choose a provider or paste a link.",
+    find: "Match account name",
     provider: "Bank or broker", pick: "Choose a provider", banks: "Banks and digital accounts",
     brokers: "Brokers", useCatalog: "Use logo",
     url: "Image or website link", useLink: "Use link", remove: "Remove logo",
@@ -28,8 +28,8 @@ const copy = {
   },
   it: {
     manage: "Logo", finding: "Ricerca del logo…",
-    missing: "Logo non trovato. Scegli una banca o un broker, carica un’immagine o incolla un link.",
-    find: "Cerca dal nome", file: "Immagine del logo", upload: "Carica immagine",
+    missing: "Logo non trovato. Scegli una banca o un broker oppure incolla un link.",
+    find: "Cerca dal nome",
     provider: "Banca o broker", pick: "Scegli un istituto", banks: "Banche e conti digitali",
     brokers: "Broker", useCatalog: "Usa il logo",
     url: "Link all’immagine o al sito", useLink: "Usa il link", remove: "Rimuovi logo",
@@ -127,18 +127,6 @@ export function AccountLogoControls({ account, locale, lookup, open }: {
             <button type="submit" className="button" disabled={busy || !provider}>{labels.useCatalog}</button>
           </form>
         )}
-        <form className="inline-form" onSubmit={async (event) => {
-          event.preventDefault();
-          const form = event.currentTarget;
-          const file = new FormData(form).get("logo");
-          if (file instanceof File && await update(() => call("PUT", path, file), true)) form.reset();
-        }}>
-          <div className="form-field">
-            <label htmlFor={`${panel}-file`}>{labels.file}</label>
-            <input className="field" id={`${panel}-file`} name="logo" type="file" required accept="image/png,image/jpeg,image/webp" />
-          </div>
-          <button type="submit" className="button" disabled={busy}>{labels.upload}</button>
-        </form>
         <form className="inline-form" onSubmit={async (event) => {
           event.preventDefault();
           const form = event.currentTarget;

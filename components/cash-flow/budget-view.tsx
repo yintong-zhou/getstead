@@ -9,6 +9,7 @@ import { addMonths, formatMonth } from "../format";
 import { editableEuros, parseLimit } from "../money";
 import { call, type ApiResult } from "./api";
 import { cashFlowCopy } from "./copy";
+import { Step } from "./movements-view";
 import { NoticeLine, useAction, type Notice } from "./use-action";
 import { euros } from "@/components/euros";
 
@@ -107,12 +108,6 @@ function LimitForm({ locale, row, month, currentMonth, onDone }: {
   );
 }
 
-function MonthStep({ href, label, symbol, disabledLabel }: { href: string | null; label: string; symbol: string; disabledLabel: string }) {
-  return href
-    ? <Link className="icon-button" href={href} aria-label={label}><span aria-hidden="true">{symbol}</span></Link>
-    : <span className="icon-button is-disabled" role="link" aria-disabled="true" aria-label={`${label} (${disabledLabel})`}><span aria-hidden="true">{symbol}</span></span>;
-}
-
 export function BudgetView({ locale, month, currentMonth, rows }: { locale: Locale; month: string; currentMonth: string; rows: BudgetRow[] }) {
   return <BudgetMonth key={month} locale={locale} month={month} currentMonth={currentMonth} rows={rows} />;
 }
@@ -131,9 +126,9 @@ function BudgetMonth({ locale, month, currentMonth, rows }: { locale: Locale; mo
         <div className="card-head">
           <h2 id="budget-month-title">{copy.month}</h2>
           <nav className="month-nav" aria-label={copy.month}>
-            <MonthStep href={month > FIRST_MONTH ? link(addMonths(month, -1)) : null} label={copy.previousMonth} symbol="‹" disabledLabel={copy.firstMonth} />
+            <Step href={month > FIRST_MONTH ? link(addMonths(month, -1)) : null} label={copy.previousMonth} direction="previous" disabledLabel={copy.firstMonth} />
             <time className="month-nav-label" dateTime={month}>{formatMonth(month, locale)}</time>
-            <MonthStep href={month < LAST_MONTH ? link(addMonths(month, 1)) : null} label={copy.nextMonth} symbol="›" disabledLabel={copy.lastMonth} />
+            <Step href={month < LAST_MONTH ? link(addMonths(month, 1)) : null} label={copy.nextMonth} direction="next" disabledLabel={copy.lastMonth} />
           </nav>
         </div>
         <p className="hint">{copy.refundNote}</p>

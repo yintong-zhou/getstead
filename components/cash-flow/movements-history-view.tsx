@@ -46,11 +46,11 @@ export function MovementsHistory({ locale, today, accounts, categories, query, r
 
         <div className="history-period" role="group" aria-label={extra.period}>
           <nav className="month-nav" aria-label={copy.month}>
-            <Step href={!allPeriods && month > FIRST_MONTH ? monthLink(addMonths(month, -1)) : null} label={copy.previousMonth} symbol="‹" disabledLabel={allPeriods ? extra.allPeriods : copy.firstMonth} />
+            <Step href={!allPeriods && month > FIRST_MONTH ? monthLink(addMonths(month, -1)) : null} label={copy.previousMonth} direction="previous" disabledLabel={allPeriods ? extra.allPeriods : copy.firstMonth} />
             {allPeriods
               ? <span className="month-nav-label">{extra.allPeriods}</span>
               : <time className="month-nav-label" dateTime={month}>{formatMonth(month, locale)}</time>}
-            <Step href={!allPeriods && month < LAST_MONTH ? monthLink(addMonths(month, 1)) : null} label={copy.nextMonth} symbol="›" disabledLabel={allPeriods ? extra.allPeriods : copy.lastMonth} />
+            <Step href={!allPeriods && month < LAST_MONTH ? monthLink(addMonths(month, 1)) : null} label={copy.nextMonth} direction="next" disabledLabel={allPeriods ? extra.allPeriods : copy.lastMonth} />
           </nav>
           <Link className="text-link" href={monthLink(allPeriods ? monthOf(today) : "all")}>{allPeriods ? extra.byMonth : extra.allPeriods}</Link>
         </div>

@@ -7,6 +7,7 @@ import { propertyCopy } from "./copy";
 import { Charges, PropertyForm, Schedules, Tables, Valuations, type PropertyRow } from "./forms";
 import { ownershipText } from "./numbers";
 import { euros } from "@/components/euros";
+import { Icon } from "@/components/icon";
 import "./property.css";
 
 type ViewProps = { locale: Locale; data: Overview; accounts: AccountDto[]; costs: Costs };
@@ -83,9 +84,9 @@ export function PropertyView({ locale, data, accounts, costs }: ViewProps) {
       <div className="property-head">
         <h2 id="property-costs-title">{copy.costsTitle} · {copy.costsAll}</h2>
         <nav className="property-actions property-year" aria-label={copy.costsYear}>
-          {costs.year > 2000 ? <a className="button button-quiet" href={yearLink(costs.year - 1)} aria-label={copy.costsPrevious} rel="nofollow">‹</a> : <span aria-hidden="true" className="year-gap" />}
+          {costs.year > 2000 ? <a className="button button-quiet" href={yearLink(costs.year - 1)} aria-label={copy.costsPrevious} rel="nofollow"><Icon name="chevronLeft" size={20} /></a> : <span aria-hidden="true" className="year-gap" />}
           <strong className="amount">{costs.year}</strong>
-          {costs.year < 2100 ? <a className="button button-quiet" href={yearLink(costs.year + 1)} aria-label={copy.costsNext} rel="nofollow">›</a> : <span aria-hidden="true" className="year-gap" />}
+          {costs.year < 2100 ? <a className="button button-quiet" href={yearLink(costs.year + 1)} aria-label={copy.costsNext} rel="nofollow"><Icon name="chevronRight" size={20} /></a> : <span aria-hidden="true" className="year-gap" />}
         </nav>
       </div>
       <CostFigures locale={locale} row={costs.total} />

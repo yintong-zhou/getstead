@@ -525,10 +525,11 @@ export function Row({ locale, movement, accounts, categories, today }: {
 
 // ---- Page ---------------------------------------------------------------------------------------
 
-export function Step({ href, label, symbol, disabledLabel }: { href: string | null; label: string; symbol: string; disabledLabel?: string }) {
+export function Step({ href, label, direction, disabledLabel }: { href: string | null; label: string; direction: "previous" | "next"; disabledLabel?: string }) {
+  const icon = <Icon name={direction === "previous" ? "chevronLeft" : "chevronRight"} size={20} />;
   return href
-    ? <Link className="icon-button" href={href} aria-label={label}><span aria-hidden="true">{symbol}</span></Link>
-    : <span className="icon-button is-disabled" role="link" aria-disabled="true" aria-label={disabledLabel ? `${label} (${disabledLabel})` : label}><span aria-hidden="true">{symbol}</span></span>;
+    ? <Link className="icon-button" href={href} aria-label={label}>{icon}</Link>
+    : <span className="icon-button is-disabled" role="link" aria-disabled="true" aria-label={disabledLabel ? `${label} (${disabledLabel})` : label}>{icon}</span>;
 }
 
 export function Pager({ copy, title, page, hasMore, href }: {
@@ -537,9 +538,9 @@ export function Pager({ copy, title, page, hasMore, href }: {
   if (page === 1 && !hasMore) return null;
   return (
     <nav className="pagination" aria-label={`${title}: ${copy.pagination}`}>
-      <Step href={page > 1 ? href(page - 1) : null} label={`${title}: ${copy.previousPage}`} symbol="‹" />
+      <Step href={page > 1 ? href(page - 1) : null} label={`${title}: ${copy.previousPage}`} direction="previous" />
       <span className="pagination-label" aria-current="page">{copy.pageLabel(page)}</span>
-      <Step href={hasMore ? href(page + 1) : null} label={`${title}: ${copy.nextPage}`} symbol="›" />
+      <Step href={hasMore ? href(page + 1) : null} label={`${title}: ${copy.nextPage}`} direction="next" />
     </nav>
   );
 }
@@ -575,9 +576,9 @@ export function MovementsView(props: Props) {
         <div className="card-head">
           <h2 id="register-title">{copy.movementList}</h2>
           <nav className="month-nav" aria-label={copy.month}>
-            <Step href={month > FIRST_MONTH ? link(addMonths(month, -1)) : null} label={copy.previousMonth} symbol="‹" disabledLabel={copy.firstMonth} />
+            <Step href={month > FIRST_MONTH ? link(addMonths(month, -1)) : null} label={copy.previousMonth} direction="previous" disabledLabel={copy.firstMonth} />
             <time className="month-nav-label" dateTime={month}>{formatMonth(month, locale)}</time>
-            <Step href={month < LAST_MONTH ? link(addMonths(month, 1)) : null} label={copy.nextMonth} symbol="›" disabledLabel={copy.lastMonth} />
+            <Step href={month < LAST_MONTH ? link(addMonths(month, 1)) : null} label={copy.nextMonth} direction="next" disabledLabel={copy.lastMonth} />
           </nav>
         </div>
 

@@ -92,6 +92,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   color: var(--ink);
   font: inherit;
 }
+/* Touch screens: 16px stops iOS Safari from zooming the page when a field gets focus. */
+@media (pointer: coarse) { .field { font-size: 16px; } }
 /* iOS Safari draws date inputs with its own box: reset it so they match other fields and never overflow. */
 .field[type="date"] { display: flex; align-items: center; min-width: 0; max-width: 100%; appearance: none; -webkit-appearance: none; text-align: start; }
 .field[type="date"]::-webkit-date-and-time-value { min-width: 0; text-align: start; }
@@ -223,7 +225,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 
 .manage-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 56px; padding-block: 8px; }
 .manage-row + .manage-row { border-top: 1px solid var(--glass-hairline); }
-.manage-row.is-archived { opacity: .7; }
+/* Dim the content, not the row: opacity on the <li> would trap the open menu under the next rows. */
+.manage-row.is-archived > :not(.more-actions) { opacity: .7; }
 .manage-row .row-text { flex: 1 1 140px; min-width: 0; }
 .manage-row > .more-actions { margin-inline-start: auto; }
 
@@ -261,37 +264,46 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   box-shadow: inset 0 0 0 1px var(--glass-stroke), var(--glass-shadow);
 }
 .more-actions-list > .button { justify-content: start; white-space: normal; text-align: start; }
+/* "Show archived" switch: a liquid-glass capsule whose thumb is a lens, like the active nav tab (app/globals.css). */
 .button.archived-filter {
-  gap: 8px;
-  padding-inline: 12px;
+  gap: 10px;
+  padding-inline: 14px 6px;
   border-radius: 999px;
   color: var(--muted);
-  background: var(--surface-alt);
-  box-shadow: inset 0 0 0 1px var(--glass-hairline);
-  backdrop-filter: none;
+  white-space: nowrap;
+  background: linear-gradient(160deg, #ffffff59, #ffffff1a);
+  backdrop-filter: blur(var(--glass-blur-control)) saturate(180%);
+  box-shadow: inset 1px 1px 1px #ffffffcc, inset 0 0 0 1px var(--glass-stroke), 0 4px 16px #1b2b5e14;
 }
 .button.archived-filter:hover { color: var(--ink); }
-.button.archived-filter[aria-checked="true"] { color: var(--brand-dark); background: var(--brand-soft); }
+.button.archived-filter[aria-checked="true"] { color: var(--brand-dark); }
 .archived-filter-track {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 30px;
-  height: 18px;
-  padding-inline: 3px;
+  position: relative;
+  flex: 0 0 60px;
+  height: 30px;
   border-radius: 999px;
-  background: var(--muted);
+  background: var(--glass-recessed);
+  box-shadow: inset 0 1px 3px #1b2b5e26, inset 0 0 0 1px var(--glass-hairline);
+  transition: background-color 200ms ease;
 }
 .archived-filter-track::before {
   content: "";
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--surface);
+  position: absolute;
+  inset: 3px auto 3px 3px;
+  width: 36px;
+  border-radius: 999px;
+  background:
+    radial-gradient(90% 80% at 25% 10%, #ffffffcc, transparent 60%),
+    linear-gradient(160deg, #ffffff99, #f6d3ea4d 55%, #cfdcff66);
+  backdrop-filter: blur(calc(var(--glass-blur) / 4)) saturate(220%) brightness(1.12);
+  box-shadow:
+    inset 1px 1px 1px #fffffff2, inset -1px -1px 2px #ffffff80, inset 0 0 0 1px #ffffff99,
+    0 2px 8px #1b2b5e26;
+  transition: transform 220ms cubic-bezier(.3, 1.4, .5, 1);
 }
-.archived-filter[aria-checked="true"] .archived-filter-track {
-  justify-content: flex-end;
-  background: var(--brand);
-}
+.archived-filter[aria-checked="true"] .archived-filter-track { background: var(--glass-primary); }
+.archived-filter[aria-checked="true"] .archived-filter-track::before { transform: translateX(18px); }
+@media (prefers-reduced-motion: reduce) { .archived-filter-track, .archived-filter-track::before { transition: none; } }
 @media (forced-colors: active) {
   .archived-filter-track { border: 1px solid ButtonText; }
   .archived-filter-track::before { background: ButtonText; }
@@ -327,11 +339,21 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 /* Budget -------------------------------------------------------------------------------------- */
 
 .budget-table { margin-top: 12px; }
-.budget-item { padding-block: 12px; }
+/* One line per category: name and amount, then "Edit" on the same line. The footer dissolves into the
+   row grid so its button sits in column 2 and its text runs under the progress bar. */
+.budget-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding-block: 6px; }
+.budget-item > * { grid-column: 1 / -1; }
 .budget-item + .budget-item { border-top: 1px solid var(--glass-hairline); }
-.budget-row-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.budget-item > .budget-caption { grid-column: 1; align-items: center; column-gap: 12px; margin: 0; font-size: 14px; }
+.budget-item .budget-name { min-width: 0; overflow-wrap: anywhere; }
+.budget-item .budget-amount { flex: none; }
+.budget-item progress { margin-block: 2px 4px; }
+.budget-row-footer { display: contents; }
+.budget-row-footer > div { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding-bottom: 4px; }
+.budget-row-footer > div:empty { display: none; }
+/* Keeps the 44px touch target without adding its height to the row. */
+.budget-row-footer > .button { grid-column: 2; grid-row: 1; margin-block: -4px; padding-inline: 10px; }
 .budget-variance { font-size: 13px; font-weight: 700; white-space: normal; }
-.budget-row-footer .button { margin-inline-start: auto; }
 .limit-form { max-width: 520px; padding-block: 8px 4px; }
 .limit-form .form-actions { margin-top: 8px; }
 

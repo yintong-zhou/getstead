@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "../auth/database.ts";
 import { reserveAttempt } from "../auth/limits.ts";
-import { getRemoteLogo, maxLogoBytes, normalizeLogo } from "./bank-logos.ts";
+import { getRemoteLogo } from "./bank-logos.ts";
 import { ApiError, notFound } from "./errors.ts";
 import { findCatalogLogo, logoAccountTypes, logoCatalog, supportsAccountLogo } from "./logo-catalog.ts";
 import { decryptBytes, encryptBytes } from "./text-crypto.ts";
@@ -64,33 +64,6 @@ export async function findAccountLogo(userId: string, accountId: string, input: 
   if (!provider) throw new ApiError(422, "logo_not_found");
   const image = await readFile(join(process.cwd(), "public", "account-logos", `${provider.id}.webp`));
   await saveLogo(userId, accountId, image, lookup ? name : undefined);
-}
-
-async function readUpload(request: Request) {
-  if (Number(request.headers.get("content-length")) > maxLogoBytes) throw new ApiError(413, "logo_too_large");
-  if (!request.body) throw new ApiError(400, "logo_invalid_image");
-  const reader = request.body.getReader();
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const chunk = await reader.read();
-      if (chunk.done) return Buffer.concat(parts);
-      size += chunk.value.byteLength;
-      if (size > maxLogoBytes) {
-        await reader.cancel();
-        throw new ApiError(413, "logo_too_large");
-      }
-      parts.push(chunk.value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-export async function uploadAccountLogo(userId: string, accountId: string, request: Request) {
-  await requireLogoAccount(userId, accountId);
-  await saveLogo(userId, accountId, await normalizeLogo(await readUpload(request)));
 }
 
 export async function removeAccountLogo(userId: string, accountId: string) {
