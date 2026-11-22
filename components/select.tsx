@@ -26,6 +26,10 @@ export function Select(props: Props) {
   const trigger = useRef<HTMLButtonElement | HTMLInputElement>(null);
   const popup = useRef<HTMLDivElement>(null);
   const search = useRef({ text: "", time: 0 });
+  // On touch screens a tap on the popup blurs the trigger before the click arrives; ignore that blur while a press is in progress.
+  const pressing = useRef(false);
+  const releaseSoon = () => { setTimeout(() => { pressing.current = false; }, 500); };
+  const blur = () => { if (!pressing.current) { setOpen(false); setText(null); } };
   const groups = props.groups ?? [{ label: "", options: props.options }];
   const options = groups.flatMap((group) => group.options);
   const searchable = options.length >= SEARCHABLE_FROM;
@@ -184,7 +188,7 @@ export function Select(props: Props) {
             aria-activedescendant={expanded && visible.length ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
             value={text ?? options[selected]?.label ?? ""} onChange={(event) => type(event.target.value)}
             onFocus={(event) => event.target.select()} onClick={() => { if (!expanded) show(); }} onKeyDown={keyDown}
-            onBlur={() => { setOpen(false); setText(null); }}
+            onBlur={blur}
           />
           <Icon name="chevron" size={18} />
         </div>
@@ -194,14 +198,14 @@ export function Select(props: Props) {
           disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-controls={expanded ? popupId : undefined}
           aria-activedescendant={expanded ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
           onClick={() => expanded ? setOpen(false) : show()} onKeyDown={keyDown}
-          onBlur={() => setOpen(false)}
+          onBlur={blur}
         >
           <span>{options[selected]?.label ?? "\u2014"}</span><Icon name="chevron" size={18} />
         </button>
       )}
       {expanded && createPortal(
         <div ref={popup} id={popupId} role="listbox" aria-label={popupLabel} aria-labelledby={popupLabel ? undefined : props.id} className="select-popup" style={position}
-          onPointerDown={(event) => event.preventDefault()}>
+          onPointerDown={(event) => { pressing.current = true; event.preventDefault(); }} onPointerUp={releaseSoon} onPointerCancel={releaseSoon}>
           {visible.length === 0 && <div className="select-empty" role="status">{document.documentElement.lang === "it" ? "Nessun risultato" : "No results"}</div>}
           {shown.map((group, groupIndex) => {
             const items = group.options.map((option) => {
