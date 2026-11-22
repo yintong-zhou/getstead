@@ -3,6 +3,11 @@
 import { useId, useState, useSyncExternalStore } from "react";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { trendRanges, type Trend, type TrendPoint, type TrendRange } from "@/server/trend";
+import { Area } from "@/components/charts/area";
+import { AreaChart } from "@/components/charts/area-chart";
+import { Grid } from "@/components/charts/grid";
+import { ChartTooltip } from "@/components/charts/tooltip";
+import { XAxis } from "@/components/charts/x-axis";
 import { Icon } from "./icon";
 
 const copy = {
@@ -44,13 +49,6 @@ function subscribeHidden(listener: () => void) {
 const percentAt = (point: TrendPoint, first: TrendPoint) =>
   point.baseCents > 0 ? (point.gainCents - first.gainCents) / point.baseCents : null;
 
-function chartPath(values: number[]) {
-  const series = values.length === 1 ? [values[0], values[0]] : values;
-  const low = Math.min(...series), high = Math.max(...series);
-  const y = (value: number) => high === low ? 90 : 172 - (value - low) / (high - low) * 164;
-  return `M ${series.map((value, index) => `${(index * 600 / (series.length - 1)).toFixed(1)},${y(value).toFixed(1)}`).join(" L ")}`;
-}
-
 /** Value, performance and a period chart: shared by net worth and investments. */
 export function TrendCard({ locale, title, note, today, trend }: {
   locale: Locale; title: string; note: string; today: string; trend: Trend;
@@ -76,7 +74,13 @@ export function TrendCard({ locale, title, note, today, trend }: {
   const long = range === "1Y" || range === "MAX";
   const day = (date: string) => new Intl.DateTimeFormat(localeTags[locale], long
     ? { month: "short", year: "numeric", timeZone: "UTC" } : { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
-  const line = chartPath(points.map((point) => percent ? percentAt(point, first) ?? 0 : point.valueCents));
+  const series = points.map((point) => ({
+    date: new Date(`${point.date}T00:00:00Z`), label: day(point.date),
+    value: percent ? percentAt(point, first) ?? 0 : point.valueCents,
+  }));
+  // Fit the plot to the series instead of anchoring it at zero, so a steady trend still shows its shape.
+  const low = Math.min(...series.map(({ value }) => value)), high = Math.max(...series.map(({ value }) => value));
+  const pad = (high - low) * 0.15 || Math.abs(high) * 0.01 || 1;
   const summary = hidden ? labels.hiddenChart : `${title}, ${labels.rangeNames[range]}: ${day(first.date)} ${formatEuros(first.valueCents, locale)}, ${day(last.date)} ${formatEuros(last.valueCents, locale)}`;
 
   return (
@@ -107,16 +111,16 @@ export function TrendCard({ locale, title, note, today, trend }: {
           ))}
         </div>
       </div>
-      <svg className="trend-chart" viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label={summary}>
-        <defs><linearGradient id={`${ids}fill`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity=".22" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient></defs>
-        <path d={`${line} L 600,180 L 0,180 Z`} fill={`url(#${ids}fill)`} />
-        <path d={line} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="financial-trend-labels" aria-hidden="true">
-        <span>{day(first.date)}</span><span>{day(points[Math.floor((points.length - 1) / 2)].date)}</span><span>{day(last.date)}</span>
+      <div className="trend-chart" role="img" aria-label={summary}>
+        <AreaChart data={series} aspectRatio="3 / 1" margin={{ top: 12, right: 24, bottom: 28, left: 24 }} revealSignature={range}
+          yDomainOverrides={{ left: [low - pad, high + pad] }}>
+          <Grid horizontal numTicksRows={3} />
+          <Area dataKey="value" fill="var(--chart-line-primary)" fillOpacity={0.22} fadeBottom={100} />
+          <XAxis numTicks={3} labels={series.map(({ label }) => label)} />
+          <ChartTooltip dateLabels={series.map(({ label }) => label)} rows={(point) => [
+            { color: "var(--chart-line-primary)", label: title, value: percent ? percentText(Number(point.value)) : money(Number(point.value)) },
+          ]} />
+        </AreaChart>
       </div>
       <p className="hint trend-note">{note} {labels.asOf} <time dateTime={today}>{new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${today}T00:00:00Z`))}</time></p>
     </section>

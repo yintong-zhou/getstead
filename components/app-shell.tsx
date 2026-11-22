@@ -7,6 +7,7 @@ import { adminCopy } from "./admin/copy";
 import { dashboardCopy } from "./dashboard-copy";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
+import { PageEnter } from "./page-enter";
 import "./cash-flow/cash-flow.css";
 
 export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile" | "admin" | "admin-logs";
@@ -127,7 +128,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
               </nav>
             )}
           </header>
-          {children}
+          <PageEnter>{children}</PageEnter>
         </div>
       </main>
 

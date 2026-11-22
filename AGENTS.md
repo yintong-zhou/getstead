@@ -33,6 +33,8 @@ Directives are living documents: improve them as you learn, but ask before creat
 - Database: PostgreSQL with Prisma ORM. Keep the schema and migrations in `db/`.
 - Authentication: library not decided yet. Requirements: httpOnly cookie sessions and 2FA.
 - Hosting: Vercel. Database in an EU region (GDPR).
+- Charts: Bklit UI components, copied into `components/charts/` from the `@bklit` shadcn registry (`npx shadcn@latest add @bklit/<name>`). Treat them as vendored code: ESLint skips the folder, and local changes (such as `yDomainOverrides` in `area-chart.tsx`) are documented in the README. Pass amounts as integer cents and format them for display only.
+- Motion: `motion/react` with the shared tokens in `lib/motion.ts` and the provider in `components/motion-provider.tsx`. Animate only `transform` and `opacity`, and keep the reduced-motion setting working.
 - Python 3 only for `execution/` scripts.
 - If `brand-guidelines.md` exists in the root, use its fonts and colors.
 

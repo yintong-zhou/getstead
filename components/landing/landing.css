@@ -14,7 +14,6 @@
 }
 .landing-narrow { max-width: 760px; }
 /* Same left edge as every other section; only the text measure is kept short. */
-.landing-measure > * { max-width: 760px; }
 
 /* ---- Header ---- */
 .landing-nav {
@@ -43,7 +42,7 @@
   border-radius: 12px;
   color: var(--ink);
   font-weight: 700;
-  transition: background-color 150ms ease;
+  transition: background-color 150ms var(--ease);
 }
 .landing-link:hover { background: var(--surface-alt); }
 
@@ -65,12 +64,12 @@
   font-size: 15px;
   font-weight: 700;
   text-align: center;
-  transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+  transition: background-color 150ms var(--ease), transform 150ms var(--ease), box-shadow 150ms var(--ease);
 }
-.landing-button:hover:not(:disabled) { background: #2249ca; transform: translateY(-1px); }
+.landing-button:hover:not(:disabled) { background: #2249ca; }
 .landing-button:active:not(:disabled) { transform: scale(.97); box-shadow: inset 0 2px 0 #ffffffb3, inset 0 0 0 1px #ffffff80, var(--glass-shadow); }
 .landing-button:disabled { cursor: progress; opacity: .7; }
-.landing-button-small { min-height: 44px; padding-inline: 14px; font-size: 13px; }
+.landing-button-small { min-height: 44px; padding-inline: 16px; font-size: 13px; }
 .landing-button-quiet {
   background: var(--glass-highlight), var(--glass-fill);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
@@ -97,7 +96,7 @@
   letter-spacing: -.02em;
   text-wrap: balance;
 }
-.landing h3 { font-size: 17px; font-weight: 750; line-height: 24px; letter-spacing: -.2px; }
+.landing h3 { font-size: 17px; font-weight: 700; line-height: 24px; letter-spacing: -.2px; }
 .landing-lead { margin-top: 16px; color: var(--landing-body); text-wrap: pretty; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; max-width: 34em; }
 .landing-note { margin-top: 16px; color: var(--muted); font-size: 14px; line-height: 20px; max-width: 34em; }
 
@@ -131,8 +130,6 @@
   border-radius: 50%;
   background: var(--brand);
 }
-.landing-points-large { gap: 20px; margin-top: 32px; font-size: 18px; }
-.landing-points-large li::before { inset-block-start: 10px; }
 
 .landing-steps { display: grid; gap: 16px; margin-top: 32px; padding: 0; list-style: none; }
 .landing-steps li {
@@ -141,9 +138,7 @@
   background: var(--glass-highlight), var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
-  transition: transform 150ms ease;
 }
-.landing-steps li:hover { transform: translateY(-2px); }
 .landing-steps p { margin-top: 8px; color: var(--landing-body); line-height: 1.5; text-wrap: pretty; }
 .landing-step-number {
   display: grid;
@@ -175,7 +170,7 @@
   list-style: none;
 }
 .landing-faq summary::-webkit-details-marker { display: none; }
-.landing-faq summary svg { flex: none; color: var(--muted); transition: transform 150ms ease; }
+.landing-faq summary svg { flex: none; color: var(--muted); transition: transform 150ms var(--ease); }
 .landing-faq details[open] summary svg { transform: rotate(180deg); }
 .landing-faq summary:hover { color: var(--brand); }
 .landing-faq summary:focus-visible, .landing-faq details:focus-within > summary { border-radius: 8px; background: var(--brand-soft); outline: 2px solid var(--brand); outline-offset: -2px; }
@@ -194,11 +189,11 @@
 .waitlist-field label { font-weight: 700; }
 .waitlist-field input[type="email"] {
   min-height: 48px;
-  padding-inline: 14px;
+  padding-inline: 16px;
   border: 0;
   border-radius: 12px;
   background: var(--glass-recessed);
-  box-shadow: inset 0 1px 3px #1b2b5e26;
+  box-shadow: inset 0 1px 3px #0f172a26;
   color: var(--ink);
   font: inherit;
   font-size: 16px;
@@ -221,21 +216,20 @@
   overflow: hidden;
   border-radius: 28px;
   background: color-mix(in srgb, var(--bg) 82%, light-dark(#fff, #000));
-  box-shadow: inset 0 0 0 1px #ffffffb3, 0 24px 64px #1b2b5e26, 0 2px 8px #1b2b5e14;
+  box-shadow: inset 0 0 0 1px #ffffffb3, 0 24px 64px #0f172a26, 0 2px 8px #0f172a14;
 }
 .mock-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--glass-hairline); color: var(--muted); font-size: 12px; font-weight: 700; }
 .mock-bar .brand-mark { width: 22px; height: 22px; }
 .mock-body { padding: 16px; }
 .mock-grid, .mock-stack { display: grid; gap: 16px; }
 .mock-frame .card { padding: 16px; }
-.mock-title { font-size: 17px; font-weight: 750; line-height: 24px; letter-spacing: -.2px; }
-.mock-label { margin-top: 4px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .6px; line-height: 14px; text-transform: uppercase; }
+.mock-title { font-size: 17px; font-weight: 700; line-height: 24px; letter-spacing: -.2px; }
+.mock-label { margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; line-height: 16px; }
 .mock-big { margin-top: 4px; font-size: 28px; font-weight: 800; line-height: 34px; letter-spacing: -.5px; }
-.mock-flag { margin-top: 6px; color: var(--negative); font-size: 12px; font-weight: 750; }
-.mock-frame .cash-chart { margin-block: 16px 4px; }
+.mock-flag { margin-top: 8px; color: var(--negative); font-size: 12px; font-weight: 700; }
 .mock-frame .rows { margin-top: 4px; }
 .mock-frame .budget-list { margin-top: 16px; }
-.mock-frame .row-amount small { font-size: 12px; font-weight: 750; }
+.mock-frame .row-amount small { font-size: 12px; font-weight: 700; }
 .mock-frame .row-amount { text-align: end; }
 .mock-worth { min-height: 260px; }
 .mock-frame .net-worth-plot { height: 120px; }
@@ -298,9 +292,7 @@
   background: var(--glass-highlight), var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
-  transition: transform 150ms ease;
 }
-.landing-facts li:hover { transform: translateY(-2px); }
 .landing-facts .row-icon { flex: none; }
 .landing-facts p { padding-top: 8px; color: var(--landing-body); font-size: 16px; line-height: 1.5; text-wrap: pretty; }
 @media (min-width: 640px) { .landing-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

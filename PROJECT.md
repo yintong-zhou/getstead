@@ -88,6 +88,8 @@ A single Next.js app in TypeScript, frontend and backend together, hosted on Ver
 | Database             | PostgreSQL with Prisma ORM                                                                         | Versioned migrations and typed data access                               |
 | Amounts              | Integers in cents or a decimal library, never floating-point numbers                                | No rounding errors on money                                              |
 | Authentication       | Next.js authentication library, session in an httpOnly cookie, 2FA                                  | A single point decides who sees which data                               |
+| Charts               | Bklit UI components copied into `components/charts/` through the shadcn registry                    | Tooltips, axes and transitions without writing chart code; no runtime chart library to upgrade |
+| Motion               | `motion/react`, one provider, shared tokens in `lib/motion.ts`                                      | One easing curve; respects the reduced-motion setting                    |
 | Data import          | TypeScript modules behind a common interface (CSV now, aggregator later)                            | Bank connections can be added without a rewrite                          |
 | Documents            | Encrypted file storage for bills and meeting minutes                                                | Attachments contain personal data and addresses                          |
 | Reminders            | Vercel Cron calling a protected route, email notifications                                          | Bills, renewals and condominium instalments never catch me off guard     |

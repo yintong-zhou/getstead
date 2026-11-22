@@ -32,12 +32,14 @@ Tax figures are indicative estimates, not tax statements. Investment prices and 
 
 ## How it works
 
-getstead is a full-stack Next.js application built with TypeScript, React and Tailwind CSS. PostgreSQL and Prisma handle persistence; application logic and data access live in `server/`, while `app/` contains pages and API route handlers. Financial amounts use integer cents or decimal arithmetic.
+getstead is a full-stack Next.js application built with TypeScript, React and Tailwind CSS. PostgreSQL and Prisma handle persistence; application logic and data access live in `server/`, while `app/` contains pages and API route handlers. Financial amounts use integer cents or decimal arithmetic. Charts come from [Bklit UI](https://ui.bklit.com) and animation from [Motion](https://motion.dev).
 
 | Directory | Purpose |
 | --- | --- |
 | `app/` | Pages and REST API route handlers |
 | `components/` | Interface components |
+| `components/charts/` | Bklit UI chart components, vendored from the `@bklit` shadcn registry |
+| `lib/` | Shared helpers: class-name merging (`utils.ts`) and motion tokens (`motion.ts`) |
 | `server/` | Business logic and data access |
 | `db/` | Prisma schema, migrations and runtime grants |
 | `public/` | Static assets |
@@ -110,6 +112,14 @@ node --env-file=.tmp/stead-auth-test.env --test server/cash-flow/postgres.integr
 ```
 
 To try the app against it, run `npm run build` and `node --env-file=.tmp/stead-auth-test.env node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3100`. Remove the database with `docker rm -f stead-test-pg`.
+
+## Charts and motion
+
+The cash flow bars (`components/cash-flow-chart.tsx`), the net worth and investments trend (`components/trend-card.tsx`) and the investment allocation donut (`components/investments/investments-view.tsx`) use Bklit UI components. Amounts reach the charts as integer cents and are formatted only for display, in axis labels, tooltips and the text alternative. Budget limits stay native `<progress>` bars.
+
+Bklit is not an npm package: its sources are copied into `components/charts/` with the shadcn CLI, using the `@bklit` registry declared in `components.json`. To add a chart type, run `npx shadcn@latest add @bklit/<name>`, for example `npx shadcn@latest add @bklit/line-chart`. Review the diff afterwards: the CLI can overwrite shared files such as `lib/utils.ts`, and it appends its `--chart-*` variables to `app/globals.css`, which must be mapped back to the brand palette. The folder is excluded from ESLint because the upstream code fails the `react-hooks/refs` rule. One local change is documented in `area-chart.tsx`: a `yDomainOverrides` prop, so a steady series is not squashed against the top of a zero-based axis.
+
+Motion (`motion/react`) is configured once in `components/motion-provider.tsx` with `reducedMotion="user"`. The easing curve, durations and rise distance live in `lib/motion.ts`; `components/page-enter.tsx` fades each page body in once. Animate only `transform` and `opacity`.
 
 ## Naming
 

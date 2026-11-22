@@ -42,3 +42,11 @@ test("meta titles and descriptions stay within search result lengths", () => {
     assert.ok(metaDescription.length >= 110 && metaDescription.length <= 160, `${locale} description is ${metaDescription.length} characters`);
   }
 });
+
+test("short interface strings end without a period", () => {
+  for (const locale of ["en", "it"] as const) {
+    const { steps } = landingCopy[locale].how;
+    for (const { title } of steps) assert.doesNotMatch(title, /\.$/, `${locale} step title ends with a period`);
+    assert.doesNotMatch(landingCopy[locale].waitlist.done, /\.$/);
+  }
+});

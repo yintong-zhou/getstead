@@ -4,6 +4,7 @@ import { BrandMark } from "../brand-mark";
 import { Icon } from "../icon";
 import { landingCopy } from "./copy";
 import { euros } from "@/components/euros";
+import { CashFlowChart } from "../cash-flow-chart";
 
 /*
  * Product previews for the public home. Every figure here is made up (the footer says so) and kept in
@@ -33,7 +34,6 @@ const trend = [
   { income: 320_000, expense: 290_000 },
   { income: 325_000, expense: 201_000 },
 ];
-const chartCap = 400_000;
 
 /** Twelve month-end net worth values, in cents. */
 const worth = [16_240_000, 16_390_000, 16_510_000, 16_480_000, 16_720_000, 16_890_000, 17_010_000, 17_240_000, 17_330_000, 17_610_000, 17_920_000, 18_425_000];
@@ -54,7 +54,6 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
 export function OverviewMock({ locale }: Props) {
   const { mock: copy } = landingCopy[locale];
   const net = trend[5].income - trend[5].expense;
-  const height = (cents: number) => `${(cents / chartCap) * 100}%`;
   const label = `${copy.chart}. ${trend.map(({ income, expense }, index) =>
     `${copy.months[6 + index]}: ${copy.income} ${formatEuros(income, locale)}, ${copy.expenses} ${formatEuros(expense, locale)}`).join("; ")}`;
 
@@ -82,22 +81,7 @@ export function OverviewMock({ locale }: Props) {
             <p className="mock-title">{copy.income} / {copy.expenses}</p>
             <span className="period">6 {locale === "it" ? "mesi" : "months"}</span>
           </header>
-          <div className="cash-chart" role="img" aria-label={label}>
-            <div className="cash-axis" aria-hidden="true">
-              {[chartCap, chartCap / 2, 0].map((tick) => <span key={tick}>{euros(tick, locale, { wholeEuros: true })}</span>)}
-            </div>
-            <div className="cash-plot" aria-hidden="true">
-              {trend.map(({ income, expense }, index) => (
-                <div className={`cash-month${index === 5 ? " cash-current" : ""}`} key={index}>
-                  <div className="cash-bars">
-                    <div className="cash-bar income-bar" style={{ height: height(income) }} />
-                    <div className="cash-bar expense-bar" style={{ height: height(expense) }} />
-                  </div>
-                  <span>{copy.months[6 + index]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <CashFlowChart points={trend.map(({ income, expense }, index) => ({ label: copy.months[6 + index], incomeCents: income, expenseCents: expense }))} locale={locale} labels={{ income: copy.income, expenses: copy.expenses }} summary={label} />
         </section>
       </div>
     </Frame>

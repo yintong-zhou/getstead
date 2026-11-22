@@ -1,5 +1,5 @@
 ﻿.investment-view .amount { overflow-wrap: anywhere; white-space: normal; }
-.investment-view h3 { font-weight: 750; }
+.investment-view h3 { font-weight: 700; }
 .investment-note { margin-top: 8px; max-width: 78ch; }
 .investment-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 .investment-allocation .allocation span, .investment-allocation .allocations i { background: var(--segment, var(--brand)); }
@@ -7,9 +7,16 @@
 .investment-allocation [data-kind="FUND"] { --segment: var(--chart-4); }
 .investment-allocation [data-kind="IT_GOV_BOND"] { --segment: var(--warning); }
 .investment-allocation [data-kind="BOND"] { --segment: var(--brand-ink); }
-.investment-allocation [data-kind="CRYPTO"] { --segment: #f43f5e; }
+.investment-allocation [data-kind="CRYPTO"] { --segment: var(--chart-5); }
 .investment-allocation [data-kind="OTHER"] { --segment: var(--muted); }
-.investment-allocation i { display: inline-block; width: 8px; height: 8px; margin-inline-end: 6px; border-radius: 50%; }
+.investment-allocation {
+  --allocation-etf: var(--chart-2); --allocation-fund: var(--chart-4); --allocation-it-gov-bond: var(--warning);
+  --allocation-bond: var(--brand-ink); --allocation-crypto: var(--chart-5); --allocation-other: var(--muted);
+}
+.allocation-donut { display: grid; justify-items: center; margin-block: 16px 12px; }
+.allocation-center { display: grid; gap: 4px; text-align: center; font-variant-numeric: tabular-nums; }
+.allocation-center small { color: var(--muted); font-size: 12px; }
+.investment-allocation i { display: inline-block; width: 8px; height: 8px; margin-inline-end: 8px; border-radius: 50%; }
 
 .investment-holdings { width: 100%; margin-top: 12px; }
 .investment-holdings thead {
@@ -24,7 +31,7 @@
 .investment-holdings tr {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
+  gap: 8px 12px;
   padding-block: 12px;
 }
 .investment-holdings th { grid-column: 1 / -1; overflow-wrap: anywhere; text-align: start; }
@@ -34,7 +41,7 @@
 .holding-label, .holding-kind { display: block; }
 .holding-kind { margin-top: 4px; font-weight: 500; }
 .investment-holdings .badge { margin-inline-start: 0; white-space: normal; }
-.investment-holdings th .badge { margin-inline-start: 6px; }
+.investment-holdings th .badge { margin-inline-start: 8px; }
 .investment-details summary { cursor: pointer; width: fit-content; }
 .investment-details summary::marker { content: ""; }
 .investment-details summary::-webkit-details-marker { display: none; }
@@ -44,7 +51,7 @@
 .investment-yearly, .investment-metrics { display: grid; gap: 8px 16px; margin-top: 12px; }
 .investment-metrics { grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr)); }
 .investment-metrics dt, .investment-yearly dt { color: var(--muted); font-size: 12px; }
-.investment-metrics dd { font-weight: 750; }
+.investment-metrics dd { font-weight: 700; }
 .investment-yearly > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .investment-item { border-top: 1px solid var(--glass-hairline); padding-block: 8px; }
 .investment-item [aria-expanded="true"] { background-color: var(--surface-alt); }

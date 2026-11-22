@@ -26,12 +26,12 @@ Bilancio brings all of a person's money into one place: cash flow, budget, inves
 Bilancio speaks like a knowledgeable friend: direct, warm, never technical without reason. It addresses the user informally ("tu" in Italian), uses short sentences and action verbs. The product launches in Italian; these rules apply to every language.
 
 - **Do:** concrete numbers, one idea per sentence, a proposed action after every alert.
-- **Don't:** unexplained financial jargon, blaming, strings of exclamation marks, emoji in informational copy (allowed only in the greeting).
+- **Don't:** unexplained financial jargon, blaming, strings of exclamation marks, emoji anywhere in the interface.
 
 
 | Situation       | Do                                                | Don't                                            |
 | --------------- | ------------------------------------------------- | ------------------------------------------------ |
-| Greeting        | Hi, Yintong 👋                                    | Welcome to your financial control panel          |
+| Greeting        | Hi, Yintong                                       | Welcome to your financial control panel          |
 | Budget exceeded | Restaurants over budget. Move funds from Leisure? | Warning!!! You spent too much!                   |
 | Due date        | Electricity bill · Due Nov 22                     | Reminder: a utility-related payment is coming up |
 | Investments     | Consider rebalancing \~ € 1,700                   | Your portfolio is unbalanced                     |
@@ -99,7 +99,7 @@ The whole product uses **Plus Jakarta Sans**, a modern geometric sans that stays
 | Body/Strong    | SemiBold  | 15 / 20 px         | 0                  | Transaction names, list amounts  |
 | Body/Regular   | Medium    | 14 / 20 px         | 0                  | Body text, text actions          |
 | Caption        | Medium    | 12 / 16 px         | 0                  | Dates, categories, legends       |
-| Overline       | SemiBold  | 11 / 14 px         | +0.6 px, UPPERCASE | Labels above amounts             |
+| Overline       | SemiBold  | 12 / 16 px         | 0, sentence case   | Labels above amounts             |
 
 
 **Marketing scale (public home page).** The home page sets its headline at 46 px ExtraBold, −0.03 em tracking, and section titles at 26–40 px ExtraBold. Body text there uses #3B4658 instead of text-secondary so it reads at AAA on the page background; text-secondary stays for labels and captions.
@@ -161,10 +161,11 @@ Every chart answers a single question, written in the card title. We use few cha
 | How close are we to a limit?       | Progress bar                                  | Budget by category                          |
 
 
-- The current period is at full opacity; past periods at 55%.
+- On hover, the focused bar or point stays at full opacity and the others fade (the Bklit default). Showing past periods at 55% is not applied yet.
 - On Brand Dark backgrounds the line is light (#9DB6FF) with an area faded from the same color.
-- A reference comparison (e.g. capital invested) is drawn dashed.
+- A reference comparison (e.g. capital invested) is drawn dashed. Not in the app yet.
 - No dense grids, 3D or distant legends: the legend sits right under the chart.
+- Charts are built with Bklit UI (shadcn registry `@bklit`, vendored in `components/charts/`) and Motion. Series colors come from `--chart-1…5` in `app/globals.css`; tooltips show the exact amount; reduced-motion devices get no draw animation.
 - An exceeded budget bar becomes full and red, and the card shows an alert with an action.
 
 ## Components and patterns
@@ -194,7 +195,7 @@ The components already exist in Figma in the "Componenti" section; every new scr
 
 Liquid Glass is the application's visual style. Cards, buttons and dropdown menus let the background show through. Profile and settings offers a browser-local transparency slider with a live preview. The slider runs from opaque surfaces at 0% to the default glass effect at 100%. Reduced-transparency preferences and the no-blur fallback use opaque surfaces automatically.
 
-**Principle.** Glass needs something beneath it. A soft low-saturation gradient of brand, chart-2 and chart-4 gives the glass depth, painted on a fixed background layer rather than `background-attachment: fixed` so it works on iOS.
+**Principle.** Glass needs something beneath it. A soft low-saturation wash of the brand blue gives the glass depth, painted on a fixed background layer rather than `background-attachment: fixed` so it works on iOS.
 
 **Glass tokens** (the default Tokens collection; dark values are reserved for a future dark theme)
 
@@ -206,7 +207,7 @@ Liquid Glass is the application's visual style. Cards, buttons and dropdown menu
 | glass/popup-fill  | white 94%                            | To be defined        | Legible dropdown menus over other content   |
 | glass/stroke      | white 70%, 1 px inner                | white 18%, 1 px inner | Luminous edge that defines the shape       |
 | glass/highlight   | white gradient 60% → 0% from the top | white 25% → 0%        | Reflection on the top edge                 |
-| glass/shadow      | 0 8 32 #1B2B5E 12%                   | 0 8 32 black 40%      | Separation from the background             |
+| glass/shadow      | 0 8 32 #0F172A 10%                   | 0 8 32 black 40%      | Separation from the background             |
 | glass/blur        | 24 px                                | 24 px                 | Background blur (16 px on small controls)  |
 | glass/saturate    | 180%                                 | 160%                  | Keeps colors vivid as they show through    |
 | glass/tint-brand  | #2F5BEA at least 90%                 | To be verified        | Tinted-glass primary button with AA text   |
@@ -254,6 +255,17 @@ The app's Lightning CSS build adds the `-webkit-` prefix, so source CSS must con
   .glass { background: #fff; }
 }
 ```
+
+## Motion
+
+Motion explains what changed; it never decorates. The app uses one easing curve, `cubic-bezier(0.22, 1, 0.36, 1)`, and three durations: 150 ms for hover and press, 200 ms for menus, popovers and tooltips, 400 ms for entrances.
+
+- A page body fades in once on arrival and rises 8 px.
+- Charts draw on arrival and tween when the period changes; tooltips follow the pointer.
+- Only `transform` and `opacity` animate. Nothing loops, bounces, or lifts on hover.
+- When the device asks for reduced motion, transforms are off and only opacity changes.
+
+Tokens: `lib/motion.ts` (Motion) and `--ease` in `app/globals.css` (CSS transitions).
 
 ## Numbers, currency and dates
 
