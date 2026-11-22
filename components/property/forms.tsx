@@ -72,6 +72,8 @@ export function PropertyForm({ locale, accounts, property }: { locale: Locale; a
     };
     const saved = await action.run(() => property ? propertyCall("PATCH", `/properties/${property.id}`, body) : propertyCall("POST", "/properties", body), copy.propertySaved);
     if (saved && !property) form.reset();
+    // The edit form lives in a collapsible <details>: fold it away once the change is saved.
+    if (saved && property) form.closest("details")?.removeAttribute("open");
   }}>
     <div className="form-grid">
       <Input label={copy.name} name="name" maxLength={80} required defaultValue={property?.name ?? ""} />

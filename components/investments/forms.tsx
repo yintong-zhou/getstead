@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useId, useState, type ComponentProps } from "react";
+import { useId, useRef, useState, type ComponentProps } from "react";
 import { Select } from "../select";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
@@ -69,7 +69,7 @@ type TransactionProps = {
   today: PortfolioData["today"];
 };
 
-function TransactionForm({ locale, today, accounts, instruments, transaction }: TransactionProps & { transaction?: TransactionDto }) {
+function TransactionForm({ locale, today, accounts, instruments, transaction, onSaved }: TransactionProps & { transaction?: TransactionDto; onSaved?: () => void }) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
@@ -105,6 +105,7 @@ function TransactionForm({ locale, today, accounts, instruments, transaction }: 
       form.reset();
       setType("BUY");
     }
+    if (saved) onSaved?.();
   }}>
     {transaction && <h3 id={headingId} className="visually-hidden">{copy.editTransaction}</h3>}
     <p id={noteId} className="hint investment-note">{copy.valuationCurrency}</p>
@@ -140,6 +141,7 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
   const [editing, setEditing] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
   const account = accounts.find((item) => item.id === row.accountId);
   const instrument = instruments.find((item) => item.id === row.instrumentId);
   const archived = Boolean(account?.archived || instrument?.archived);
@@ -154,7 +156,7 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
       </div>
       <b className="amount">{euros(row.amountCents, locale)}</b>
       <div className="investment-actions">
-        <button type="button" className="button button-quiet" aria-expanded={editing} aria-controls={details}
+        <button ref={editButton} type="button" className="button button-quiet" aria-expanded={editing} aria-controls={details}
           aria-label={`${editing ? shared.cancel : shared.edit} · ${label} · ${row.tradeDate} · #${row.ordinal}`}
           onClick={() => setEditing(!editing)}>{editing ? shared.cancel : shared.edit}</button>
         <button type="button" className="button button-quiet" disabled={action.pending || (row.voided && archived)}
@@ -167,7 +169,11 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
     <NoticeLine notice={action.notice} />
     <div id={details} hidden={!editing}>
       {/* key: remount when the server reassigns the ordinal, or the uncontrolled input keeps the stale value */}
-      {editing && <TransactionForm key={row.ordinal} {...props} transaction={row} />}
+      {editing && <TransactionForm key={row.ordinal} {...props} transaction={row} onSaved={() => {
+        setEditing(false);
+        action.setNotice({ kind: "ok", text: copy.transactionSaved });
+        requestAnimationFrame(() => editButton.current?.focus());
+      }} />}
     </div>
   </li>;
 }
@@ -198,7 +204,7 @@ export function Transactions({ transactions, ...props }: TransactionProps & { tr
   </>;
 }
 
-function InstrumentForm({ locale, instrument }: { locale: Locale; instrument?: InstrumentDto }) {
+function InstrumentForm({ locale, instrument, onSaved }: { locale: Locale; instrument?: InstrumentDto; onSaved?: () => void }) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
@@ -218,6 +224,7 @@ function InstrumentForm({ locale, instrument }: { locale: Locale; instrument?: I
         ? investmentCall("PATCH", `/instruments/${instrument.id}`, body)
         : investmentCall("POST", "/instruments", body), copy.instrumentSaved);
       if (saved && !instrument) form.reset();
+      if (saved) onSaved?.();
     }}>
     <div className="form-grid">
       <Input label={copy.name} name="name" maxLength={120} required defaultValue={instrument?.name} />
@@ -244,6 +251,7 @@ function InstrumentRow({ locale, instrument }: { locale: Locale; instrument: Ins
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
   const [editing, setEditing] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
   const id = useId();
   return <li className="investment-item">
     <div className="investment-row">
@@ -252,7 +260,7 @@ function InstrumentRow({ locale, instrument }: { locale: Locale; instrument: Ins
         <span>{[copy.kinds[instrument.kind], instrument.symbol, instrument.isin].filter(Boolean).join(" · ")}</span>
       </div>
       <div className="investment-actions">
-        <button type="button" className="button button-quiet" aria-expanded={editing} aria-controls={id}
+        <button ref={editButton} type="button" className="button button-quiet" aria-expanded={editing} aria-controls={id}
           aria-label={`${editing ? shared.cancel : shared.edit} · ${instrument.name}`} onClick={() => setEditing(!editing)}>{editing ? shared.cancel : shared.edit}</button>
         <button type="button" className="button button-quiet" disabled={action.pending}
           aria-label={`${instrument.archived ? shared.restore : shared.archive} · ${instrument.name}`}
@@ -261,7 +269,11 @@ function InstrumentRow({ locale, instrument }: { locale: Locale; instrument: Ins
       </div>
     </div>
     <NoticeLine notice={action.notice} />
-    <div id={id} hidden={!editing}>{editing && <InstrumentForm locale={locale} instrument={instrument} />}</div>
+    <div id={id} hidden={!editing}>{editing && <InstrumentForm locale={locale} instrument={instrument} onSaved={() => {
+      setEditing(false);
+      action.setNotice({ kind: "ok", text: copy.instrumentSaved });
+      requestAnimationFrame(() => editButton.current?.focus());
+    }} />}</div>
   </li>;
 }
 
@@ -280,7 +292,8 @@ export function QuickPrice({ locale, today, instrumentId, name }: { locale: Loca
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
-  return <details className="investment-details">
+  const details = useRef<HTMLDetailsElement>(null);
+  return <details ref={details} className="investment-details">
     <summary className="button button-quiet" aria-label={`${copy.addPrice} · ${name}`}>{copy.addPrice}</summary>
     <form className="form-grid" aria-label={`${copy.addPrice} · ${name}`} onSubmit={async (event) => {
       event.preventDefault();
@@ -292,7 +305,10 @@ export function QuickPrice({ locale, today, instrumentId, name }: { locale: Loca
         return;
       }
       const saved = await action.run(() => investmentCall("POST", "/quotes", { instrumentId, asOf: data.get("asOf"), unitPrice }), copy.priceSaved);
-      if (saved) form.reset();
+      if (saved) {
+        form.reset();
+        if (details.current) details.current.open = false;
+      }
     }}>
       <Input label={copy.priceDate} name="asOf" {...dateBounds} defaultValue={today} />
       <Input label={copy.price} name="unitPrice" inputMode="decimal" maxLength={80} required />

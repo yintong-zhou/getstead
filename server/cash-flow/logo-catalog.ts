@@ -1,7 +1,7 @@
 export type LogoProvider = {
   id: string;
   name: string;
-  group: "bank" | "broker";
+  group: "bank" | "broker" | "card" | "crypto";
   aliases: readonly string[];
   asset: string;
 };
@@ -132,6 +132,30 @@ export const logoCatalog: readonly LogoProvider[] = [
     id: "xtb", name: "XTB", group: "broker", aliases: [],
     asset: "https://xas-cdn.xtb.com/build/twigImages/icons/apple-icon-180x180.png",
   },
+  {
+    id: "american-express", name: "American Express", group: "card", aliases: ["amex"],
+    asset: "https://www.americanexpress.com/apple-touch-icon.png",
+  },
+  {
+    id: "nexi", name: "Nexi", group: "card", aliases: [],
+    asset: "https://www.nexi.it/etc.clientlibs/nexinew/clientlibs/clientlib-site/resources/favicons/favicon.png",
+  },
+  {
+    id: "paypal", name: "PayPal", group: "card", aliases: [],
+    asset: "https://www.paypalobjects.com/webstatic/icon/pp196.png",
+  },
+  {
+    id: "bitpanda", name: "Bitpanda", group: "crypto", aliases: [],
+    asset: "https://www.bitpanda.com/favicons/apple-touch-icon-image.png",
+  },
+  {
+    id: "coinbase", name: "Coinbase", group: "crypto", aliases: [],
+    asset: "https://www.coinbase.com/apple-touch-icon.png",
+  },
+  {
+    id: "kraken", name: "Kraken", group: "crypto", aliases: [],
+    asset: "https://www.kraken.com/apple-touch-icon.png",
+  },
 ];
 
 function normalizeName(name: string) {
@@ -145,10 +169,16 @@ export function findCatalogLogo(name: string) {
   return matches.length === 1 ? matches[0] : null;
 }
 
-export const logoAccountTypes = ["CHECKING", "BROKERAGE"] as const;
+export type LogoGroup = LogoProvider["group"];
 
-export function supportsAccountLogo(type: string) {
-  return logoAccountTypes.some((supported) => supported === type);
-}
+/** Catalog groups offered in the picker for each account type; an empty list means upload or link only. */
+export const logoGroupsByType: Record<string, readonly LogoGroup[]> = {
+  CHECKING: ["bank"],
+  CARD: ["card", "bank"],
+  BROKERAGE: ["broker"],
+  CRYPTO: ["crypto"],
+  DEBT: ["bank"],
+  CASH: [],
+};
 
 export const catalogLogoPath = (id: string) => `/account-logos/${id}.webp`;

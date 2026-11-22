@@ -3,13 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
-import { supportsAccountLogo } from "@/server/cash-flow/logo-catalog";
+import { logoGroupsByType } from "@/server/cash-flow/logo-catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
 import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
 import { Select } from "../select";
-import { AccountLogoControls, AccountLogoThumbnail, accountLogoLabel, accountLogoPath } from "./account-logo";
+import { AccountLogoControls, accountLogoLabel, accountLogoPath } from "./account-logo";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { MoreActions } from "./more-actions";
@@ -83,16 +83,13 @@ function AccountRow({ locale, account, lookup, action }: {
   const [logoOpen, setLogoOpen] = useState<boolean>();
   const showLogo = logoOpen ?? lookup === "failed";
   const path = `/accounts/${account.id}`;
-  const withLogo = supportsAccountLogo(account.type);
 
   return (
     <Row
       locale={locale} name={account.name} archived={account.archived} meta={copy.accountTypes[account.type]}
       confirmDelete={copy.confirmDeleteAccount(account.name)}
-      logo={withLogo
-        ? <AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} />
-        : <AccountLogoThumbnail src={null} />}
-      menuItems={withLogo && (
+      logo={<AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} onDone={() => setLogoOpen(false)} />}
+      menuItems={(
         <button className="button button-quiet" type="button" aria-expanded={showLogo} onClick={() => setLogoOpen(!showLogo)}>
           {accountLogoLabel(locale)}
         </button>
@@ -156,7 +153,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
             if (!result) return;
             form.reset();
             const { id, type } = result.data;
-            if (!supportsAccountLogo(type)) return;
+            if (!logoGroupsByType[type]?.length) return; // cash has no catalog to match against
             setLookups((current) => new Map(current).set(id, "pending"));
             const logo = await call("POST", accountLogoPath(id), { lookup: true });
             setLookups((current) => {

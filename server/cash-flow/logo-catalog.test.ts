@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import sharp from "sharp";
-import { findCatalogLogo, logoCatalog, supportsAccountLogo } from "./logo-catalog.ts";
+import { accountTypes } from "./catalog.ts";
+import { findCatalogLogo, logoCatalog, logoGroupsByType } from "./logo-catalog.ts";
 
 test("the catalog resolves bank and broker aliases without guessing ambiguous names", () => {
   for (const [name, id] of [
@@ -10,13 +11,18 @@ test("the catalog resolves bank and broker aliases without guessing ambiguous na
     ["N-26", "n26"], ["SelfyConto", "mediolanum"], ["Crédit Agricole Italia", "credit-agricole"], ["Revolut personale", "revolut"],
     ["Trade Republic spare cash", "trade-republic"], ["Investimenti IBKR", "interactive-brokers"],
     ["Trading212", "trading-212"], ["Portafoglio Directa", "directa"],
+    ["Amex Gold", "american-express"], ["Wallet Coinbase", "coinbase"],
   ]) assert.equal(findCatalogLogo(name)?.id, id);
   for (const name of ["Conto famiglia", "Shopping", "Fineco / Banco BPM", "Directa e DEGIRO"]) {
     assert.equal(findCatalogLogo(name), null);
   }
-  assert.equal(supportsAccountLogo("CHECKING"), true);
-  assert.equal(supportsAccountLogo("BROKERAGE"), true);
-  assert.equal(supportsAccountLogo("CASH"), false);
+});
+
+test("every account type has a picker configuration and every group it names has providers", () => {
+  for (const type of accountTypes) {
+    assert.ok(type in logoGroupsByType, type);
+    for (const group of logoGroupsByType[type]) assert.ok(logoCatalog.some((provider) => provider.group === group), `${type}/${group}`);
+  }
 });
 
 test("every catalog entry ships a sourced, unique WebP thumbnail", async () => {
