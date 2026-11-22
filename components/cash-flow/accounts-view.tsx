@@ -8,6 +8,7 @@ import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
 import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
+import { parseLimit } from "../money";
 import { Select } from "../select";
 import { AccountLogoControls, accountLogoLabel, accountLogoPath } from "./account-logo";
 import { call } from "./api";
@@ -146,8 +147,17 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           onSubmit={async (event) => {
             const form = event.currentTarget;
             const data = formData(event);
+            const accountType = String(data.get("type"));
+            const balanceText = String(data.get("balance") ?? "").trim();
+            const cents = balanceText ? parseLimit(balanceText) : undefined;
+            if (cents === null) {
+              accountsAction.setNotice({ kind: "error", text: copy.openingBalanceError });
+              return;
+            }
+            // Cards and debts hold what you owe: the amount typed is stored as negative.
+            const openingBalanceCents = cents === undefined ? undefined : accountType === "CARD" || accountType === "DEBT" ? -cents : cents;
             const result = await accountsAction.run(
-              () => call<AccountDto>("POST", "/accounts", { name: String(data.get("name") ?? ""), type: String(data.get("type")) }),
+              () => call<AccountDto>("POST", "/accounts", { name: String(data.get("name") ?? ""), type: accountType, ...(cents === undefined ? {} : { openingBalanceCents }) }),
               copy.accountAdded,
             );
             if (!result) return;
@@ -172,6 +182,11 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           <div className="form-field">
             <label htmlFor="account-type">{copy.accountType}</label>
             <Select id="account-type" name="type" defaultValue="CHECKING" options={accountTypes.map((type) => ({ value: type, label: copy.accountTypes[type] }))} />
+          </div>
+          <div className="form-field">
+            <label htmlFor="account-balance">{copy.openingBalance}</label>
+            <input id="account-balance" name="balance" className="field amount-field" inputMode="decimal" aria-describedby="account-balance-hint" />
+            <p className="hint" id="account-balance-hint">{copy.openingBalanceHint}</p>
           </div>
           <button className="button form-submit" type="submit" disabled={accountsAction.pending}>{copy.addAccount}</button>
         </form>

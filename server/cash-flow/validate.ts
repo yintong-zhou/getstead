@@ -131,6 +131,10 @@ export class Reader {
     return raw as number;
   }
 
+  optionalSignedCents(key: string): number | undefined {
+    return this.has(key) ? this.signedCents(key) : undefined;
+  }
+
   /** A limit may be zero. */
   limit(key: string): number {
     const raw = this.take(key);

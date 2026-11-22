@@ -298,6 +298,21 @@ test("accounts with a movement or a balance check cannot be deleted", async () =
   assert.equal((await listChecks(owner))[0]?.id, check.id);
 });
 
+test("an account created with an opening balance starts at that balance without a movement", async () => {
+  const user = await newUser();
+  const now = new Date("2026-11-19T10:00:00Z");
+  const checking = await createAccount(user, { name: "Synthetic opening", type: "CHECKING", openingBalanceCents: 125_000 }, now);
+  const card = await createAccount(user, { name: "Synthetic opening card", type: "CARD", openingBalanceCents: -4_000 }, now);
+  const plain = await createAccount(user, { name: "Synthetic no balance", type: "CASH" }, now);
+  const checks = await listChecks(user);
+  assert.deepEqual(checks.map(({ accountId, asOf, balanceCents }) => [accountId, asOf, balanceCents]).sort(),
+    [[checking.id, "2026-11-18", 125_000], [card.id, "2026-11-18", -4_000]].sort());
+  assert.equal(await db().movement.count({ where: { userId: user } }), 0);
+  assert.equal(checks.some(({ accountId }) => accountId === plain.id), false);
+  await rejectsApi(createAccount(user, { name: "Synthetic bad", type: "CASH", openingBalanceCents: 1.5 }, now), 422, "validation");
+  assert.equal((await listAccounts(user)).some(({ name }) => name === "Synthetic bad"), false);
+});
+
 test("balance checks upsert and delete under the runtime role, with user isolation and database constraints", async () => {
   const [a, b] = [await newUser(), await newUser()];
   const checking = await account(a);

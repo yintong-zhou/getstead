@@ -2,6 +2,7 @@
 
 import type { Account, Category } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
+import { addDays, romeToday, toDate } from "./dates.ts";
 import { Reader } from "./validate.ts";
 import { conflict, notFound } from "./errors.ts";
 
@@ -27,11 +28,23 @@ export async function listAccounts(userId: string, includeArchived = false) {
   return rows.map(accountDto);
 }
 
-export async function createAccount(userId: string, input: Record<string, unknown>) {
+/**
+ * `openingBalanceCents` (signed, negative for an amount owed) starts the account at its current balance without a movement:
+ * it is stored as a balance check for yesterday, so movements dated today still add on top of it.
+ */
+export async function createAccount(userId: string, input: Record<string, unknown>, now = new Date()) {
   const reader = new Reader(input);
   const data = { name: reader.text("name", 80), type: reader.oneOf("type", accountTypes) };
+  const openingBalanceCents = reader.optionalSignedCents("openingBalanceCents");
   reader.done();
-  return accountDto(await db().account.create({ data: { userId, ...data } }));
+  if (openingBalanceCents === undefined) return accountDto(await db().account.create({ data: { userId, ...data } }));
+  return db().$transaction(async (client) => {
+    const row = await client.account.create({ data: { userId, ...data } });
+    await client.balanceCheck.create({
+      data: { userId, accountId: row.id, asOf: toDate(addDays(romeToday(now), -1)), balanceCents: openingBalanceCents },
+    });
+    return accountDto(row);
+  });
 }
 
 export async function updateAccount(userId: string, id: string, input: Record<string, unknown>) {
