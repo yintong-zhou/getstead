@@ -135,7 +135,7 @@ export function AccountLogoControls({ account, locale, lookup, open }: {
         }}>
           <div className="form-field">
             <label htmlFor={`${panel}-url`}>{labels.url}</label>
-            <input className="field" id={`${panel}-url`} name="url" type="url" required maxLength={2048} placeholder="https://" />
+            <input className="field" id={`${panel}-url`} name="url" type="url" required maxLength={2048} autoComplete="off" spellCheck={false} placeholder="https://example.com/logo.png…" />
           </div>
           <button type="submit" className="button" disabled={busy}>{labels.useLink}</button>
         </form>

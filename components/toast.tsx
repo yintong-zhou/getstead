@@ -21,7 +21,7 @@ export function Toast({ notice }: { notice: Notice }) {
     <div className={`toast toast-${notice.kind}`} role={notice.kind === "ok" ? "status" : "alert"}>
       <span className="toast-mark" aria-hidden="true">{notice.kind === "ok" ? <Icon name="check" size={16} /> : "!"}</span>
       <span className="toast-text">{notice.text}</span>
-      <button className="toast-close" type="button" aria-label={document.documentElement.lang === "it" ? "Chiudi" : "Close"} onClick={() => setHidden(notice)}>×</button>
+      <button className="toast-close" type="button" aria-label={document.documentElement.lang === "it" ? "Chiudi" : "Close"} onClick={() => setHidden(notice)}><span aria-hidden="true">×</span></button>
     </div>,
     document.getElementById("toast-region") ?? document.body,
   );

@@ -202,7 +202,7 @@ export function Select(props: Props) {
       {expanded && createPortal(
         <div ref={popup} id={popupId} role="listbox" aria-label={popupLabel} aria-labelledby={popupLabel ? undefined : props.id} className="select-popup" style={position}
           onPointerDown={(event) => event.preventDefault()}>
-          {visible.length === 0 && <div className="select-empty">{document.documentElement.lang === "it" ? "Nessun risultato" : "No results"}</div>}
+          {visible.length === 0 && <div className="select-empty" role="status">{document.documentElement.lang === "it" ? "Nessun risultato" : "No results"}</div>}
           {shown.map((group, groupIndex) => {
             const items = group.options.map((option) => {
               const index = offset++;
