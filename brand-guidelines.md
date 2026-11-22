@@ -46,7 +46,7 @@ The mark is a glass drop with two round eyes and a curled tip, in a blue-to-viol
 
 - **Files:** `docs/brand/getstead-mark.png` is the master (transparent, 811 × 811 px). `public/brand/getstead-mark.png` (128 px) feeds the in-app mark through `components/brand-mark.tsx`; `app/icon.png` (192 px, transparent) is the favicon and `app/apple-icon.png` (180 px, on the light page color) is the home-screen icon. The mark is a raster image; a vector version is still to be drawn.
 - **Clear space:** at least a quarter of the mark's width on every side.
-- **Backgrounds:** light backgrounds and glass surfaces. On Brand Dark use it with a light page-color circle behind it, never directly on dark blue.
+- **Backgrounds:** light backgrounds and glass surfaces. On the dark theme and on Brand Dark it stays transparent, with nothing behind it (the owner prefers it over a light circle).
 - **Minimum size:** 24 px wide. Below that, show the name only.
 - **Don't:** recolor the gradient, add shadows or outlines, distort, rotate or crop the mark, add other faces, or set the name in another typeface.
 
@@ -84,7 +84,7 @@ The palette is restrained: light, neutral backgrounds, a confident blue as the l
 - Color never carries meaning alone: pair it with a sign (+ / −, ▲ / ▼) or a label.
 - One solid Brand element per view (the primary button or the floating "+").
 - "Soft" variants are backgrounds; text on them stays text-primary or the matching solid color.
-- Dark theme: to be defined as a second mode of the Tokens collection.
+- **Dark theme** (Settings → Theme: Match my device / Light / Dark). Same token names, second value; in code each is a `light-dark()` pair in `app/globals.css`. Dark values: bg #0B1020, surface #141B30, surface-alt #1C2540, border #2B3659, text-primary #E8EDF8, text-secondary #A6B4CC, brand (text, icons, outlines) #86A3FF, brand-soft #1F2B52, positive #4ADE80 (ink #6EE7A0, soft #11351F), negative #F87171 (soft #3B1A20), warning #FBBF24 (soft #3A2C0D). Solid brand fills (primary button, "+") stay #2F5BEA with white text (5.5:1), and hero cards stay brand-dark, so they read the same in both themes. All text pairs above were checked at ≥ 4.5:1.
 
 ## Typography
 

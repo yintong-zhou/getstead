@@ -256,6 +256,26 @@ test("unused accounts can be deleted only by their owner, including their logo",
   await rejectsApi(deleteAccount(owner, unused.id), 404, "not_found");
 });
 
+test("unused categories are deleted with their rules and limits, and only by their owner; used ones are refused", async () => {
+  const { deleteCategory } = await import("./catalog.ts");
+  const [owner, other] = [await newUser(), await newUser()];
+  const unused = await category(owner, "Synthetic unused");
+  const used = await category(owner, "Synthetic used");
+  await createRule(owner, { phrase: "synthetic phrase", categoryId: unused.id });
+  await setLimit(owner, { categoryId: unused.id, limitCents: 5_000 }, new Date("2026-11-10T12:00:00Z"));
+  const checking = await account(owner);
+  await movement(owner, checking.id, "2026-11-03", -100, { categoryId: used.id });
+
+  await rejectsApi(deleteCategory(other, unused.id), 404, "not_found");
+  await rejectsApi(deleteCategory(owner, used.id), 409, "category_in_use");
+  assert.equal((await listCategories(owner, true)).length, 2);
+  await deleteCategory(owner, unused.id);
+  assert.deepEqual((await listCategories(owner, true)).map((row) => row.id), [used.id]);
+  assert.equal(await admin.categoryRule.count({ where: { userId: owner } }), 0);
+  assert.equal(await admin.budgetLimit.count({ where: { userId: owner } }), 0);
+  await rejectsApi(deleteCategory(owner, unused.id), 404, "not_found");
+});
+
 test("accounts with a movement or a balance check cannot be deleted", async () => {
   const { deleteAccount } = await import("./catalog.ts");
   assert.equal(typeof deleteAccount, "function", "The catalog must support account deletion");
@@ -517,7 +537,6 @@ test("the runtime role has no DELETE on history tables and cannot rewrite owners
   const rejected = /permission denied/i;
   await assert.rejects(db().$executeRaw`DELETE FROM stead_movements`, rejected);
   // Accounts are DELETE-able only while unreferenced: the RESTRICT foreign keys refuse the rest (see the deletion tests).
-  await assert.rejects(db().$executeRaw`DELETE FROM stead_categories`, rejected);
   await assert.rejects(db().$executeRaw`DELETE FROM stead_recurring_templates`, rejected);
   await assert.rejects(db().$executeRaw`TRUNCATE stead_movements`, rejected);
   await assert.rejects(db().$executeRaw`UPDATE stead_movements SET user_id = user_id`, rejected);

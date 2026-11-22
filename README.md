@@ -66,7 +66,7 @@ npm ci
 npm run db:migrate
 ```
 
-Connect to the `stead` database in `psql` as `stead_auth_owner` and run `\i db/grant-runtime.sql` to grant the app role its permissions. Run it again after every migration: it covers authentication and the cash flow tables (no `DELETE` on accounts, categories, movements or templates, and `UPDATE` only on the columns the services change). The runtime uses `DATABASE_URL`. Prisma Migrate and owner commands use `DATABASE_ADMIN_URL` for administrative access. Keep the administrative URL in the migration or provisioning environment when deploying the app.
+Connect to the `stead` database in `psql` as `stead_auth_owner` and run `\i db/grant-runtime.sql` to grant the app role its permissions. Run it again after every migration: it covers authentication and the cash flow tables (no `DELETE` on movements or templates; accounts and categories can be deleted only while nothing references them, and `UPDATE` only on the columns the services change). The runtime uses `DATABASE_URL`. Prisma Migrate and owner commands use `DATABASE_ADMIN_URL` for administrative access. Keep the administrative URL in the migration or provisioning environment when deploying the app.
 
 ```sh
 npm run auth:owner -- create

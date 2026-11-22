@@ -1,4 +1,4 @@
-// Accounts and categories. Both are archived so old movements keep their references; an unused account can be deleted.
+// Accounts and categories. Both are archived so old movements keep their references; an unused account or category can be deleted.
 
 import type { Account, Category } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
@@ -65,6 +65,24 @@ export async function deleteAccount(userId: string, id: string) {
     if (!count) throw notFound();
   } catch (error) {
     if ((error as { code?: string })?.code === "P2003") throw conflict("account_in_use");
+    throw error;
+  }
+}
+
+/**
+ * Deletes a category no movement or template uses. Its rules and budget limits go with it in the same transaction;
+ * the RESTRICT foreign keys on movements and templates make the database decide "in use" atomically and roll all of it back.
+ */
+export async function deleteCategory(userId: string, id: string) {
+  try {
+    await db().$transaction(async (client) => {
+      await client.categoryRule.deleteMany({ where: { userId, categoryId: id } });
+      await client.budgetLimit.deleteMany({ where: { userId, categoryId: id } });
+      const { count } = await client.category.deleteMany({ where: { userId, id } });
+      if (!count) throw notFound();
+    });
+  } catch (error) {
+    if ((error as { code?: string })?.code === "P2003") throw conflict("category_in_use");
     throw error;
   }
 }

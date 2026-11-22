@@ -9,6 +9,7 @@ import { call } from "../cash-flow/api";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { profileCopy } from "./copy";
 import { GlassSettings } from "./glass-settings";
+import { ThemeSettings } from "./theme-settings";
 import { TotpSettings } from "./totp-settings";
 import "./profile.css";
 
@@ -24,6 +25,7 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
     {profile.mustChangePassword && <p className="notice notice-warn profile-must-change" role="alert">
       {copy.mustChangePassword} <a className="text-link" href="#profile-password-title">{copy.password}</a>
     </p>}
+    <ThemeSettings locale={locale} />
     <GlassSettings locale={locale} />
     <TotpSettings locale={locale} initialEnabled={profile.totpEnabled} />
     <section className="card profile-card" aria-labelledby="profile-name-title">
