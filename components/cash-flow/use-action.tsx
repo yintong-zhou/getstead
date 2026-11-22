@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Locale } from "@/server/locale";
 import { errorText, type ApiResult } from "./api";
+import { Toast } from "../toast";
 import { cashFlowCopy } from "./copy";
 
 /** `warn` means the request succeeded but did not leave the screen the way the person intended. */
@@ -43,11 +44,7 @@ export function useAction(locale: Locale, failureText?: (result: Extract<ApiResu
   return { pending, notice, run, setNotice };
 }
 
-/** One live region per form so assistive technology announces outcomes. */
+/** Outcomes appear as toasts (they carry the live-region role, so assistive technology announces them). */
 export function NoticeLine({ notice }: { notice: Notice }) {
-  return (
-    <p className={`notice${notice ? ` notice-${notice.kind}` : ""}`} role={notice && notice.kind !== "ok" ? "alert" : "status"}>
-      {notice?.text ?? ""}
-    </p>
-  );
+  return <Toast notice={notice} />;
 }

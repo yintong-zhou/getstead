@@ -8,6 +8,7 @@ import { call } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { Pager } from "../cash-flow/movements-view";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
+import { useConfirm } from "../confirm-dialog";
 import { Select } from "../select";
 import { usersHref, type UsersQuery } from "./admin-query";
 import { adminCopy, type AdminCopy } from "./copy";
@@ -50,6 +51,7 @@ export function AdminView({ locale, selfId, overview, query, list }: Props) {
   const failureText = (result: { error: string }) => copy.errors[result.error] ?? copy.errors.generic;
   const createAction = useAction(locale, failureText);
   const rowAction = useAction(locale, failureText);
+  const { confirm, dialog } = useConfirm(copy.cancel);
   const [secret, setSecret] = useState<{ email: string; password: string } | null>(null);
   const date = new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Rome" });
   const when = (value: string | null) => (value ? date.format(new Date(value)) : copy.never);
@@ -62,19 +64,20 @@ export function AdminView({ locale, selfId, overview, query, list }: Props) {
   ];
 
   async function reset(user: AdminUserDto) {
-    if (!window.confirm(copy.confirmReset)) return;
+    if (!(await confirm(copy.confirmReset, copy.resetPassword))) return;
     const result = await rowAction.run(() => call<{ temporaryPassword: string }>("POST", `/users/${user.id}/reset-password`, undefined, "/api/admin"), copy.passwordReset);
     if (result) setSecret({ email: user.email, password: result.data.temporaryPassword });
   }
 
   async function toggle(user: AdminUserDto) {
     const disable = !user.disabledAt;
-    if (disable && !window.confirm(copy.confirmDisable)) return;
+    if (disable && !(await confirm(copy.confirmDisable, copy.disable, true))) return;
     await rowAction.run(() => call("POST", `/users/${user.id}/${disable ? "disable" : "enable"}`, undefined, "/api/admin"),
       disable ? copy.userDisabled : copy.userEnabled);
   }
 
   return <div className="stack">
+    {dialog}
     <section className="card" aria-labelledby="admin-overview-title">
       <h2 id="admin-overview-title">{copy.overview}</h2>
       <dl className="stats admin-stats">

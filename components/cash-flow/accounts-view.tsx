@@ -11,6 +11,7 @@ import { AccountLogoControls, AccountLogoThumbnail, accountLogoLabel, accountLog
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { MoreActions } from "./more-actions";
+import { useConfirm } from "../confirm-dialog";
 import { NoticeLine, useAction } from "./use-action";
 
 const accountTypes = ["CHECKING", "CARD", "CASH", "BROKERAGE", "CRYPTO", "DEBT"] as const;
@@ -30,6 +31,7 @@ function Row({ locale, name, meta, archived, logo, menuItems, onRename, onArchiv
   const copy = cashFlowCopy[locale];
   const [editing, setEditing] = useState(false);
   const inputId = useId();
+  const { confirm, dialog } = useConfirm(copy.cancel);
   const trigger = useRef<HTMLElement>(null);
   const stopEditing = () => {
     setEditing(false);
@@ -62,11 +64,12 @@ function Row({ locale, name, meta, archived, logo, menuItems, onRename, onArchiv
             <button className="button button-quiet" type="button" onClick={() => setEditing(true)}>{copy.edit}</button>
             {menuItems}
             <button className="button button-quiet" type="button" onClick={onArchive}>{archived ? copy.restore : copy.archive}</button>
-            {onDelete && <button className="button button-quiet" type="button" onClick={onDelete}>{copy.delete}</button>}
+            {onDelete && <button className="button button-quiet" type="button" onClick={async () => { if (await confirm(copy.confirmDeleteAccount(name), copy.delete, true)) onDelete(); }}>{copy.delete}</button>}
           </MoreActions>
         </>
       )}
       {logo}
+      {dialog}
     </li>
   );
 }
@@ -93,9 +96,7 @@ function AccountRow({ locale, account, lookup, action }: {
       )}
       onRename={(name) => action.run(() => call("PATCH", path, { name }), copy.saved)}
       onArchive={() => action.run(() => call("PATCH", path, { archived: !account.archived }), copy.saved)}
-      onDelete={() => {
-        if (window.confirm(copy.confirmDeleteAccount(account.name))) void action.run(() => call("DELETE", path), copy.removed);
-      }}
+      onDelete={() => void action.run(() => call("DELETE", path), copy.removed)}
     />
   );
 }

@@ -146,6 +146,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
           </Link>
         ))}
       </nav>
+      <div id="toast-region" className="toast-region" />
     </div>
   );
 }

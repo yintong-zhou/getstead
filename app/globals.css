@@ -144,7 +144,7 @@ a, summary { -webkit-tap-highlight-color: transparent; }
   white-space: nowrap;
 }
 
-.demo-label span, .chart-legend i, .budget-name i, .allocations i {
+.demo-label span, .chart-legend i, .allocations i {
   display: inline-block;
   width: 8px;
   height: 8px;
@@ -381,13 +381,14 @@ h1 {
 .trend-arrow { display: inline-flex; }
 .trend-card[data-tone="negative"] .trend-arrow { transform: scaleY(-1); }
 .trend-period { color: var(--muted); font-weight: 600; }
-.trend-ranges { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--glass-recessed); box-shadow: inset 0 0 0 1px var(--glass-hairline); }
+.trend-ranges { display: flex; gap: 2px; }
 .trend-ranges button {
   min-width: 44px; min-height: 36px; padding-inline: 10px; border-radius: 8px;
   color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease;
 }
-.trend-ranges button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #0f172a1a; }
+.trend-ranges button[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
+.trend-ranges button:hover:not([aria-pressed="true"]) { color: var(--ink); }
 .trend-ranges button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .trend-chart { display: block; width: 100%; height: 160px; margin-top: 8px; color: var(--trend-color); }
 .trend-note { margin-top: 4px; }
@@ -623,7 +624,7 @@ h1 {
 }
 
 .budget-name, .budget-amount strong { font-weight: 750; }
-.budget-name i { background: var(--budget-color); }
+.budget-name svg { flex-shrink: 0; color: var(--budget-color); }
 .budget-amount { color: var(--muted); }
 .budget-amount strong { color: var(--ink); }
 
@@ -795,6 +796,10 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 .select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: start; }
 .select-trigger > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .select-trigger > svg { flex-shrink: 0; }
+.select-search { position: relative; }
+.select-search > input { padding-inline-end: 40px; text-overflow: ellipsis; }
+.select-search > svg { position: absolute; inset-inline-end: 12px; top: 50%; translate: 0 -50%; pointer-events: none; }
+.select-empty { padding: 12px; color: var(--muted); }
 .select-popup {
   z-index: 40;
   overflow-y: auto;
@@ -871,3 +876,36 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 /* Plus Jakarta Sans centres "+" and "−" at 0.25em above the baseline but its figures at 0.37em
    (measured in the bundled font, no "case" feature to fix it), so signs look low. Lift them. */
 .sign { position: relative; top: -0.12em; }
+
+/* Confirmation dialog and toasts: same glass surface as the select popup. */
+.confirm-dialog {
+  width: min(420px, calc(100vw - 24px)); padding: 20px; border: 0; border-radius: 20px;
+  background: var(--glass-popup-fill); color: var(--ink); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
+}
+.confirm-dialog::backdrop { background: #0f172a52; backdrop-filter: blur(2px); }
+.confirm-dialog p { margin: 0 0 16px; font-size: 15px; line-height: 1.5; }
+.confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.button.confirm-danger { background: #fde4e4; color: var(--negative); }
+.button.confirm-danger:hover:not(:disabled) { background: #fbd0d0; }
+
+.toast-region {
+  position: fixed; inset-inline: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 60;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+@media (width < 768px) { .toast-region { bottom: calc(96px + env(safe-area-inset-bottom)); } }
+.toast {
+  display: flex; align-items: flex-start; gap: 10px; max-width: min(440px, 100%); padding: 10px 6px 10px 12px; border-radius: 16px;
+  background: var(--glass-popup-fill); color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1.4; pointer-events: auto;
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%); box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
+}
+@media (prefers-reduced-motion: no-preference) { .toast { animation: toast-in 180ms ease-out; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+.toast-mark { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; font-size: 13px; font-weight: 800; }
+.toast-ok .toast-mark { background: #dff3e6; color: var(--positive-ink); }
+.toast-warn .toast-mark { background: var(--warning-soft); color: #8d5107; }
+.toast-error .toast-mark { background: #fde4e4; color: var(--negative); }
+.toast-text { flex: 1; min-width: 0; padding-block: 1px; overflow-wrap: anywhere; }
+.toast-close { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.toast-close:hover { background: var(--brand-soft); color: var(--ink); }
+.toast-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }

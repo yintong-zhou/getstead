@@ -1,10 +1,14 @@
 "use client";
 
-import { Fragment, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./icon";
+import { filterGroups } from "./select-filter";
 
-type Option = { value: string; label: string; disabled?: boolean };
+/** `pinned` options stay visible while the user types a search (e.g. "New category"). */
+type Option = { value: string; label: string; disabled?: boolean; pinned?: boolean };
+/** Lists this long or longer become a type-to-search input; short ones stay a plain picker (no keyboard pop-up on phones). */
+const SEARCHABLE_FROM = 7;
 export type SelectGroup = { label: string; options: Option[] };
 type Props = {
   id: string;
@@ -16,21 +20,26 @@ type Props = {
   | { name: string; defaultValue?: string; value?: never; onChange?: never }
 );
 
-/** Select-only combobox. Focus stays on the labelled trigger while its active option changes. */
+/** Combobox. Focus stays on the labelled trigger while its active option changes; long lists let the user type to filter. */
 export function Select(props: Props) {
   const popupId = useId();
-  const trigger = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLButtonElement | HTMLInputElement>(null);
   const popup = useRef<HTMLDivElement>(null);
   const search = useRef({ text: "", time: 0 });
   const groups = props.groups ?? [{ label: "", options: props.options }];
   const options = groups.flatMap((group) => group.options);
+  const searchable = options.length >= SEARCHABLE_FROM;
+  // Text typed into the search box; null shows the selected label instead.
+  const [text, setText] = useState<string | null>(null);
+  const shown = text === null ? groups : filterGroups(groups, text);
+  const visible = shown.flatMap((group) => group.options);
   const initial = props.defaultValue ?? options[0]?.value ?? "";
   const [stored, setStored] = useState(initial);
   // Like a native select, an uncontrolled field falls back when its selected option is removed.
   const value = props.value ?? (options.some((option) => option.value === stored) ? stored : options[0]?.value ?? "");
   const selected = options.findIndex((option) => option.value === value);
   const [active, setActive] = useState(0);
-  const activeIndex = Math.min(active, Math.max(0, options.length - 1));
+  const activeIndex = Math.min(active, Math.max(0, visible.length - 1));
   const [open, setOpen] = useState(false);
   const [popupLabel, setPopupLabel] = useState<string>();
   const [position, setPosition] = useState<CSSProperties>({});
@@ -60,6 +69,7 @@ export function Select(props: Props) {
   function show(index = Math.max(0, selected)) {
     if (props.disabled || options.length === 0) return;
     trigger.current?.focus();
+    if (trigger.current instanceof HTMLInputElement) trigger.current.select();
     setPopupLabel(trigger.current?.labels?.[0]?.textContent?.trim() || undefined);
     place();
     search.current = { text: "", time: 0 };
@@ -68,20 +78,29 @@ export function Select(props: Props) {
   }
 
   function choose(index: number) {
-    const option = options[index];
+    const option = visible[index];
     if (!option || option.disabled) return;
     if (option.value !== value) {
       if (props.value === undefined) setStored(option.value);
       props.onChange?.(option.value);
     }
     setOpen(false);
+    setText(null);
     trigger.current?.focus();
+  }
+
+  function type(next: string) {
+    if (!expanded) show();
+    setText(next);
+    // Prefer the first real match over a pinned entry such as "New category".
+    const filtered = filterGroups(groups, next).flatMap((group) => group.options);
+    setActive(Math.max(0, filtered.findIndex((option) => !option.pinned)));
   }
 
   useEffect(() => {
     const form = trigger.current?.form;
     if (!form || props.value !== undefined) return;
-    const reset = () => { setStored(initial); setOpen(false); };
+    const reset = () => { setStored(initial); setOpen(false); setText(null); };
     form.addEventListener("reset", reset);
     return () => form.removeEventListener("reset", reset);
   }, [initial, props.value]);
@@ -110,26 +129,28 @@ export function Select(props: Props) {
     if (expanded) document.getElementById(`${popupId}-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
   }, [expanded, activeIndex, popupId]);
 
-  function keyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "Tab") { setOpen(false); return; }
+  function keyDown(event: KeyboardEvent<HTMLButtonElement | HTMLInputElement>) {
+    if (event.key === "Tab") { setOpen(false); setText(null); return; }
     if (event.key === "Escape") {
-      if (expanded) { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
+      if (expanded) { event.preventDefault(); event.stopPropagation(); setOpen(false); setText(null); trigger.current?.focus(); }
       return;
     }
+    // In the search box these keys edit the text; Enter is still handled below so it never submits the form.
+    if (searchable && (event.key === "Home" || event.key === "End" || event.key === " " || event.key.length === 1)) return;
     const now = Date.now();
     const continuingSearch = search.current.text !== "" && now - search.current.time < 700;
     if (["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "].includes(event.key) && !(event.key === " " && continuingSearch)) {
       event.preventDefault();
       if (!options.length) return;
       if (event.key === "Home" || event.key === "End") {
-        const index = event.key === "Home" ? 0 : options.length - 1;
+        const index = event.key === "Home" ? 0 : visible.length - 1;
         if (expanded) setActive(index); else show(index);
       } else if (!expanded) {
         show();
       } else if (event.key === "Enter" || event.key === " ") {
         choose(activeIndex);
       } else {
-        setActive(Math.max(0, Math.min(options.length - 1, activeIndex + (event.key === "ArrowDown" ? 1 : -1))));
+        setActive(Math.max(0, Math.min(visible.length - 1, activeIndex + (event.key === "ArrowDown" ? 1 : -1))));
       }
       return;
     }
@@ -155,19 +176,34 @@ export function Select(props: Props) {
         // A hidden input skips validation; an invisible empty required one blocks submit like a native select.
         ? <input className="select-required" name={props.name} value="" onChange={() => {}} required tabIndex={-1} aria-hidden disabled={props.disabled} />
         : <input type="hidden" name={props.name} value={value} disabled={props.disabled} />)}
-      <button
-        ref={trigger} id={props.id} className="field select-trigger" type="button" role="combobox"
-        disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-controls={expanded ? popupId : undefined}
-        aria-activedescendant={expanded ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
-        onClick={() => expanded ? setOpen(false) : show()} onKeyDown={keyDown}
-        onBlur={() => setOpen(false)}
-      >
-        <span>{options[selected]?.label ?? "\u2014"}</span><Icon name="chevron" size={18} />
-      </button>
+      {searchable ? (
+        <div className="select-search">
+          <input
+            ref={trigger as RefObject<HTMLInputElement>} id={props.id} className="field" type="text" role="combobox" autoComplete="off" autoCapitalize="off" spellCheck={false}
+            disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-autocomplete="list" aria-controls={expanded ? popupId : undefined}
+            aria-activedescendant={expanded && visible.length ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
+            value={text ?? options[selected]?.label ?? ""} onChange={(event) => type(event.target.value)}
+            onFocus={(event) => event.target.select()} onClick={() => { if (!expanded) show(); }} onKeyDown={keyDown}
+            onBlur={() => { setOpen(false); setText(null); }}
+          />
+          <Icon name="chevron" size={18} />
+        </div>
+      ) : (
+        <button
+          ref={trigger as RefObject<HTMLButtonElement>} id={props.id} className="field select-trigger" type="button" role="combobox"
+          disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-controls={expanded ? popupId : undefined}
+          aria-activedescendant={expanded ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
+          onClick={() => expanded ? setOpen(false) : show()} onKeyDown={keyDown}
+          onBlur={() => setOpen(false)}
+        >
+          <span>{options[selected]?.label ?? "\u2014"}</span><Icon name="chevron" size={18} />
+        </button>
+      )}
       {expanded && createPortal(
         <div ref={popup} id={popupId} role="listbox" aria-label={popupLabel} aria-labelledby={popupLabel ? undefined : props.id} className="select-popup" style={position}
           onPointerDown={(event) => event.preventDefault()}>
-          {groups.map((group, groupIndex) => {
+          {visible.length === 0 && <div className="select-empty">{document.documentElement.lang === "it" ? "Nessun risultato" : "No results"}</div>}
+          {shown.map((group, groupIndex) => {
             const items = group.options.map((option) => {
               const index = offset++;
               return <div

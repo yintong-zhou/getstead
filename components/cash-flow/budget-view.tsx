@@ -5,6 +5,8 @@ import { useId, useRef, useState, type CSSProperties, type FormEvent } from "rea
 import type { BudgetRow } from "@/server/cash-flow/budget";
 import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import { formatEuros, type Locale } from "@/server/locale";
+import { categoryIcon } from "../category-icon";
+import { Icon } from "../icon";
 import { addMonths, formatMonth } from "../format";
 import { editableEuros, parseLimit } from "../money";
 import { call, type ApiResult } from "./api";
@@ -148,7 +150,7 @@ function BudgetMonth({ locale, month, currentMonth, rows }: { locale: Locale; mo
               return (
                 <li key={row.categoryId} className={`budget-item${over ? " budget-over" : ""}`} style={over ? undefined : ({ "--budget-color": palette[index % palette.length] } as CSSProperties)}>
                   <div className="budget-caption">
-                    <span className="budget-name"><i aria-hidden="true" />{row.name}{row.archived ? ` (${copy.archivedSuffix})` : ""}</span>
+                    <span className="budget-name"><Icon name={categoryIcon(row.name, "EXPENSE")} size={16} />{row.name}{row.archived ? ` (${copy.archivedSuffix})` : ""}</span>
                     <span className="amount budget-amount">
                       <strong>{euros(row.spentCents, locale)}</strong>
                       {row.limitCents !== null ? ` / ${formatEuros(row.limitCents, locale)}` : ` · ${copy.noLimit}`}

@@ -6,6 +6,7 @@ import { formatEuros, type Locale } from "@/server/locale";
 import { AppShell } from "./app-shell";
 import { dashboardCopy, type DashboardCopy } from "./dashboard-copy";
 import { formatDay, formatMonth } from "./format";
+import { categoryIcon } from "./category-icon";
 import { Icon } from "./icon";
 import { euros } from "@/components/euros";
 
@@ -66,7 +67,9 @@ function ActivityRow({ item, locale, today, copy }: {
   item: DashboardData["latest"][number]; locale: Locale; today: string; copy: DashboardCopy;
 }) {
   const tone = item.isTransfer ? "blue" : item.amountCents > 0 ? "green" : "red";
-  const icon = item.isTransfer ? "cashFlow" : item.amountCents > 0 ? "arrowDown" : "arrowUp";
+  const icon = item.isTransfer ? "cashFlow"
+    : item.categoryName ? categoryIcon(item.categoryName, item.amountCents > 0 ? "INCOME" : "EXPENSE")
+    : item.amountCents > 0 ? "arrowDown" : "arrowUp";
   const label = item.isTransfer ? copy.transfer : item.categoryName ?? copy.noCategory;
 
   return (

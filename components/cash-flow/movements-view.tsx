@@ -7,6 +7,7 @@ import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import type { MovementDto } from "@/server/cash-flow/movements";
 import { type Locale } from "@/server/locale";
 import { addMonths, formatDay, formatMonth } from "../format";
+import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
 import { Select, type SelectGroup } from "../select";
 import { editableEuros, parseEuros } from "../money";
@@ -46,7 +47,7 @@ function categoryGroups({ copy, categories, current, only, newLabel }: {
 }): SelectGroup[] {
   const usable = categories.filter((category) => (!category.archived || category.id === current) && (!only || category.kind === only));
   return [
-    { label: "", options: [...(newLabel ? [{ value: NEW_CATEGORY, label: newLabel }] : []), { value: "", label: only ? "—" : copy.noCategory }] },
+    { label: "", options: [...(newLabel ? [{ value: NEW_CATEGORY, label: newLabel, pinned: true }] : []), { value: "", label: only ? "—" : copy.noCategory }] },
     ...(only ? ([only] as const) : (["EXPENSE", "INCOME"] as const)).map((kind) => ({
       label: copy.kinds[kind],
       options: usable.filter((category) => category.kind === kind).map((category) => ({
@@ -458,7 +459,8 @@ export function Row({ locale, movement, accounts, categories, today }: {
   const chargeLinked = movement.chargeLinked;
   const refund = !paired && movement.amountCents > 0 && category?.kind === "EXPENSE";
   const tone = paired ? "blue" : movement.amountCents > 0 ? "green" : "red";
-  const icon = paired ? "cashFlow" : movement.amountCents > 0 ? "arrowDown" : "arrowUp";
+  // The category sets the icon; the colour still says whether money came in or went out.
+  const icon = paired ? "cashFlow" : category ? categoryIcon(category.name, category.kind) : movement.amountCents > 0 ? "arrowDown" : "arrowUp";
   const subtitle = [paired ? null : category?.name ?? copy.noCategory, account?.name, formatDay(movement.bookingDate, locale, today, days(locale))]
     .filter(Boolean).join(" · ");
 
