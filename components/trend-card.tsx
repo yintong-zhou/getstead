@@ -85,7 +85,7 @@ export function TrendCard({ locale, title, note, today, trend }: {
         <button type="button" className="button button-quiet" aria-pressed={hidden} onClick={toggleHidden}>
           <Icon name={hidden ? "eyeOff" : "eye"} size={18} />{labels.hide}
         </button>
-        <button type="button" className="button button-quiet" onClick={() => setPercent(!percent)}>
+        <button type="button" className="button button-quiet" aria-pressed={percent} onClick={() => setPercent(!percent)}>
           <Icon name="recurring" size={18} />{percent ? labels.percent : labels.absolute}
         </button>
       </div>
@@ -118,7 +118,7 @@ export function TrendCard({ locale, title, note, today, trend }: {
       <div className="financial-trend-labels" aria-hidden="true">
         <span>{day(first.date)}</span><span>{day(points[Math.floor((points.length - 1) / 2)].date)}</span><span>{day(last.date)}</span>
       </div>
-      <p className="hint trend-note">{note} {labels.asOf} <time dateTime={today}>{today}</time></p>
+      <p className="hint trend-note">{note} {labels.asOf} <time dateTime={today}>{new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${today}T00:00:00Z`))}</time></p>
     </section>
   );
 }

@@ -883,10 +883,11 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   background: var(--glass-popup-fill); color: var(--ink); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
 }
+.confirm-dialog { overscroll-behavior: contain; }
 .confirm-dialog::backdrop { background: #0f172a52; backdrop-filter: blur(2px); }
 .confirm-dialog p { margin: 0 0 16px; font-size: 15px; line-height: 1.5; }
 .confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.button.confirm-danger { background: #fde4e4; color: var(--negative); }
+.button.confirm-danger { background: var(--negative-soft); color: var(--negative); }
 .button.confirm-danger:hover:not(:disabled) { background: #fbd0d0; }
 
 .toast-region {
@@ -902,10 +903,11 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 @media (prefers-reduced-motion: no-preference) { .toast { animation: toast-in 180ms ease-out; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 .toast-mark { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; font-size: 13px; font-weight: 800; }
-.toast-ok .toast-mark { background: #dff3e6; color: var(--positive-ink); }
+.toast-ok .toast-mark { background: var(--positive-soft); color: var(--positive-ink); }
 .toast-warn .toast-mark { background: var(--warning-soft); color: #8d5107; }
-.toast-error .toast-mark { background: #fde4e4; color: var(--negative); }
+.toast-error .toast-mark { background: var(--negative-soft); color: var(--negative); }
 .toast-text { flex: 1; min-width: 0; padding-block: 1px; overflow-wrap: anywhere; }
 .toast-close { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+@media (pointer: coarse) { .toast-close { width: 44px; height: 44px; } }
 .toast-close:hover { background: var(--brand-soft); color: var(--ink); }
 .toast-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }

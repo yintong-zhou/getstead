@@ -22,7 +22,7 @@ function ConfirmDialog({ ask, cancelLabel, done }: { ask: Ask; cancelLabel: stri
   useEffect(() => { if (!ref.current?.open) ref.current?.showModal(); }, []);
   return (
     // Cancel comes first so it takes the initial focus: an accidental Enter never confirms a destructive action.
-    <dialog ref={ref} className="confirm-dialog" aria-describedby={messageId}
+    <dialog ref={ref} className="confirm-dialog" aria-labelledby={messageId}
       onCancel={(event) => { event.preventDefault(); done(false); }}
       onClick={(event) => { if (event.target === ref.current) done(false); }}>
       <p id={messageId}>{ask.message}</p>
