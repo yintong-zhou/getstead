@@ -13,7 +13,8 @@ import { db, disconnectDb } from "../auth/database.ts";
 import { createAccount, createAccountType, updateAccount } from "../cash-flow/catalog.ts";
 import { encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
-import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio } from "./service.ts";
+import { searchMarket } from "./alpha-vantage.ts";
+import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio, refreshMarketQuotes, linkInstrumentMarket } from "./service.ts";
 
 let admin: PrismaClient;
 before(() => {
@@ -33,6 +34,66 @@ const buy = (accountId: string, instrumentId: string, extra = {}) => ({ accountI
 const rejects = (promise: Promise<unknown>, status: number, code?: string) => assert.rejects(promise, (error: unknown) => {
   const failure = error as { status?: number; code?: string };
   return failure.status === status && (!code || failure.code === code);
+});
+
+test("Postgres shares the provider reservation and cached answer between concurrent requests", async (context) => {
+  const query = `Synthetic ${randomUUID()}`;
+  const cacheKey = `search:${query.toLowerCase()}`;
+  const now = new Date();
+  const key = process.env.ALPHA_VANTAGE_SECRET;
+  process.env.ALPHA_VANTAGE_SECRET = "synthetic";
+  let calls = 0;
+  context.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return Response.json({ bestMatches: [{
+      "1. symbol": "TEST", "2. name": "Synthetic", "3. type": "ETF", "4. region": "XETRA", "8. currency": "EUR",
+    }] });
+  });
+  try {
+    await Promise.all([searchMarket(query, now), searchMarket(query, now)]);
+    assert.equal((await searchMarket(query, now))[0]?.symbol, "TEST");
+    assert.equal(calls, 1);
+  } finally {
+    if (key === undefined) delete process.env.ALPHA_VANTAGE_SECRET;
+    else process.env.ALPHA_VANTAGE_SECRET = key;
+    await admin.marketCache.deleteMany({ where: { cacheKey } });
+    await admin.marketRequest.deleteMany({ where: { attemptedAt: now } });
+  }
+});
+
+test("daily closes update both investment and net-worth history without mixing users or manual price records", async () => {
+  const { userId, account, instrument } = await fixture();
+  const other = await fixture();
+  const closed = await createInstrument(userId, { name: "Closed ETF", kind: "ETF" });
+  for (const id of [instrument.id, closed.id, other.instrument.id]) {
+    await admin.instrument.update({ where: { id }, data: { marketSymbol: "TEST", marketName: "Synthetic exchange", marketCurrency: "USD" } });
+  }
+  await createTransaction(userId, buy(account.id, instrument.id));
+  await createTransaction(userId, buy(account.id, closed.id));
+  await createTransaction(userId, buy(account.id, closed.id, { type: "SELL", tradeDate: "2026-11-04" }));
+  await createTransaction(other.userId, buy(other.account.id, other.instrument.id));
+  const now = new Date("2026-11-06T17:00:00Z");
+  let requests = 0;
+  const fetchClose: NonNullable<Parameters<typeof refreshMarketQuotes>[2]> = async () => {
+    requests++;
+    return { asOf: "2026-11-05", unitPrice: "75", currency: "USD", fxRate: "0.9", fxAsOf: "2026-11-05" };
+  };
+  assert.deepEqual(await refreshMarketQuotes(userId, now, fetchClose), { changed: true });
+  assert.equal(requests, 1);
+  assert.deepEqual(await refreshMarketQuotes(userId, now, fetchClose), { changed: false });
+  assert.equal((await getPortfolio(userId, now, { trend: true })).gainCents, 15_000);
+  assert.equal((await getNetWorth(userId, now)).holdingsCents, 75_000);
+  assert.equal((await getNetWorth(other.userId, now)).holdingsCents, 60_000);
+  assert.deepEqual(await listQuotes(userId), []);
+  const manual = await recordQuote(userId, { instrumentId: instrument.id, asOf: "2026-11-05", unitPrice: "80" });
+  assert.equal((await getPortfolio(userId, now)).holdings[0].priceSource, "MANUAL");
+  assert.equal((await getNetWorth(userId, now)).holdingsCents, 80_000);
+  await deleteQuote(userId, manual.id);
+  assert.equal((await getPortfolio(userId, now)).holdings[0].priceSource, "ALPHA_VANTAGE");
+  await rejects(linkInstrumentMarket(other.userId, instrument.id, { symbol: null }), 404);
+  await linkInstrumentMarket(userId, instrument.id, { symbol: null });
+  assert.equal((await listInstruments(userId)).find(({ id }) => id === instrument.id)?.market, null);
+  assert.equal((await getNetWorth(userId, now)).holdingsCents, 75_000);
 });
 
 test("investment cash plus holdings preserves net worth and void removes both effects", async () => {
@@ -98,11 +159,12 @@ test("ownership, incompatible account types and runtime privileges are enforced"
   assert.equal((await listTransactions(a.userId)).length, 1);
   await updateTransaction(a.userId, row.id, { voided: true });
   await rejects(updateAccount(a.userId, a.account.id, { type: "CASH" }), 409);
-  const [rights] = await db().$queryRaw<{ instrument_delete: boolean; transaction_delete: boolean; ownership_update: boolean }[]>`
+  const [rights] = await db().$queryRaw<{ instrument_delete: boolean; transaction_delete: boolean; ownership_update: boolean; market_delete: boolean }[]>`
     SELECT has_table_privilege(current_user, 'stead_instruments', 'DELETE') AS instrument_delete,
       has_table_privilege(current_user, 'stead_investment_transactions', 'DELETE') AS transaction_delete,
-      has_column_privilege(current_user, 'stead_investment_transactions', 'user_id', 'UPDATE') AS ownership_update`;
-  assert.deepEqual(rights, { instrument_delete: false, transaction_delete: false, ownership_update: false });
+      has_column_privilege(current_user, 'stead_investment_transactions', 'user_id', 'UPDATE') AS ownership_update,
+      has_table_privilege(current_user, 'stead_market_price_quotes', 'DELETE') AS market_delete`;
+  assert.deepEqual(rights, { instrument_delete: true, transaction_delete: true, ownership_update: false, market_delete: false });
   await assert.rejects(db().investmentTransaction.create({ data: { userId: a.userId, accountId: b.account.id, instrumentId: a.instrument.id, type: "DIVIDEND", tradeDate: new Date("2026-11-01"), ordinal: 1, amountCents: 1n, feesCents: 0n, taxWithheldCents: 0n } }));
   await assert.rejects(db().investmentTransaction.create({ data: { userId: a.userId, accountId: a.account.id, instrumentId: a.instrument.id, type: "COUPON", tradeDate: new Date("2026-11-01"), ordinal: 1, amountCents: 1n, feesCents: 1n, taxWithheldCents: 0n } }));
 });
@@ -256,7 +318,7 @@ test("deductions never exceed the gross amount, in the service and in the databa
 test("moving a transaction to another date or instrument puts it last unless an ordinal is given; DTOs omit internal columns", async () => {
   const { userId, account, instrument } = await fixture();
   const other = await createInstrument(userId, { name: "Second synthetic ETF", kind: "ETF" });
-  assert.deepEqual(Object.keys(other).sort(), ["archived", "id", "isin", "kind", "name", "symbol"]);
+  assert.deepEqual(Object.keys(other).sort(), ["archived", "id", "isin", "kind", "market", "name", "symbol"]);
   assert.equal("userId" in (await updateInstrument(userId, other.id, { symbol: "SYN" })), false);
   const first = await createTransaction(userId, buy(account.id, instrument.id));
   await createTransaction(userId, buy(account.id, instrument.id, { tradeDate: "2026-11-03" }));

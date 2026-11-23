@@ -22,6 +22,20 @@ function trade(overrides: Partial<Transaction> = {}): Transaction {
 const rangeError = { status: 422, code: "value_out_of_range" };
 const negativeError = { status: 422, code: "negative_position" };
 
+test("automatic closes value open holdings and a same-day manual quote takes precedence", () => {
+  const nextDay = "2026-11-21";
+  const automatic = { instrumentId: stock.id, asOf, unitPrice: "15", source: "ALPHA_VANTAGE" as const };
+  const manual = { instrumentId: stock.id, asOf, unitPrice: "16" };
+  const later = { ...automatic, asOf: nextDay, unitPrice: "17" };
+  const [holding] = holdingsValue([stock], [trade()], [automatic, manual, later], asOf);
+  assert.equal(holding.unitPrice, "16");
+  assert.equal(holding.priceSource, "MANUAL");
+  assert.equal(holding.priceAsOf, asOf);
+  assert.equal(holding.gainCents, 700);
+  assert.deepEqual(portfolioTrend([stock], [trade()], [automatic, manual, later], [asOf, nextDay])
+    .map(({ gainCents }) => gainCents), [700, 900]);
+});
+
 test("decimal inputs are positive strings within their column precision and scale", () => {
   assert.equal(decimalInput("00012.50000000", 8, "unitPrice"), "12.5");
   assert.equal(decimalInput("999999999999999999.9999999999", 10, "quantity"), "999999999999999999.9999999999");
@@ -127,6 +141,7 @@ test("holdings select the latest eligible quote and fall back to exact cost", ()
   assert.deepEqual(holdings[0], {
     instrumentId: stock.id, name: stock.name, kind: stock.kind, quantity: "2", averageCost: "12.5",
     unitPrice: "15", valueCents: 3000, costCents: 2500, gainCents: 500, noPrice: false,
+    priceAsOf: asOf, priceSource: "MANUAL",
   });
   assert.equal(holdings[1].noPrice, true);
   assert.equal(holdings[1].unitPrice, holdings[1].averageCost);
@@ -164,7 +179,7 @@ test("a same-day sale changes the units valued by that day's quote", () => {
 test("allocation combines positions of a kind by value and handles a zero-value portfolio", () => {
   const holding = {
     instrumentId: stock.id, name: stock.name, kind: stock.kind, quantity: "1", averageCost: "1",
-    unitPrice: "1", costCents: 100, gainCents: 0, noPrice: true,
+    unitPrice: "1", costCents: 100, gainCents: 0, noPrice: true, priceAsOf: null, priceSource: null,
   };
   assert.deepEqual(allocation([
     { ...holding, valueCents: 100 },

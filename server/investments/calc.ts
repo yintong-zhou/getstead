@@ -30,7 +30,7 @@ export type Transaction = {
   taxWithheldCents: bigint;
   voidedAt?: Date | null;
 };
-export type Quote = { instrumentId: string; asOf: string; unitPrice: string };
+export type Quote = { instrumentId: string; asOf: string; unitPrice: string; source?: "ALPHA_VANTAGE" };
 export type RealisedGain = { instrumentId: string; year: number; gainCents: bigint };
 export type Position = { quantity: string; costCents: bigint; averageCost: string; realised: RealisedGain[] };
 export type Holding = {
@@ -44,6 +44,8 @@ export type Holding = {
   costCents: number;
   gainCents: number;
   noPrice: boolean;
+  priceAsOf: string | null;
+  priceSource: "MANUAL" | "ALPHA_VANTAGE" | null;
 };
 export type IndicativeTax = {
   year: number;
@@ -175,7 +177,8 @@ export function holdingsValue(
   const latest = new Map<string, Quote>();
   for (const quote of quotes) {
     const previous = latest.get(quote.instrumentId);
-    if (quote.asOf <= asOf && (!previous || previous.asOf < quote.asOf)) latest.set(quote.instrumentId, quote);
+    if (quote.asOf <= asOf && (!previous || previous.asOf < quote.asOf ||
+      (previous.asOf === quote.asOf && previous.source && !quote.source))) latest.set(quote.instrumentId, quote);
   }
 
   const holdings: Holding[] = [];
@@ -192,6 +195,7 @@ export function holdingsValue(
       instrumentId: instrument.id, name: instrument.name, kind: instrument.kind, quantity, averageCost, unitPrice,
       valueCents: toSafeCents(valueCents), costCents: toSafeCents(costCents),
       gainCents: toSafeCents(valueCents - costCents), noPrice: !quote,
+      priceAsOf: quote?.asOf ?? null, priceSource: quote ? quote.source ?? "MANUAL" : null,
     });
   }
   return holdings;

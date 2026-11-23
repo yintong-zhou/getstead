@@ -178,7 +178,9 @@ All investment APIs use the existing authenticated, same-origin, no-store wrappe
 
 M3 writes take a per-user transaction advisory lock to serialize quota checks, then lock account rows in ID order, then affected instrument rows in ID order; account-type edits take the same account lock. Net worth and portfolio reads use RepeatableRead snapshots. Exact accumulation uses bigint or the isolated Decimal context; the checked `toSafeCents()` converter rejects overflow before numeric display. Because gross amounts and fees each have their own cap, accumulated cash/cost magnitudes can reach 2e15 cents, rather than the plan's 1e15 estimate; holdings are bounded by 1e15 and all numeric boundaries remain checked.
 
-The migration `20261123090000_investments` follows profile. Apply only to a local database unless separately approved, then rerun `db/grant-runtime.sql` for the three new tables. The runtime role cannot delete instruments/transactions or update identity/ownership columns. No dependency was added. CSV/Excel broker imports, automatic prices, corporate actions, FX, tax lots and loss carry-forward remain out of scope.
+The migration `20261123090000_investments` follows profile. Apply only to a local database unless separately approved, then rerun `db/grant-runtime.sql`. Corporate actions, tax lots and loss carry-forward remain out of scope.
+
+To enable daily closing quotes, apply `20261129090000_market_quotes`, rerun `db/grant-runtime.sql`, and set `ALPHA_VANTAGE_SECRET` in the server environment. In Investments, link an eligible stock, ETF or fund by confirming its ticker, market and currency. Opening Investments refreshes eligible open positions on demand. The app shares a 12-hour cache and a maximum of 25 Alpha Vantage requests per rolling 24 hours, including symbol searches and FX. The position shows the trading date of the quote used. Saved closes contribute to Investments and Net Worth, and a manual price takes precedence for the same date. Removing the key disables new requests while keeping saved quotes.
 
 Additional synthetic local proof (URLs must point to the dedicated local test database):
 

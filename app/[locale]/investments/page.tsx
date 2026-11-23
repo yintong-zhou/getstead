@@ -7,6 +7,7 @@ import { InvestmentsView } from "@/components/investments/investments-view";
 import { readPageUser } from "@/server/auth/page-access";
 import { listAccounts } from "@/server/cash-flow/catalog";
 import { getPortfolio, listInstruments, listQuotes, listTransactions } from "@/server/investments/service";
+import { marketDataEnabled } from "@/server/investments/alpha-vantage";
 import { isLocale } from "@/server/locale";
 import { listPensions } from "@/server/net-worth/service";
 
@@ -41,6 +42,6 @@ export default async function InvestmentsPage({ params }: Props) {
 
   const copy = investmentsCopy[locale];
   return <AppShell locale={locale} current="investments" title={copy.title} subtitle={copy.intro} profile={user.profile}>
-    <InvestmentsView locale={locale} {...loaded} />
+    <InvestmentsView locale={locale} marketEnabled={marketDataEnabled()} {...loaded} />
   </AppShell>;
 }

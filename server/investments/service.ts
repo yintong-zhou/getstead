@@ -1,12 +1,13 @@
 // All writes serialize per user for quotas, then lock accounts before sorted instruments.
 // The extra user lock also protects instruments shared across different brokerage accounts.
-import type { Prisma, Instrument, InvestmentTransaction, PriceQuote } from "../../db/generated/client.ts";
+import type { Prisma, Instrument, InvestmentTransaction, MarketPriceQuote, PriceQuote } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
 import { addDays, addMonths, fromDate, monthOf, monthStart, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { allocation, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, portfolioTrend, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
 import { buildTrend } from "../trend.ts";
+import { marketDataEnabled, marketQuote, searchMarket, type MarketListing } from "./alpha-vantage.ts";
 
 type Client = Prisma.TransactionClient;
 const MAX_TRANSACTION_CENTS = 100_000_000_000;
@@ -21,6 +22,9 @@ function quoteDto(row: PriceQuote) {
 }
 export function quoteInput(row: PriceQuote) {
   return { ...row, asOf: fromDate(row.asOf), unitPrice: row.unitPrice.toFixed() };
+}
+export function marketQuoteInput(row: MarketPriceQuote) {
+  return { instrumentId: row.instrumentId, asOf: fromDate(row.asOf), unitPrice: row.unitPrice.toFixed(), source: "ALPHA_VANTAGE" as const };
 }
 function transactionDto(row: InvestmentTransaction) {
   const input = transactionInput(row);
@@ -61,19 +65,64 @@ async function audit(client: Client, userId: string, ids: string[]) {
   for (const instrumentId of new Set(ids)) {
     const rows = await client.investmentTransaction.findMany({ where: { userId, instrumentId } });
     const quotes = await client.priceQuote.findMany({ where: { userId, instrumentId } });
-    validateHistory(rows.map(transactionInput), quotes.map(quoteInput));
+    const market = await client.marketPriceQuote.findMany({ where: { userId, instrumentId } });
+    const transactions = rows.map(transactionInput), prices = quotes.map(quoteInput), closes = market.map(marketQuoteInput);
+    validateHistory(transactions, [...closes, ...prices]);
+    // A manual quote can be removed later, exposing an automatic quote on the same date.
+    if (closes.length && prices.length) validateHistory(transactions, [...prices, ...closes]);
   }
 }
 function write<T>(userId: string, operation: (client: Client) => Promise<T>) {
   return db().$transaction(async (client) => { await userLock(client, userId); return operation(client); }, { timeout: 30_000 });
 }
 
-function instrumentDto({ id, name, symbol, isin, kind, archivedAt }: Instrument) {
-  return { id, name, symbol, isin, kind, archived: archivedAt !== null };
+function instrumentDto(row: Instrument) {
+  const { id, name, symbol, isin, kind, archivedAt } = row;
+  return { id, name, symbol, isin, kind, archived: archivedAt !== null, market: linkedMarket(row) };
+}
+function supportsMarket(kind: Instrument["kind"]) {
+  return kind === "STOCK" || kind === "ETF" || kind === "FUND";
+}
+function linkedMarket({ marketSymbol, marketName, marketCurrency, name, kind }: Instrument): MarketListing | null {
+  return marketSymbol && marketName && marketCurrency && supportsMarket(kind)
+    ? { symbol: marketSymbol, market: marketName, currency: marketCurrency, name } : null;
+}
+
+export async function findInstrumentMarket(userId: string, instrumentId: string, input: Record<string, unknown>) {
+  const reader = new Reader(input);
+  const query = reader.text("query", 64);
+  reader.done();
+  const instrument = await db().instrument.findFirst({ where: { userId, id: instrumentId } });
+  if (!instrument) throw notFound();
+  if (!supportsMarket(instrument.kind) || instrument.archivedAt) throw conflict("market_unavailable");
+  if (!marketDataEnabled()) throw new ApiError(503, "market_unavailable");
+  return searchMarket(query);
+}
+
+export async function linkInstrumentMarket(userId: string, instrumentId: string, input: Record<string, unknown>) {
+  const reader = new Reader(input);
+  const symbol = reader.nullableText("symbol", 80);
+  const query = reader.optionalText("query", 64);
+  reader.done();
+  if (symbol === undefined || (symbol && !query)) throw new ApiError(422, "validation", "symbol");
+
+  const listing = symbol && query
+    ? (await findInstrumentMarket(userId, instrumentId, { query })).find((candidate) => candidate.symbol === symbol)
+    : null;
+  if (symbol && !listing) throw new ApiError(422, "market_unavailable");
+  return write(userId, async (client) => {
+    const instrument = await client.instrument.findFirst({ where: { userId, id: instrumentId } });
+    if (!instrument) throw notFound();
+    if (listing && (instrument.archivedAt || !supportsMarket(instrument.kind))) throw conflict("market_unavailable");
+    const row = await client.instrument.update({ where: { userId_id: { userId, id: instrumentId } },
+      data: { marketSymbol: listing?.symbol ?? null, marketName: listing?.market ?? null, marketCurrency: listing?.currency ?? null } });
+    return instrumentDto(row);
+  });
 }
 export async function listInstruments(userId: string) {
-  const rows = await db().instrument.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }] });
-  return rows.map(instrumentDto);
+  const rows = await db().instrument.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }],
+    include: { _count: { select: { marketQuotes: true } } } });
+  return rows.map((row) => ({ ...instrumentDto(row), marketQuoteCount: row._count.marketQuotes }));
 }
 export type InstrumentDto = Awaited<ReturnType<typeof listInstruments>>[number];
 
@@ -115,9 +164,10 @@ export async function deleteInstrument(userId: string, id: string) {
   return write(userId, async (client) => {
     await lockInstrumentHistory(client, userId, id);
     const quotes = await client.priceQuote.deleteMany({ where: { userId, instrumentId: id } });
+    const marketQuotes = await client.marketPriceQuote.count({ where: { userId, instrumentId: id } });
     const transactions = await client.investmentTransaction.deleteMany({ where: { userId, instrumentId: id } });
     await client.instrument.delete({ where: { userId_id: { userId, id } } });
-    return { transactions: transactions.count, quotes: quotes.count };
+    return { transactions: transactions.count, quotes: quotes.count + marketQuotes };
   });
 }
 
@@ -238,14 +288,60 @@ export async function deleteQuote(userId: string, id: string) {
   });
 }
 
+export async function refreshMarketQuotes(userId: string, now = new Date(),
+  readQuote = marketDataEnabled() ? marketQuote : undefined) {
+  if (!readQuote) return { changed: false };
+  const deadline = Date.now() + 10_000;
+  const today = romeToday(now);
+  const [instruments, rows, prices] = await db().$transaction([
+    db().instrument.findMany({ where: { userId, archivedAt: null, marketSymbol: { not: null } }, orderBy: { id: "asc" } }),
+    db().investmentTransaction.findMany({ where: { userId, tradeDate: { lte: toDate(today) }, voidedAt: null } }),
+    db().marketPriceQuote.groupBy({ by: ["instrumentId"], orderBy: { instrumentId: "asc" }, where: { userId }, _max: { asOf: true } }),
+  ], { isolationLevel: "RepeatableRead" });
+  const open = new Set(holdingsValue(instruments, rows.map(transactionInput), [], today).map(({ instrumentId }) => instrumentId));
+  const latest = new Map(prices.map(({ instrumentId, _max }) => [instrumentId, _max?.asOf?.getTime() ?? 0]));
+  const eligible = instruments.filter(({ id }) => open.has(id))
+    .sort((a, b) => (latest.get(a.id) ?? 0) - (latest.get(b.id) ?? 0));
+  let changed = false;
+  for (let index = 0; index < eligible.length && Date.now() < deadline; index += 4) {
+    const results = await Promise.all(eligible.slice(index, index + 4).map(async (instrument) => {
+      const listing = linkedMarket(instrument);
+      if (!listing) return false;
+      const quote = await readQuote(listing, now);
+      if (!quote || quote.asOf > today || (latest.get(instrument.id) ?? 0) >= toDate(quote.asOf).getTime()) return false;
+      try {
+        return await write(userId, async (client) => {
+          const instrumentId = instrument.id;
+          const current = await client.instrument.findFirst({ where: { userId, id: instrumentId, archivedAt: null } });
+          if (!current || current.marketSymbol !== listing.symbol || current.marketCurrency !== quote.currency || !supportsMarket(current.kind)) return false;
+          const trades = await client.investmentTransaction.findMany({ where: { userId, instrumentId, voidedAt: null } });
+          if (position(trades.map(transactionInput), today).quantity === "0") return false;
+          const saved = await client.marketPriceQuote.createMany({ skipDuplicates: true, data: {
+            userId, instrumentId, asOf: toDate(quote.asOf), unitPrice: quote.unitPrice, currency: quote.currency,
+            fxRate: quote.fxRate, fxAsOf: quote.fxAsOf ? toDate(quote.fxAsOf) : null,
+          } });
+          if (saved.count) await audit(client, userId, [instrumentId]);
+          return saved.count > 0;
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.code === "value_out_of_range") return false;
+        throw error;
+      }
+    }));
+    changed ||= results.some(Boolean);
+  }
+  return { changed };
+}
+
 /** `trend` adds the period chart; only the investments page asks for it. */
 export async function getPortfolio(userId: string, now = new Date(), { trend = false } = {}) {
   const today = romeToday(now);
-  const [instruments, rows, prices] = await db().$transaction([
+  const [instruments, rows, prices, market] = await db().$transaction([
     db().instrument.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }] }),
     db().investmentTransaction.findMany({ where: { userId } }), db().priceQuote.findMany({ where: { userId } }),
+    db().marketPriceQuote.findMany({ where: { userId } }),
   ], { isolationLevel: "RepeatableRead" });
-  const transactions = rows.map(transactionInput), quotes = prices.map(quoteInput);
+  const transactions = rows.map(transactionInput), quotes = [...prices.map(quoteInput), ...market.map(marketQuoteInput)];
   const holdings = holdingsValue(instruments, transactions, quotes, today);
   const realised = instruments.flatMap((instrument) => position(transactions.filter((row) => row.instrumentId === instrument.id), today).realised);
   const byYear = new Map<number, bigint>();
