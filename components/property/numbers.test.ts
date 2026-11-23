@@ -3,6 +3,12 @@ import test from "node:test";
 import { millesimiShareCents } from "../../server/property/calc.ts";
 import { millesimiShare, MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers.ts";
 
+test("property expressions retain the field-specific caps", () => {
+  assert.equal(parseEurosUpTo("9000000000 + 1000000000", MAX_VALUE_CENTS), MAX_VALUE_CENTS);
+  assert.equal(parseEurosUpTo("10000000 + 0,01", MAX_PAYABLE_CENTS), null);
+  assert.equal(parseEurosUpTo("1 - 1", MAX_VALUE_CENTS), null);
+});
+
 test("euro inputs keep exact cents and stop at the given maximum", () => {
   assert.equal(parseEurosUpTo(" 0,05 ", MAX_VALUE_CENTS), 5);
   assert.equal(parseEurosUpTo("250000", MAX_VALUE_CENTS), 25_000_000);

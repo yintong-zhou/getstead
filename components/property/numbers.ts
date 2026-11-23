@@ -1,8 +1,10 @@
 // Form-side helpers for property: euros, percentages and the millesimi share, all in integers.
 
-/** Positive euros ("1200000", "1.200,50" is not accepted) to integer cents within `maxCents`, else null. */
+import { resolveAmountExpression } from "../money.ts";
+
+/** A positive euro amount or expression within `maxCents`, in integer cents. */
 export function parseEurosUpTo(text: string, maxCents: number): number | null {
-  const match = /^(\d{1,11})(?:[.,](\d{1,2}))?$/.exec(text.trim());
+  const match = /^(\d{1,11})(?:[.,](\d{1,2}))?$/.exec(resolveAmountExpression(text, 2)?.trim() ?? "");
   if (!match) return null;
   const cents = BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
   return cents > 0n && cents <= BigInt(maxCents) ? Number(cents) : null;

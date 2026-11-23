@@ -25,7 +25,7 @@ const en = {
   removed: "Balance check removed. History recalculated.",
   recent: "Latest balance checks",
   empty: "No balance checks yet.",
-  amountError: "Enter an amount of zero or more, using digits and a comma or dot.",
+  amountError: "Enter an amount or calculation that totals zero or more.",
 };
 
 export const netWorthCopy: Record<Locale, typeof en> = {
@@ -55,6 +55,6 @@ export const netWorthCopy: Record<Locale, typeof en> = {
     removed: "Verifica rimossa. Storico ricalcolato.",
     recent: "Ultime verifiche del saldo",
     empty: "Nessuna verifica del saldo.",
-    amountError: "Inserisci un importo pari o superiore a zero, con cifre e una virgola o un punto.",
+    amountError: "Inserisci un importo o un calcolo con un totale pari o superiore a zero.",
   },
 };

@@ -8,6 +8,7 @@ import { formatEuros, type Locale } from "@/server/locale";
 import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
 import { addMonths, formatMonth } from "../format";
+import { amountInputProps } from "../amount-input";
 import { editableEuros, parseLimit } from "../money";
 import { call, type ApiResult } from "./api";
 import { cashFlowCopy } from "./copy";
@@ -68,7 +69,7 @@ function LimitForm({ locale, row, month, currentMonth, onDone }: {
     <form className="limit-form" onSubmit={(event) => save(event, scopes[0])}>
       <div className="form-field">
         <label htmlFor={id}>{copy.limitInput} (€)</label>
-        <input id={id} className="field amount-field" inputMode="decimal" autoComplete="off" value={value} onChange={(event) => setValue(event.target.value)} required aria-describedby={`${id}-hint`} />
+        <input id={id} className="field amount-field" {...amountInputProps(locale, parseLimit, setValue)} autoComplete="off" value={value} onChange={(event) => setValue(event.target.value)} required aria-describedby={`${id}-hint`} />
         <span id={`${id}-hint`} className="hint">{copy.baseStartsHint(current)}</span>
       </div>
       <div className="form-actions">

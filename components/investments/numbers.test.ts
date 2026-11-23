@@ -1,6 +1,15 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision, ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers.ts";
+import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision, ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parseUnitPrice } from "./numbers.ts";
+
+test("investment expressions preserve cents and exact quote precision", () => {
+  assert.equal(parseInvestmentEuros("1000000000 + 0,01"), null);
+  assert.equal(parseInvestmentEuros("1 - 1"), 0);
+  assert.equal(parseUnitPrice("0,00000001 + 0.00000002"), "0.00000003");
+  assert.equal(parseUnitPrice("1 + 0.000000001"), null);
+  assert.equal(parseUnitPrice("1 - 1"), null);
+  assert.equal(parsePositiveDecimal("1+1", 10), null);
+});
 
 test("holding decimals round for the summary and reveal meaningful precision on demand", () => {
   assert.equal(formatHoldingDecimal("100.33333333", "it", true), "€ 100,33");

@@ -7,6 +7,7 @@ import type { OccurrenceRef, TemplateDto } from "@/server/cash-flow/recurring";
 import { formatEuros, type Locale } from "@/server/locale";
 import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
 import { formatDay } from "../format";
+import { amountInputProps } from "../amount-input";
 import { editableEuros, parseEuros } from "../money";
 import { Icon } from "../icon";
 import { Select } from "../select";
@@ -140,7 +141,7 @@ function DueRow({ locale, template, dueDate, today }: { locale: Locale; template
       <form className="due-actions" onSubmit={confirm}>
         <div className="form-field">
           <label htmlFor={id}>{copy.expectedAmount} (€)</label>
-          <input id={id} className="field amount-field" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+          <input id={id} className="field amount-field" {...amountInputProps(locale, parseEuros, setAmount)} value={amount} onChange={(event) => setAmount(event.target.value)} required />
         </div>
         <div className="form-actions">
           <button className="button button-solid" type="submit" disabled={pending}><Icon name="check" size={16} />{copy.confirm}</button>
@@ -207,7 +208,7 @@ function NewTemplate({ locale, today, accounts, categories }: Pick<Props, "local
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}amount`}>{copy.expectedAmount} (€)</label>
-            <input id={`${ids}amount`} name="amount" className="field amount-field" inputMode="decimal" placeholder="0,00" autoComplete="off" required />
+            <input id={`${ids}amount`} name="amount" className="field amount-field" {...amountInputProps(locale, parseEuros)} placeholder="0,00" autoComplete="off" required />
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}frequency`}>{copy.frequency}</label>
