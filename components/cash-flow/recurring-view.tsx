@@ -12,6 +12,7 @@ import { amountInputProps } from "../amount-input";
 import { editableEuros, parseEuros } from "../money";
 import { Icon } from "../icon";
 import { Select } from "../select";
+import { useConfirm } from "../confirm-dialog";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction } from "./use-action";
@@ -236,12 +237,48 @@ function NewTemplate({ locale, today, accounts, categories }: Pick<Props, "local
 }
 
 export function RecurringView(props: Props) {
-  const { locale, today, accounts, templates, due, upcoming, skipped } = props;
+  const { locale, today, accounts, templates, due, upcoming } = props;
   const copy = cashFlowCopy[locale];
   const { pending, notice, run } = useAction(locale);
+  const { confirm, dialog } = useConfirm(copy.cancel);
+  const [showArchived, setShowArchived] = useState(false);
+  const archivedId = useId();
   const byId = new Map(templates.map((template) => [template.id, template]));
   const accountName = new Map(accounts.map((account) => [account.id, account.name]));
   const nextFor = new Map(upcoming.map((item) => [item.templateId, item.dueDate]));
+  const active = templates.filter((template) => !template.archived);
+  const archived = templates.filter((template) => template.archived);
+  const skipped = props.skipped.filter((item) => !byId.get(item.templateId)?.archived);
+
+  const renderTemplate = (template: TemplateDto) => {
+    const nextDue = nextFor.get(template.id);
+    return <li className="manage-row" key={template.id}>
+      <span className="row-icon tone-amber"><Icon name="recurring" size={20} /></span>
+      <div className="row-text">
+        <p>{template.description}</p>
+        <span>
+          {copy.frequencies[template.frequency]} · {accountName.get(template.accountId)}
+          {nextDue && ` · ${copy.nextDue} ${formatDay(nextDue, locale)}`}
+        </span>
+      </div>
+      <span className="row-amount amount">{euros(-template.amountCents, locale)}</span>
+      <div className="row-actions">
+        {!template.archived && <button
+          className="button button-quiet" type="button" disabled={pending}
+          onClick={() => run(() => call("PATCH", `/recurring/${template.id}`, { archived: true }), copy.saved)}
+        >
+          {copy.archive}
+        </button>}
+        <button className="button button-quiet" type="button" disabled={pending} onClick={async () => {
+          if (await confirm(copy.confirmDeleteRecurring(template.description), copy.delete, true)) {
+            await run(() => call("DELETE", `/recurring/${template.id}`), copy.recurringDeleted);
+          }
+        }}>
+          {copy.delete}
+        </button>
+      </div>
+    </li>;
+  };
 
   return (
     <div className="stack stack-fluid">
@@ -280,34 +317,19 @@ export function RecurringView(props: Props) {
 
       <section className="card stack-half" aria-labelledby="templates-title">
         <h2 id="templates-title">{copy.templatesSection}</h2>
-        {templates.length === 0 ? <p className="empty-inline">{copy.templatesEmpty}</p> : (
-          <ul className="rows">
-            {templates.map((template) => (
-              <li className="manage-row" key={template.id}>
-                <span className="row-icon tone-amber"><Icon name="recurring" size={20} /></span>
-                <div className="row-text">
-                  <p>{template.description}</p>
-                  <span>
-                    {copy.frequencies[template.frequency]} · {accountName.get(template.accountId)}
-                    {nextFor.has(template.id) && ` · ${copy.nextDue} ${formatDay(nextFor.get(template.id)!, locale)}`}
-                  </span>
-                </div>
-                <span className="row-amount amount">{euros(-template.amountCents, locale)}</span>
-                <div className="row-actions">
-                  <button
-                    className="button button-quiet" type="button" disabled={pending}
-                    onClick={() => run(() => call("PATCH", `/recurring/${template.id}`, { archived: true }), copy.saved)}
-                  >
-                    {copy.archive}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        {active.length === 0 ? <p className="empty-inline">{copy.templatesEmpty}</p> : <ul className="rows">{active.map(renderTemplate)}</ul>}
+        <label className="recurring-archive-filter">
+          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.currentTarget.checked)} />
+          {copy.showArchivedRecurring}
+        </label>
+        {showArchived && <section aria-labelledby={archivedId}>
+          <h3 id={archivedId}>{copy.archivedRecurring}</h3>
+          {archived.length === 0 ? <p className="empty-inline">{copy.archivedRecurringEmpty}</p> : <ul className="rows">{archived.map(renderTemplate)}</ul>}
+        </section>}
       </section>
 
       <NewTemplate locale={locale} today={today} accounts={accounts} categories={props.categories} />
+      {dialog}
     </div>
   );
 }

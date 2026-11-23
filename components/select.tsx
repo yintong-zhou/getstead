@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./icon";
 import { filterGroups } from "./select-filter";
@@ -14,6 +14,7 @@ type Props = {
   id: string;
   disabled?: boolean;
   required?: boolean;
+  "aria-label"?: string;
   "aria-describedby"?: string;
 } & ({ options: Option[]; groups?: never } | { groups: SelectGroup[]; options?: never }) & (
   { value: string; onChange: (value: string) => void; name?: never; defaultValue?: never }
@@ -45,6 +46,7 @@ export function Select(props: Props) {
   const [active, setActive] = useState(0);
   const activeIndex = Math.min(active, Math.max(0, visible.length - 1));
   const [open, setOpen] = useState(false);
+  const [modal, setModal] = useState<HTMLDialogElement | null>(null);
   const [popupLabel, setPopupLabel] = useState<string>();
   const [position, setPosition] = useState<CSSProperties>({});
   const expanded = open && !props.disabled && options.length > 0;
@@ -54,7 +56,7 @@ export function Select(props: Props) {
     const viewport = window.visualViewport;
     const top = (viewport?.offsetTop ?? 0) + 12;
     let bottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight) - 12;
-    const navigation = document.querySelector<HTMLElement>(".navigation");
+    const navigation = trigger.current?.closest("dialog[open]") ? null : document.querySelector<HTMLElement>(".navigation");
     if (navigation && getComputedStyle(navigation).position === "fixed") {
       bottom = Math.min(bottom, navigation.getBoundingClientRect().top - 8);
     }
@@ -74,7 +76,8 @@ export function Select(props: Props) {
     if (props.disabled || options.length === 0) return;
     trigger.current?.focus();
     if (trigger.current instanceof HTMLInputElement) trigger.current.select();
-    setPopupLabel(trigger.current?.labels?.[0]?.textContent?.trim() || undefined);
+    setPopupLabel(props["aria-label"] ?? (trigger.current?.labels?.[0]?.textContent?.trim() || undefined));
+    setModal(trigger.current?.closest<HTMLDialogElement>("dialog[open]") ?? null);
     place();
     search.current = { text: "", time: 0 };
     setActive(index);
@@ -128,6 +131,11 @@ export function Select(props: Props) {
       window.visualViewport?.removeEventListener("scroll", reposition);
     };
   }, [expanded]);
+
+  // A modal makes everything outside it inert. Keep the list inside it, in the top layer.
+  useLayoutEffect(() => {
+    if (expanded && modal) popup.current?.showPopover();
+  }, [expanded, modal]);
 
   useEffect(() => {
     if (expanded) document.getElementById(`${popupId}-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
@@ -184,7 +192,7 @@ export function Select(props: Props) {
         <div className="select-search">
           <input
             ref={trigger as RefObject<HTMLInputElement>} id={props.id} className="field" type="text" role="combobox" autoComplete="off" autoCapitalize="off" spellCheck={false}
-            disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-autocomplete="list" aria-controls={expanded ? popupId : undefined}
+            disabled={props.disabled} aria-label={props["aria-label"]} aria-expanded={expanded} aria-haspopup="listbox" aria-autocomplete="list" aria-controls={expanded ? popupId : undefined}
             aria-activedescendant={expanded && visible.length ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
             value={text ?? options[selected]?.label ?? ""} onChange={(event) => type(event.target.value)}
             onFocus={(event) => event.target.select()} onClick={() => { if (!expanded) show(); }} onKeyDown={keyDown}
@@ -195,7 +203,7 @@ export function Select(props: Props) {
       ) : (
         <button
           ref={trigger as RefObject<HTMLButtonElement>} id={props.id} className="field select-trigger" type="button" role="combobox"
-          disabled={props.disabled} aria-expanded={expanded} aria-haspopup="listbox" aria-controls={expanded ? popupId : undefined}
+          disabled={props.disabled} aria-label={props["aria-label"]} aria-expanded={expanded} aria-haspopup="listbox" aria-controls={expanded ? popupId : undefined}
           aria-activedescendant={expanded ? `${popupId}-${activeIndex}` : undefined} aria-describedby={props["aria-describedby"]} aria-required={props.required || undefined}
           onClick={() => expanded ? setOpen(false) : show()} onKeyDown={keyDown}
           onBlur={blur}
@@ -205,6 +213,7 @@ export function Select(props: Props) {
       )}
       {expanded && createPortal(
         <div ref={popup} id={popupId} role="listbox" aria-label={popupLabel} aria-labelledby={popupLabel ? undefined : props.id} className="select-popup" style={position}
+          popover={modal ? "manual" : undefined}
           onPointerDown={(event) => { pressing.current = true; event.preventDefault(); }} onPointerUp={releaseSoon} onPointerCancel={releaseSoon}>
           {visible.length === 0 && <div className="select-empty" role="status">{document.documentElement.lang === "it" ? "Nessun risultato" : "No results"}</div>}
           {shown.map((group, groupIndex) => {
@@ -220,7 +229,7 @@ export function Select(props: Props) {
               <div id={`${popupId}-group-${groupIndex}`} className="select-group-label">{group.label}</div>{items}
             </div> : <Fragment key={groupIndex}>{items}</Fragment>;
           })}
-        </div>, document.body,
+        </div>, modal ?? document.body,
       )}
     </>
   );

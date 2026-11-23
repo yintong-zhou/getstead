@@ -28,7 +28,7 @@ import {
   unpairTransfer, updateMovement,
   type MovementDto,
 } from "./movements.ts";
-import { createTemplate, listRecurring, occurrenceCandidates, resolveOccurrence, updateTemplate } from "./recurring.ts";
+import { createTemplate, deleteTemplate, listRecurring, occurrenceCandidates, resolveOccurrence, updateTemplate } from "./recurring.ts";
 import { monthSummary } from "./reports.ts";
 import { createRule, deleteRule, listRules, suggestForDescription } from "./rules.ts";
 import { deleteCheck, getNetWorth, listChecks, listPensions, recordCheck } from "../net-worth/service.ts";
@@ -635,7 +635,6 @@ test("the runtime role has no DELETE on history tables and cannot rewrite owners
   const rejected = /permission denied/i;
   await assert.rejects(db().$executeRaw`DELETE FROM stead_movements`, rejected);
   // Accounts are DELETE-able only while unreferenced: the RESTRICT foreign keys refuse the rest (see the deletion tests).
-  await assert.rejects(db().$executeRaw`DELETE FROM stead_recurring_templates`, rejected);
   await assert.rejects(db().$executeRaw`TRUNCATE stead_movements`, rejected);
   await assert.rejects(db().$executeRaw`UPDATE stead_movements SET user_id = user_id`, rejected);
   await assert.rejects(db().$executeRaw`UPDATE stead_accounts SET user_id = user_id`, rejected);
@@ -938,6 +937,31 @@ test("refunds reduce net spending in the month they clear; budget history is fro
   // Voiding the refund puts the spending back.
   await updateMovement(user, refund.id, { voided: true });
   assert.equal((await row("2026-11")).spentCents, 1_000);
+});
+
+test("archived recurring expenses can be deleted without losing booked payments", async () => {
+  const user = await newUser(), other = await newUser();
+  const checking = await account(user);
+  const now = new Date("2026-11-15T10:00:00Z");
+  const make = (description: string) => createTemplate(user, {
+    accountId: checking.id, description, amountCents: 3_000, frequency: "MONTHLY", startDate: "2026-11-10",
+  });
+  const unused = await make("Synthetic skipped"), paid = await make("Synthetic paid");
+  await resolveOccurrence(user, { action: "skip", templateId: unused.id, dueDate: "2026-11-10" }, now);
+  const payment = await resolveOccurrence(user, { action: "confirm", templateId: paid.id, dueDate: "2026-11-10" }, now);
+  await updateTemplate(user, paid.id, { archived: true });
+  assert.deepEqual((await listRecurring(user, new URLSearchParams({ archived: "1" }), now)).templates.map(({ archived }) => archived).sort(), [false, true]);
+  await rejectsApi(deleteTemplate(other, paid.id), 404, "not_found");
+  await deleteTemplate(user, unused.id);
+  await deleteTemplate(user, paid.id);
+  const movementId = payment?.movement?.id;
+  assert.ok(movementId);
+  assert.equal(await db().recurringTemplate.count({ where: { userId: user, id: unused.id } }), 0);
+  assert.equal(await db().movement.count({ where: { userId: user, id: movementId } }), 1);
+  assert.equal(await db().recurringOccurrence.count({ where: { userId: user, templateId: paid.id, movementId } }), 1);
+  const remaining = await listRecurring(user, new URLSearchParams({ archived: "1" }), now);
+  assert.deepEqual([remaining.templates, remaining.due, remaining.skipped], [[], [], []]);
+  await rejectsApi(updateTemplate(user, paid.id, { archived: false }), 404, "not_found");
 });
 
 test("recurring expenses: due occurrences confirm, match or skip exactly once", async () => {

@@ -47,6 +47,19 @@ test("a well-formed backup parses, with missing tables read as empty", () => {
   assert.deepEqual(rows.properties, []);
 });
 
+test("a retired charge can keep the ID of a deleted millesimal table", () => {
+  const backup = file();
+  const rows = parseBackup({ ...backup, data: {
+    ...backup.data,
+    properties: [{ id: ids.food, name: "Synthetic flat", kind: "PRIMARY_RESIDENCE", ownershipBps: 10_000 }],
+    condoCharges: [{
+      id: ids.trade, propertyId: ids.food, kind: "BALANCING", title: "Synthetic balancing",
+      dueDate: "2026-11-20", amountCents: 500, tableId: ids.instrument, buildingTotalCents: 5_000,
+    }],
+  } });
+  assert.equal(rows.condoCharges[0].tableId, ids.instrument);
+});
+
 test("a backup is rejected before anything is written when the file is wrong", () => {
   rejects((b) => { b.format = "other"; }, "backup_format", "format");
   rejects((b) => { b.version = 2; }, "backup_version", "version");

@@ -12,7 +12,7 @@ GRANT SELECT, INSERT, UPDATE ON public.stead_auth_limits TO stead_auth_app;
 GRANT UPDATE (email, password_hash, display_name) ON public.stead_users TO stead_auth_app;
 
 -- Cash flow and budget (M1). Least privilege: no table is TRUNCATE-able, rows that carry history
--- are never DELETEd (movements and templates are archived or voided instead; an account or a category is
+-- are never DELETEd (movements are voided instead; an account or a category is
 -- DELETEd only while no movement or template references it, which the RESTRICT foreign keys enforce),
 -- and UPDATE is limited to the columns the services actually change.
 GRANT SELECT, INSERT ON public.stead_accounts, public.stead_categories, public.stead_movements,
@@ -24,7 +24,8 @@ GRANT SELECT, INSERT, UPDATE (image_enc), DELETE ON public.stead_account_logos T
 GRANT UPDATE (name, archived_at), DELETE ON public.stead_categories TO stead_auth_app;
 GRANT UPDATE (account_id, category_id, booking_date, description_enc, amount_cents, voided_at, transfer_id, transfer_leg)
   ON public.stead_movements TO stead_auth_app;
-GRANT UPDATE (account_id, category_id, description_enc, amount_cents, end_date, archived_at)
+GRANT DELETE ON public.stead_recurring_templates TO stead_auth_app;
+GRANT UPDATE (account_id, category_id, description_enc, amount_cents, end_date, archived_at, deleted_at)
   ON public.stead_recurring_templates TO stead_auth_app;
 
 GRANT SELECT, INSERT, DELETE ON public.stead_transfers, public.stead_recurring_occurrences TO stead_auth_app;
@@ -47,7 +48,7 @@ GRANT UPDATE (market_symbol, market_name, market_currency) ON public.stead_instr
 GRANT SELECT, INSERT ON public.stead_market_price_quotes TO stead_auth_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.stead_market_cache, public.stead_market_requests TO stead_auth_app;
 
--- Property and condominium (M4a): properties and charges are archived or voided, never deleted.
+-- Property and condominium (M4a): legacy charges can only be read or inserted by backup and restore.
 -- Valuations, millesimal tables and schedule links are plain editable records.
 GRANT SELECT, INSERT ON public.stead_properties, public.stead_property_valuations, public.stead_condo_tables,
   public.stead_condo_schedules, public.stead_condo_charges TO stead_auth_app;
@@ -55,8 +56,8 @@ GRANT UPDATE (name, kind, ownership_bps, mortgage_account_id, sold_on, archived_
 GRANT UPDATE (value_cents), DELETE ON public.stead_property_valuations TO stead_auth_app;
 GRANT UPDATE (label, unit_millesimi, total_millesimi), DELETE ON public.stead_condo_tables TO stead_auth_app;
 GRANT DELETE ON public.stead_condo_schedules TO stead_auth_app;
-GRANT UPDATE (kind, title_enc, due_date, amount_cents, approved_on, table_id, building_total_cents, voided_at, movement_id)
-  ON public.stead_condo_charges TO stead_auth_app;
+REVOKE UPDATE (kind, title_enc, due_date, amount_cents, approved_on, table_id, building_total_cents, voided_at, movement_id)
+  ON public.stead_condo_charges FROM stead_auth_app;
 
 
 -- Admin (M5). Users are created with a column list that leaves out `role` (Prisma sends `user_id`

@@ -1,6 +1,7 @@
 import { api } from "@/server/cash-flow/http";
-import { createCharge, listCharges } from "@/server/property/service";
+import { ApiError } from "@/server/cash-flow/errors";
 
 export const runtime = "nodejs";
-export const GET = api(({ userId }) => listCharges(userId));
-export const POST = api(async ({ userId, body }) => createCharge(userId, await body()), { status: 201 });
+const gone = api(async () => { throw new ApiError(410, "gone"); });
+export const GET = gone;
+export const POST = gone;

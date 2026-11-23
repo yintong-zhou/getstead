@@ -205,8 +205,7 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
   // The notice stays visible after the instrument row unmounts.
   const action = useInvestmentAction(locale);
   const counts: DeletePositionProps["counts"] = new Map();
-  for (const { id, marketQuoteCount } of instruments) counts.set(id, { transactions: 0, quotes: marketQuoteCount });
-  for (const { instrumentId } of transactions) counts.set(instrumentId, { transactions: (counts.get(instrumentId)?.transactions ?? 0) + 1, quotes: counts.get(instrumentId)?.quotes ?? 0 });
+  for (const { id, marketQuoteCount, transactionCount } of instruments) counts.set(id, { transactions: transactionCount, quotes: marketQuoteCount });
   for (const { instrumentId } of quotes) counts.set(instrumentId, { transactions: counts.get(instrumentId)?.transactions ?? 0, quotes: (counts.get(instrumentId)?.quotes ?? 0) + 1 });
   const position = { counts, pending: action.pending,
     onDelete: (id: string) => { void action.run(() => investmentCall("DELETE", `/instruments/${id}`), copy.positionDeleted); } };

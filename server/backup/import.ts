@@ -12,7 +12,7 @@ import { ApiError } from "../cash-flow/errors.ts";
 import { encryptText } from "../cash-flow/text-crypto.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { audit, MAX_INSTRUMENTS, MAX_TRANSACTIONS } from "../investments/service.ts";
-import { MAX_CHARGES, MAX_PROPERTIES, MAX_VALUATIONS } from "../property/service.ts";
+import { MAX_PROPERTIES, MAX_VALUATIONS } from "../property/service.ts";
 import { BACKUP_FORMAT, BACKUP_VERSION, TABLES, type Field, type TableKey } from "./tables.ts";
 
 type Row = Record<string, unknown>;
@@ -20,6 +20,7 @@ export type BackupRows = Record<TableKey, Row[]>;
 
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const CHUNK = 1_000;
+const MAX_ARCHIVED_CHARGES = 2_000;
 
 const isObject = (value: unknown): value is Row => typeof value === "object" && value !== null && !Array.isArray(value);
 const invalid = (field: string, code = "validation"): never => { throw new ApiError(422, code, field); };
@@ -81,7 +82,7 @@ export function parseBackup(input: unknown): BackupRows {
         throw error instanceof ApiError ? new ApiError(422, error.code, `${key}[${index}].${error.field}`) : error;
       }
       for (const [name, field] of Object.entries(fields)) {
-        if (field.kind === "ref" && row[name] !== null && !ids[field.table].has(row[name] as string)) {
+        if (field.kind === "ref" && !field.archived && row[name] !== null && !ids[field.table].has(row[name] as string)) {
           invalid(`${key}[${index}].${name}`, "backup_reference");
         }
       }
@@ -126,13 +127,14 @@ function checkRules(rows: BackupRows, ids: Record<TableKey, Map<string, Row>>) {
     if (property.mortgageAccountId !== null && accountType(property.mortgageAccountId) !== "DEBT") invalid(`properties[${index}].mortgageAccountId`);
   });
   rows.condoCharges.forEach((charge, index) => {
-    if (charge.tableId !== null && ids.condoTables.get(charge.tableId as string)?.propertyId !== charge.propertyId) invalid(`condoCharges[${index}].tableId`);
+    const table = ids.condoTables.get(charge.tableId as string);
+    if (table && table.propertyId !== charge.propertyId) invalid(`condoCharges[${index}].tableId`);
   });
 
   const caps: [TableKey, number, string][] = [
     ["instruments", MAX_INSTRUMENTS, "instrument_limit"], ["investmentTransactions", MAX_TRANSACTIONS, "transaction_limit"],
     ["properties", MAX_PROPERTIES, "property_limit"], ["propertyValuations", MAX_VALUATIONS, "valuation_limit"],
-    ["condoCharges", MAX_CHARGES, "charge_limit"],
+    ["condoCharges", MAX_ARCHIVED_CHARGES, "charge_limit"],
   ];
   for (const [key, cap, code] of caps) if (rows[key].length > cap) invalid(key, code);
 }
@@ -152,7 +154,10 @@ function toRecords(userId: string, rows: BackupRows) {
       const value = row[name];
       if (value === null) record[name] = null;
       else if (field.kind === "id") record[name] = rowId;
-      else if (field.kind === "ref") record[name] = newIds[field.table].get(value as string);
+      else if (field.kind === "ref") {
+        const mapped = newIds[field.table].get(value as string);
+        record[name] = field.archived ? mapped ?? value : mapped;
+      }
       else if (field.kind === "secret") record[name] = encryptText(userId, field.context(rowId), value as string);
       else if (field.kind === "date") record[name] = toDate(value as string);
       else if (field.kind === "timestamp") record[name] = new Date(value as string);

@@ -18,13 +18,19 @@
 .date-picker-header, .date-picker-navigation, .date-picker-actions { display: flex; align-items: center; gap: 4px; }
 .date-picker-header { justify-content: space-between; }
 .date-picker-header h2 { font-size: 17px; font-weight: 700; line-height: 24px; }
-.date-picker-navigation .field { width: auto; min-width: 0; flex: 1; padding-inline: 8px; }
-.date-picker-navigation .date-picker-month-select { flex: 2; text-transform: capitalize; }
+.date-picker-select { flex: 1; min-width: 0; }
+.date-picker-month-select { flex: 2; }
+.date-picker-year-select { flex: 1; min-width: 80px; padding-inline: 8px; white-space: nowrap; }
+.date-picker-year-select[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.date-picker-decade { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.date-picker-years { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+.date-picker-years .date-picker-cell { min-height: 44px; white-space: nowrap; }
+.date-picker-select .field { width: 100%; min-width: 0; padding-inline: 8px 28px; }
+.date-picker-select .select-search > svg { inset-inline-end: 6px; }
 .date-picker-icon {
   display: grid; place-items: center; flex: 0 0 40px; min-height: 40px;
   border-radius: 12px; color: var(--brand);
 }
-.date-picker-close { font-size: 24px; line-height: 1; }
 .date-picker-days, .date-picker-months { display: grid; gap: 2px; }
 .date-picker-days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .date-picker-months { grid-template-columns: repeat(3, minmax(0, 1fr)); }

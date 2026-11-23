@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { millesimiShareCents } from "../../server/property/calc.ts";
-import { millesimiShare, MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers.ts";
+import { MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers.ts";
 
 test("property expressions retain the field-specific caps", () => {
   assert.equal(parseEurosUpTo("9000000000 + 1000000000", MAX_VALUE_CENTS), MAX_VALUE_CENTS);
@@ -29,10 +28,4 @@ test("ownership percentages convert to basis points and back", () => {
   assert.equal(ownershipText(3_333, ","), "33,33");
   assert.equal(ownershipText(10_000, "."), "100");
   assert.equal(ownershipText(1_050, "."), "10.5");
-});
-
-test("the form-side millesimi share equals the server calculation", () => {
-  for (const [total, unit, building] of [[1_000_000, 85, 1_000], [1_000, 1, 3], [1_000, 2, 3], [1_000_000, 100, 1_042], [1, 1, 1_000], [100_000_000_000, 99_999, 100_000]]) {
-    assert.equal(millesimiShare(total, unit, building), millesimiShareCents(total, unit, building));
-  }
 });

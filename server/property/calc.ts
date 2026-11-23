@@ -6,7 +6,6 @@ import { toSafeCents } from "../investments/calc.ts";
 import { occurrencesThrough, type IsoDate, type Recurrence } from "../cash-flow/dates.ts";
 
 export const propertyKinds = ["PRIMARY_RESIDENCE", "SECOND_HOME", "RENTAL", "LAND", "OTHER"] as const;
-export const chargeKinds = ["BALANCING", "EXTRAORDINARY"] as const;
 
 export type Property = { id: string; ownershipBps: number; soldOn: IsoDate | null };
 export type Valuation = { propertyId: string; asOf: IsoDate; valueCents: number };
@@ -38,12 +37,6 @@ export function propertiesAt(properties: readonly Property[], valuations: readon
   return { rows, totalCents: toSafeCents(total) };
 }
 
-/** The owner's part of a building-wide amount: round-half-up(total * unit / building total). */
-export function millesimiShareCents(totalCents: number, unitMillesimi: number, totalMillesimi: number): number {
-  const divisor = BigInt(totalMillesimi);
-  return toSafeCents((BigInt(totalCents) * BigInt(unitMillesimi) * 2n + divisor) / (divisor * 2n));
-}
-
 /** Voting weight at an assembly: unit / total, shown as a percentage with at most two decimals. */
 export function votingWeight(unit: number, total: number) {
   const hundredths = (BigInt(unit) * 20_000n + BigInt(total)) / (BigInt(total) * 2n);
@@ -59,37 +52,30 @@ export function equityCents(shareValue: number, debtBalanceCents: number): numbe
 
 // ---------------------------------------------------------------- costs (M4b)
 
-export type CostKind = "ORDINARY" | "EXTRAORDINARY" | "BALANCING";
 /** A settled cost: `cents` is positive (what left the account), `date` is the movement's booking date. */
-export type PaidCost = { kind: CostKind; cents: number; date: IsoDate };
-export type PendingCharge = { cents: number; dueDate: IsoDate };
+export type PaidCost = { cents: number; date: IsoDate };
 /** An instalment schedule: `resolved` holds the due dates Recurring has confirmed, matched or skipped. */
 export type CostSchedule = { rule: Recurrence; amountCents: number; archived: boolean; resolved: ReadonlySet<IsoDate> };
 
 export type CostTotals = {
-  paidOrdinary: bigint; paidExtraordinary: bigint; paidBalancing: bigint; paidTotal: bigint;
-  pendingCharges: bigint; overdueOrdinary: bigint; forecastOrdinary: bigint; expectedTotal: bigint;
+  paidTotal: bigint;
+  overdueOrdinary: bigint; forecastOrdinary: bigint; expectedTotal: bigint;
 };
-const ZERO: CostTotals = { paidOrdinary: 0n, paidExtraordinary: 0n, paidBalancing: 0n, paidTotal: 0n, pendingCharges: 0n, overdueOrdinary: 0n, forecastOrdinary: 0n, expectedTotal: 0n };
+const ZERO: CostTotals = { paidTotal: 0n, overdueOrdinary: 0n, forecastOrdinary: 0n, expectedTotal: 0n };
 
 /**
  * Costs of one property in one calendar year, in bigint cents.
- * - paid: settled costs by booking date; pending charges by due date, unsettled and not voided;
+ * - paid: linked instalment movements by booking date;
  * - unresolved instalments of active schedules in the year, priced at the schedule amount: due before
  *   `today` they are overdue (never dropped), from `today` on they are forecast.
  */
-export function propertyCosts(input: { year: number; today: IsoDate; paid: readonly PaidCost[]; pending: readonly PendingCharge[]; schedules: readonly CostSchedule[] }): CostTotals {
+export function propertyCosts(input: { year: number; today: IsoDate; paid: readonly PaidCost[]; schedules: readonly CostSchedule[] }): CostTotals {
   const first = `${input.year}-01-01`, last = `${input.year}-12-31`;
   const inYear = (date: IsoDate) => date >= first && date <= last;
   const totals = { ...ZERO };
   for (const row of input.paid) {
-    if (!inYear(row.date)) continue;
-    const cents = BigInt(row.cents);
-    if (row.kind === "ORDINARY") totals.paidOrdinary += cents;
-    else if (row.kind === "EXTRAORDINARY") totals.paidExtraordinary += cents;
-    else totals.paidBalancing += cents;
+    if (inYear(row.date)) totals.paidTotal += BigInt(row.cents);
   }
-  for (const row of input.pending) if (inYear(row.dueDate)) totals.pendingCharges += BigInt(row.cents);
   for (const schedule of input.schedules) {
     if (schedule.archived) continue;
     for (const date of occurrencesThrough(schedule.rule, last)) {
@@ -98,8 +84,7 @@ export function propertyCosts(input: { year: number; today: IsoDate; paid: reado
       else totals.forecastOrdinary += BigInt(schedule.amountCents);
     }
   }
-  totals.paidTotal = totals.paidOrdinary + totals.paidExtraordinary + totals.paidBalancing;
-  totals.expectedTotal = totals.paidTotal + totals.pendingCharges + totals.overdueOrdinary + totals.forecastOrdinary;
+  totals.expectedTotal = totals.paidTotal + totals.overdueOrdinary + totals.forecastOrdinary;
   return totals;
 }
 

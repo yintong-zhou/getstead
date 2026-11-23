@@ -2,7 +2,7 @@
 
 import { DateField } from "../date-field";
 import Link from "next/link";
-import { useId, useState, type ComponentProps } from "react";
+import { useId, type ComponentProps } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { Overview } from "@/server/property/service";
 import { type Locale } from "@/server/locale";
@@ -10,11 +10,10 @@ import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { amountInputProps } from "../amount-input";
-import { editableEuros } from "../money";
 import { Select } from "../select";
 import { InfoTip } from "@/components/info-tip";
 import { propertyCopy } from "./copy";
-import { MAX_BUILDING_CENTS, MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, millesimiShare, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers";
+import { MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers";
 import { euros } from "@/components/euros";
 
 export type PropertyRow = Overview["properties"][number];
@@ -104,8 +103,13 @@ export function PropertyForm({ locale, accounts, property }: { locale: Locale; a
 export function Valuations({ locale, property, today }: { locale: Locale; property: PropertyRow; today: string }) {
   const copy = propertyCopy[locale];
   const action = usePropertyAction(locale);
+  const missingCurrentValue = property.noValuation && (!property.soldOn || property.soldOn > today);
   return <div className="property-block">
-    <h4>{copy.valuationsTitle}</h4>
+    <div className="label-row">
+      <h4>{copy.valuationsTitle}</h4>
+      <InfoTip text={missingCurrentValue ? copy.noValuationHint : copy.estimateLabel} />
+    </div>
+    {missingCurrentValue && property.valuations.length > 0 && <p className="empty-inline">{copy.noValuation}</p>}
     {property.valuations.length === 0 ? <p className="empty-inline">{copy.noValuations}</p> : <ul className="rows">
       {property.valuations.map((row) => <li className="property-line" key={row.id}>
         <span><time dateTime={row.asOf}>{row.asOf}</time> · <span className="amount">{euros(row.valueCents, locale)}</span></span>
@@ -138,8 +142,7 @@ export function Tables({ locale, property }: { locale: Locale; property: Propert
   const copy = propertyCopy[locale];
   const action = usePropertyAction(locale);
   return <div className="property-block">
-    <h4>{copy.tablesTitle}</h4>
-    <p className="hint">{copy.tablesHint}</p>
+    <div className="label-row"><h4>{copy.tablesTitle}</h4><InfoTip text={copy.tablesHint} /></div>
     {property.tables.length === 0 ? <p className="empty-inline">{copy.noTables}</p> : <ul className="rows">
       {property.tables.map((row) => <li className="property-line" key={row.id}>
         <span>{row.label} · <strong>{row.unitMillesimi} / {row.totalMillesimi}</strong> ({row.weight.percent}% {copy.votes})</span>
@@ -175,8 +178,7 @@ export function Schedules({ locale, property, accounts, today }: { locale: Local
   const action = usePropertyAction(locale);
   const payable = accounts.filter((account) => account.type !== "DEBT");
   return <div className="property-block">
-    <h4>{copy.schedulesTitle}</h4>
-    <p className="hint">{copy.schedulesHint}</p>
+    <div className="label-row"><h4>{copy.schedulesTitle}</h4><InfoTip text={copy.schedulesHint} /></div>
     {property.schedules.length === 0 ? <p className="empty-inline">{copy.noSchedules}</p> : <ul className="rows">
       {property.schedules.map((row) => <li className="property-line" key={row.id}>
         <span>{row.description} · <span className="amount">{euros(row.amountCents, locale)}</span> · {copy.frequencies[row.frequency]}
@@ -213,105 +215,5 @@ export function Schedules({ locale, property, accounts, today }: { locale: Local
       <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.addSchedule} /></div>
       <NoticeLine notice={action.notice} />
     </form>
-  </div>;
-}
-
-// ------------------------------------------------------------------ one-off charges
-
-function ChargeForm({ locale, property, today }: { locale: Locale; property: PropertyRow; today: string }) {
-  const copy = propertyCopy[locale];
-  const action = usePropertyAction(locale);
-  const [tableId, setTableId] = useState("");
-  const [building, setBuilding] = useState("");
-  const [amount, setAmount] = useState("");
-  const table = property.tables.find((row) => row.id === tableId);
-  const buildingCents = parseEurosUpTo(building, MAX_BUILDING_CENTS);
-  const guide = table && buildingCents !== null ? millesimiShare(buildingCents, table.unitMillesimi, table.totalMillesimi) : null;
-  return <form onSubmit={async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const text = (field: string) => String(data.get(field) ?? "");
-    const amountCents = parseEurosUpTo(amount, MAX_PAYABLE_CENTS);
-    if (amountCents === null) { action.setNotice({ kind: "error", text: copy.payableError }); return; }
-    if (tableId && buildingCents === null) { action.setNotice({ kind: "error", text: copy.valueError }); return; }
-    const saved = await action.run(() => propertyCall("POST", "/charges", {
-      propertyId: property.id, kind: text("kind"), title: text("title"), dueDate: text("dueDate"), amountCents,
-      approvedOn: text("approvedOn") || null, tableId: tableId || null, buildingTotalCents: tableId ? buildingCents : null,
-    }), copy.chargeSaved);
-    if (saved) { form.reset(); setTableId(""); setBuilding(""); setAmount(""); }
-  }}>
-    <div className="form-grid">
-      <Choice label={copy.chargeKind} name="kind" defaultValue="BALANCING"
-        options={Object.entries(copy.chargeKinds).map(([value, label]) => ({ value, label }))} />
-      <Input label={copy.title2} name="title" maxLength={120} required />
-      <Input label={copy.dueDate} name="dueDate" {...dateBounds} dateLocale={locale} required defaultValue={today} />
-      <Input label={copy.approvedOn} name="approvedOn" {...dateBounds} dateLocale={locale} />
-      <Choice label={copy.tableOptional} value={tableId} onChange={setTableId}
-        options={[{ value: "", label: copy.noTable }, ...property.tables.map((row) => ({ value: row.id, label: `${row.label} (${row.unitMillesimi}/${row.totalMillesimi})` }))]} />
-      {tableId && <Input label={copy.buildingTotal} value={building} onChange={(event) => setBuilding(event.target.value)} {...amountInputProps(locale, (value) => parseEurosUpTo(value, MAX_BUILDING_CENTS), setBuilding)} hint={copy.buildingHint} />}
-      <Input label={copy.chargeAmount} value={amount} onChange={(event) => setAmount(event.target.value)} {...amountInputProps(locale, (value) => parseEurosUpTo(value, MAX_PAYABLE_CENTS), setAmount)} required />
-    </div>
-    {guide !== null && <p className="hint">{copy.expectedShare}: <strong className="amount">{euros(guide, locale)}</strong>{" "}
-      <button className="button button-quiet" type="button" onClick={() => setAmount(editableEuros(guide, locale))}>{copy.useShare}</button></p>}
-    <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.addCharge} /></div>
-    <NoticeLine notice={action.notice} />
-  </form>;
-}
-
-function ChargeRow({ locale, charge, accounts, today }: { locale: Locale; charge: PropertyRow["charges"][number]; accounts: AccountDto[]; today: string }) {
-  const copy = propertyCopy[locale];
-  const shared = cashFlowCopy[locale];
-  const action = usePropertyAction(locale);
-  const [settling, setSettling] = useState(false);
-  const payable = accounts.filter((account) => account.type !== "DEBT");
-  const status = charge.voided ? copy.voidedLabel : charge.settled ? copy.settled : copy.pending;
-  const patch = (body: unknown, success: string) => action.run(() => propertyCall("PATCH", `/charges/${charge.id}`, body), success);
-  return <li className="property-charge">
-    <div className="property-line">
-      <span><strong>{charge.title}</strong> · {copy.chargeKinds[charge.kind]} · <time dateTime={charge.dueDate}>{charge.dueDate}</time> · <span className="amount">{euros(charge.amountCents, locale)}</span>
-        {charge.expectedShareCents !== null && <> · {copy.expectedShare}: <span className="amount">{euros(charge.expectedShareCents, locale)}</span></>}
-      </span>
-      <span className={`badge ${charge.settled ? "badge-green" : charge.voided ? "badge-blue" : "badge-amber"}`}>{status}</span>
-    </div>
-    <div className="property-actions">
-      {!charge.voided && !charge.settled && <button className="button button-solid" type="button" onClick={() => setSettling((open) => !open)} aria-expanded={settling}>{copy.settle}</button>}
-      {charge.settled && <button className="button button-quiet" type="button" disabled={action.pending} onClick={() => patch({ action: "reopen" }, copy.reopened)}>{copy.reopen}</button>}
-      {!charge.settled && <button className="button button-quiet" type="button" disabled={action.pending}
-        onClick={() => patch({ voided: !charge.voided }, charge.voided ? copy.chargeRestored : copy.chargeVoided)}>{charge.voided ? copy.restoreCharge : copy.voidCharge}</button>}
-    </div>
-    {settling && <form onSubmit={async (event) => {
-      event.preventDefault();
-      const data = new FormData(event.currentTarget);
-      const saved = await patch({ action: "settle", accountId: String(data.get("accountId")), bookingDate: String(data.get("bookingDate")) }, copy.settledDone);
-      if (saved) setSettling(false);
-    }}>
-      <div className="form-grid">
-        <Choice label={copy.settleAccount} name="accountId" defaultValue="" required
-          options={[{ value: "", label: copy.select, disabled: true }, ...accountOptions(payable, shared.archivedSuffix)]} />
-        <Input label={copy.settleDate} name="bookingDate" {...dateBounds} dateLocale={locale} required defaultValue={charge.dueDate <= today ? charge.dueDate : today} />
-      </div>
-      <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.settleConfirm} /></div>
-    </form>}
-    <NoticeLine notice={action.notice} />
-  </li>;
-}
-
-export function Charges({ locale, property, accounts, today }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string }) {
-  const copy = propertyCopy[locale];
-  // Pending first by due date (the service orders by due date), then what was settled, most recent first, then voided.
-  const groups = [
-    { label: copy.pending, rows: property.charges.filter((charge) => !charge.settled && !charge.voided) },
-    { label: copy.settled, rows: property.charges.filter((charge) => charge.settled && !charge.voided).reverse() },
-    { label: copy.voidedLabel, rows: property.charges.filter((charge) => charge.voided) },
-  ];
-  return <div className="property-block">
-    <h4>{copy.chargesTitle}</h4>
-    <p className="hint">{copy.chargesHint}</p>
-    {property.charges.length === 0 ? <p className="empty-inline">{copy.noCharges}</p> : groups.map(({ label, rows }) => rows.length > 0 && <div key={label}>
-      <h5 className="property-group">{label}</h5>
-      <ul className="rows">{rows.map((charge) => <ChargeRow key={charge.id} locale={locale} charge={charge} accounts={accounts} today={today} />)}</ul>
-    </div>)}
-    <ChargeForm locale={locale} property={property} today={today} />
   </div>;
 }
