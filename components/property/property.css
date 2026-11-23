@@ -2,7 +2,10 @@
 .property-view h3, .property-view h4 { font-weight: 700; }
 .property-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .property-head h2 { margin-inline-end: auto; overflow-wrap: anywhere; }
+/* Cards size their own metrics: both blocks (value and costs) share one 4-column grid once the card is wide enough. */
+.property-view .card { container-type: inline-size; }
 .property-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.property-metrics > div { display: flex; flex-direction: column; justify-content: space-between; }
 .property-metrics dt { color: var(--muted); font-size: 12px; line-height: 16px; }
 .property-metrics dd { margin-top: 2px; font-weight: 700; }
 .property-block { display: grid; gap: 8px; margin-top: 16px; }
@@ -15,8 +18,8 @@
 .property-archived > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
 .property-details { margin-top: 16px; border-top: 1px solid var(--glass-hairline); padding-top: 12px; }
 .property-details > summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
-@media (min-width: 768px) {
-  .property-metrics { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+@container (min-width: 600px) {
+  .property-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 .property-view .cost-strong { font-size: 1.05em; }
 .property-year { align-items: center; gap: 4px; }

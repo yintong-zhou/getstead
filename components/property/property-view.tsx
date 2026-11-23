@@ -29,12 +29,13 @@ function CostFigures({ locale, row }: { locale: Locale; row: CostRow }) {
   </dl>;
 }
 
-function PropertyCard({ locale, property, accounts, today, costs }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string; costs?: CostRow }) {
+// `pair` puts cards two per row on wide screens; a single property spans the row like the other cards.
+function PropertyCard({ locale, property, accounts, today, costs, pair }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string; costs?: CostRow; pair: boolean }) {
   const copy = propertyCopy[locale];
   const separator = locale === "it" ? "," : ".";
   const mortgage = accounts.find((account) => account.id === property.mortgageAccountId);
   const sold = property.soldOn !== null && property.soldOn <= today;
-  return <section className="card property-card stack-half" aria-labelledby={`property-${property.id}`}>
+  return <section className={pair ? "card property-card stack-half" : "card property-card"} aria-labelledby={`property-${property.id}`}>
     <div className="property-head">
       <h2 id={`property-${property.id}`}>{property.name}</h2>
       <span className="badge badge-blue">{copy.kinds[property.kind]}</span>
@@ -94,11 +95,11 @@ export function PropertyView({ locale, data, accounts, costs }: ViewProps) {
       <p className="hint costs-note">{copy.incomeHint}</p>
     </section>}
     {data.properties.length === 0 ? <p className="card empty-inline">{copy.noProperties}</p>
-      : active.map((property) => <PropertyCard key={property.id} locale={locale} property={property} accounts={accounts} today={data.today} costs={costsOf(property.id)} />)}
+      : active.map((property) => <PropertyCard key={property.id} pair={active.length > 1} locale={locale} property={property} accounts={accounts} today={data.today} costs={costsOf(property.id)} />)}
     {archived.length > 0 && <details className="card property-archived">
       <summary>{copy.archivedSection} ({archived.length})</summary>
       <div className="stack">
-        {archived.map((property) => <PropertyCard key={property.id} locale={locale} property={property} accounts={accounts} today={data.today} costs={costsOf(property.id)} />)}
+        {archived.map((property) => <PropertyCard key={property.id} pair={false} locale={locale} property={property} accounts={accounts} today={data.today} costs={costsOf(property.id)} />)}
       </div>
     </details>}
     <section className="card" aria-labelledby="property-add-title">
