@@ -84,6 +84,7 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
         <thead role="rowgroup">
           <tr role="row">
             {[copy.instrument, ...fields].map((label) => <th key={label} role="columnheader" scope="col">{label}</th>)}
+            <th className="holding-action" role="columnheader" scope="col" aria-label={copy.deletePosition} />
           </tr>
         </thead>
         {data.holdings.map((holding) => {
@@ -100,19 +101,20 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
                 {holding.name}{instrument?.archived && <span className="badge">{shared.archivedSuffix}</span>}
                 <span className="hint holding-kind">{[copy.kinds[holding.kind], instrument?.symbol].filter(Boolean).join(" · ")}</span>
                 {holding.priceAsOf && <span className="hint holding-kind">
-                  {formatDecimal(holding.unitPrice, locale, true)} · {holding.priceSource === "ALPHA_VANTAGE" ? "Alpha Vantage" : copy.manualPrice}
+                  {formatDecimal(holding.unitPrice, locale, true)} · {holding.priceSource === "MARKET" ? copy.marketPrice : copy.manualPrice}
                   {" · "}{new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeZone: "UTC" })
                     .format(new Date(holding.priceAsOf))}
                 </span>}
+                {holding.noPrice && instrument?.market && <span className="hint holding-kind">{copy.marketPricePending}</span>}
               </th>
               {cells.map((cell, index) => <td key={fields[index]} role="cell">
                 <span className="holding-label hint" aria-hidden="true">{fields[index]}</span>
                 <span className="amount">{cell}</span>
               </td>)}
+              <td className="holding-action" role="cell">
+                <DeletePosition locale={locale} id={holding.instrumentId} name={holding.name} {...position} />
+              </td>
             </tr>
-            <tr className="holding-action" role="row"><td role="cell" colSpan={5}><div className="holding-buttons">
-              <DeletePosition locale={locale} id={holding.instrumentId} name={holding.name} {...position} />
-            </div></td></tr>
           </tbody>;
         })}
       </table>

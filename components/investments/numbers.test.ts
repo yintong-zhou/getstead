@@ -1,6 +1,6 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
-import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision, ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parseUnitPrice } from "./numbers.ts";
+import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision, ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parsePurchaseTotal, parseUnitPrice } from "./numbers.ts";
 
 test("investment expressions preserve cents and exact quote precision", () => {
   assert.equal(parseInvestmentEuros("1000000000 + 0,01"), null);
@@ -29,6 +29,12 @@ test("investment euro inputs preserve cents up to the API maximum", () => {
   for (const text of ["", "-1", "1e2", "1,000.00", "1.234", "999999999999999999999999"]) {
     assert.equal(parseInvestmentEuros(text), null, text);
   }
+});
+
+test("purchase totals can represent the full saved amount plus fees", () => {
+  assert.equal(parsePurchaseTotal("1000000000,01"), 100_000_000_001);
+  assert.equal(parsePurchaseTotal("2000000000,00"), 200_000_000_000);
+  assert.equal(parsePurchaseTotal("2000000000,01"), null);
 });
 
 test("prices and quantities reach the API as exact positive decimal strings", () => {

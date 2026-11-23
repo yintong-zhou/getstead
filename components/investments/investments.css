@@ -36,9 +36,7 @@
 }
 .investment-holdings th { grid-column: 1 / -1; overflow-wrap: anywhere; text-align: start; }
 .investment-holdings td { min-width: 0; }
-.investment-holdings .holding-action { display: block; padding-block: 0 8px; }
-.investment-holdings .holding-action td { display: block; }
-.holding-buttons { display: flex; flex-wrap: wrap; align-items: start; gap: 4px 12px; }
+.investment-holdings td.holding-action { grid-column: 1 / -1; text-align: end; }
 .holding-label, .holding-kind { display: block; }
 .holding-kind { margin-top: 4px; font-weight: 500; }
 .investment-holdings .badge { margin-inline-start: 0; white-space: normal; }
@@ -55,7 +53,45 @@
 .investment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .investment-row .row-text { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
 .investment-actions { display: flex; flex-wrap: wrap; }
+.market-link { margin-block: 4px 8px; }
+.market-link summary { width: fit-content; padding-block: 8px; cursor: pointer; }
+.market-link-panel {
+  display: grid;
+  gap: 12px;
+  max-width: 48rem;
+  padding: 12px;
+  border: 1px solid var(--glass-hairline);
+  border-radius: 12px;
+}
+.market-link-search, .market-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+.market-link-search { align-items: end; }
+.market-link-search .form-field { min-width: 0; margin: 0; }
+.market-link-search input { width: 100%; }
+.market-link-details { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.market-link-results > li { border-top: 1px solid var(--glass-hairline); padding-block: 8px; }
+.market-choice-dialog { max-height: calc(100dvh - 24px); }
+.market-choices { display: grid; gap: 4px; margin-block: 12px; padding: 0; border: 0; min-width: 0; }
+.market-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-top: 1px solid var(--glass-hairline);
+  cursor: pointer;
+}
+.market-choice input { accent-color: var(--brand); }
 .investment-view select { text-overflow: ellipsis; }
+
+@media (max-width: 480px) {
+  .market-link-panel { padding: 10px; }
+  .market-link-search, .market-link-row { column-gap: 4px; }
+}
 
 @media (min-width: 768px) {
   .investment-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -73,11 +109,11 @@
     white-space: normal;
   }
   .investment-holdings tbody { display: table-row-group; }
-  .investment-holdings tr, .investment-holdings .holding-action { display: table-row; }
+  .investment-holdings tr { display: table-row; }
   .investment-holdings th, .investment-holdings td { padding: 8px; text-align: start; vertical-align: top; }
   .investment-holdings thead th { font-size: 12px; color: var(--muted); }
   .investment-holdings thead th:first-child { width: 22%; }
-  .investment-holdings .holding-action td { display: table-cell; padding-block: 0 8px; }
+  .investment-holdings thead .holding-action { width: 6.5rem; }
   .holding-label { display: none; }
 }
 

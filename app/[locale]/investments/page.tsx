@@ -7,7 +7,7 @@ import { InvestmentsView } from "@/components/investments/investments-view";
 import { readPageUser } from "@/server/auth/page-access";
 import { listAccounts } from "@/server/cash-flow/catalog";
 import { getPortfolio, listInstruments, listQuotes, listTransactions } from "@/server/investments/service";
-import { marketDataEnabled } from "@/server/investments/alpha-vantage";
+import { marketDataEnabled } from "@/server/investments/market-data";
 import { isLocale } from "@/server/locale";
 import { listPensions } from "@/server/net-worth/service";
 
