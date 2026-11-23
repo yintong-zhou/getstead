@@ -70,6 +70,17 @@ export async function recordEvent(input: EventInput, onceWithinMs?: number) {
   }
 }
 
+/**
+ * Records an unexpected error by Prisma code or class name only (messages and stacks may carry personal
+ * data), at most once per code every ten minutes so a broken dependency cannot flood the log.
+ */
+export async function recordError(error: unknown, route: string, method?: string) {
+  const code = (error as { code?: unknown } | null)?.code;
+  const name = typeof code === "string" ? code : error instanceof Error ? error.name : typeof error;
+  console.error("request failed", route, name);
+  await recordEvent({ kind: "ERROR", code: name, route, method }, 10 * 60_000);
+}
+
 const KINDS = ["ERROR", "SECURITY"] as const;
 
 function dateParam(params: URLSearchParams, name: string, endOfDay: boolean) {

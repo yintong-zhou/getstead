@@ -1,7 +1,7 @@
 import { verify } from "otplib";
 import type { Prisma, User } from "../../db/generated/client.ts";
 import { encryptionKey } from "./config.ts";
-import { decryptSecret, digestToken, newToken, verifyPassword } from "./crypto.ts";
+import { decryptSecret, digestToken, newToken, verifyPassword, TOTP_EPOCH_TOLERANCE } from "./crypto.ts";
 import { db } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 
@@ -93,7 +93,7 @@ export async function verifyMfa(token: string | undefined, code: string, epoch =
       secret: decryptSecret(encryptionKey(), userId, user.totpSecret),
       token: code,
       epoch,
-      epochTolerance: [5, 0],
+      epochTolerance: TOTP_EPOCH_TOLERANCE,
       afterTimeStep: user.lastTotpStep ?? undefined,
     });
     if (!result.valid) return { status: "invalid" } as const;

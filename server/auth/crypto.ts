@@ -1,6 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { generateURI } from "otplib";
 
+// Allow one step of clock drift each way; afterTimeStep / lastTotpStep still block replay.
+export const TOTP_EPOCH_TOLERANCE: [number, number] = [30, 30];
+
 export function totpEnrollmentUri(secret: string, email: string) {
   return generateURI({ issuer: "getstead", label: email, secret });
 }

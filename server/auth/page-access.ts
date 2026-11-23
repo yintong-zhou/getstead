@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+import { recordError } from "../admin/logs.ts";
 import { challengeCookie, sessionCookie } from "./http.ts";
 import { readChallenge, readSession } from "./service.ts";
 import { getProfile } from "../profile/service.ts";
@@ -10,7 +11,9 @@ export async function readPageSession() {
   try {
     const token = (await cookies()).get(sessionCookie)?.value;
     return await readSession(token) ? "authenticated" : "anonymous";
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
+    await recordError(error, "page:session");
     return "unavailable";
   }
 }
@@ -19,7 +22,9 @@ export async function readPageChallenge() {
   try {
     const token = (await cookies()).get(challengeCookie)?.value;
     return await readChallenge(token);
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
+    await recordError(error, "page:challenge");
     return { status: "unavailable" } as const;
   }
 }
@@ -31,7 +36,9 @@ async function pageUser() {
     if (!session) return { status: "anonymous" } as const;
     const profile = await getProfile(session.userId);
     return { status: "authenticated", userId: session.userId, admin: session.admin && session.hasTotp, profile } as const;
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
+    await recordError(error, "page:user");
     return { status: "unavailable" } as const;
   }
 }

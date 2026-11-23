@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { encryptSecret, decryptSecret, hashPassword, verifyPassword, digestToken, newToken, totpEnrollmentUri } from "./crypto.ts";
+import { generate, verify } from "otplib";
+import { encryptSecret, decryptSecret, hashPassword, verifyPassword, digestToken, newToken, totpEnrollmentUri, TOTP_EPOCH_TOLERANCE } from "./crypto.ts";
 
 test("the authenticator enrollment URI preserves the account and the TOTP settings", () => {
   const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
@@ -13,6 +14,25 @@ test("the authenticator enrollment URI preserves the account and the TOTP settin
   assert.equal(uri.searchParams.get("algorithm") ?? "SHA1", "SHA1");
   assert.equal(uri.searchParams.get("digits") ?? "6", "6");
   assert.equal(uri.searchParams.get("period") ?? "30", "30");
+});
+
+test("TOTP accepts adjacent steps, rejects distant steps, and blocks replay", async () => {
+  const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+  const epoch = 1_700_000_025;
+  const epochTolerance = TOTP_EPOCH_TOLERANCE;
+
+  for (const offset of [-30, 30]) {
+    const token = await generate({ secret, epoch: epoch + offset });
+    assert.equal((await verify({ secret, token, epoch, epochTolerance })).valid, true);
+  }
+  for (const offset of [-60, 60]) {
+    const token = await generate({ secret, epoch: epoch + offset });
+    assert.equal((await verify({ secret, token, epoch, epochTolerance })).valid, false);
+  }
+  const token = await generate({ secret, epoch });
+  assert.equal((await verify({
+    secret, token, epoch, epochTolerance, afterTimeStep: Math.floor(epoch / 30),
+  })).valid, false);
 });
 
 test("password hashes are salted and only the original password verifies", async () => {

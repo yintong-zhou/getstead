@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server.js";
+import { recordError } from "../admin/logs.ts";
 import { appOrigin } from "./config.ts";
 
 export const sessionCookie = "getstead_session";
@@ -13,7 +14,8 @@ export async function sameOrigin(request: Request, action: (secure: boolean) => 
     const origin = appOrigin();
     if (request.headers.get("origin") !== origin.origin) return authResponse(403);
     return await action(origin.protocol === "https:");
-  } catch {
+  } catch (error) {
+    await recordError(error, new URL(request.url).pathname, request.method);
     return authResponse(503);
   }
 }

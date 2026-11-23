@@ -1,7 +1,7 @@
 import { generateSecret, verify } from "otplib";
 import QRCode from "qrcode";
 import { encryptionKey } from "../auth/config.ts";
-import { decryptSecret, digestToken, encryptSecret, hashPassword, newToken, totpEnrollmentUri, verifyPassword } from "../auth/crypto.ts";
+import { decryptSecret, digestToken, encryptSecret, hashPassword, newToken, totpEnrollmentUri, verifyPassword, TOTP_EPOCH_TOLERANCE } from "../auth/crypto.ts";
 import type { Prisma } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
 import { normalizeEmail, validNewPassword, validPasswordInput, validTotpCode } from "../auth/inputs.ts";
@@ -91,7 +91,7 @@ export async function updateTotp(userId: string, sessionToken: string, input: Re
     }
 
     if (!code) throw new ApiError(422, "invalid_code");
-    const result = await verify({ secret, token: code, epoch, epochTolerance: [5, 0],
+    const result = await verify({ secret, token: code, epoch, epochTolerance: TOTP_EPOCH_TOLERANCE,
       afterTimeStep: action === "disable" ? user.lastTotpStep ?? undefined : undefined,
     });
     if (!result.valid || !("timeStep" in result)) throw new ApiError(422, "invalid_code");
