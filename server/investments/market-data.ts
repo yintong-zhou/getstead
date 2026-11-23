@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { Decimal } from "@prisma/client/runtime/client";
+import { recordEvent } from "../admin/logs.ts";
 import { db } from "../auth/database.ts";
 import { addDays, parseIsoDate } from "../cash-flow/dates.ts";
 import { decimalInput } from "./calc.ts";
@@ -240,16 +241,26 @@ async function requestMarket(operation: Operation, value: string): Promise<unkno
   const origin = process.env.MARKET_DATA_BRIDGE_ORIGIN || `https://${process.env.VERCEL_URL}`;
   const url = new URL("/api/market_data", origin);
   if (url.protocol !== "https:") throw new Error("Market data adapter requires HTTPS");
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.MARKET_DATA_BRIDGE_SECRET}` },
-    body: payload,
-    cache: "no-store",
-    redirect: "error",
-    signal: AbortSignal.timeout(16_000),
-  });
+  // Failures are logged as a code only (operation and HTTP status), so an admin can tell a wrong secret from a Yahoo block.
+  const fail = async (code: string) => {
+    await recordEvent({ kind: "ERROR", code: `market_bridge_${operation}_${code}`, route: "/api/market_data", method: "POST" }, 10 * 60_000);
+    throw new Error("Market data adapter failed");
+  };
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.MARKET_DATA_BRIDGE_SECRET}` },
+      body: payload,
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(16_000),
+    });
+  } catch {
+    return fail("fetch");
+  }
   if (response.status === 429) throw new MarketRateLimit();
-  if (!response.ok) throw new Error("Market data adapter failed");
+  if (!response.ok) return fail(String(response.status));
   return response.json();
 }
 
