@@ -7,6 +7,7 @@ import type { Locale } from "@/server/locale";
 import type { Profile } from "@/server/profile/service";
 import { call } from "../cash-flow/api";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
+import { BackupSettings } from "./backup-settings";
 import { profileCopy } from "./copy";
 import { GlassSettings } from "./glass-settings";
 import { ThemeSettings } from "./theme-settings";
@@ -28,6 +29,7 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
     <ThemeSettings locale={locale} />
     <GlassSettings locale={locale} />
     <TotpSettings locale={locale} initialEnabled={profile.totpEnabled} />
+    {!profile.admin && <BackupSettings locale={locale} />}
     <section className="card profile-card" aria-labelledby="profile-name-title">
       <h2 id="profile-name-title">{copy.displayName}</h2>
       <form onSubmit={async (event) => {

@@ -11,8 +11,8 @@ import { marketDataEnabled, marketQuote, marketTicker, searchMarket, type Market
 
 type Client = Prisma.TransactionClient;
 const MAX_TRANSACTION_CENTS = 100_000_000_000;
-const MAX_INSTRUMENTS = 1_000;
-const MAX_TRANSACTIONS = 10_000;
+export const MAX_INSTRUMENTS = 1_000;
+export const MAX_TRANSACTIONS = 10_000;
 
 export function transactionInput(row: InvestmentTransaction) {
   return { ...row, tradeDate: fromDate(row.tradeDate), quantity: row.quantity?.toFixed() ?? null };
@@ -61,7 +61,7 @@ async function lockInstrumentHistory(client: Client, userId: string, instrumentI
   await lockInstruments(client, userId, [instrumentId]);
   return row;
 }
-async function audit(client: Client, userId: string, ids: string[]) {
+export async function audit(client: Client, userId: string, ids: string[]) {
   for (const instrumentId of new Set(ids)) {
     const rows = await client.investmentTransaction.findMany({ where: { userId, instrumentId } });
     const quotes = await client.priceQuote.findMany({ where: { userId, instrumentId } });
