@@ -7,6 +7,9 @@ import { formatEuros, type Locale } from "@/server/locale";
  * template literals) keep using `formatEuros`.
  */
 export function euros(cents: number, locale: Locale, options?: Parameters<typeof formatEuros>[2]): ReactNode {
-  const text = formatEuros(cents, locale, options);
-  return text[0] === "+" || text[0] === "−" ? <><span className="sign">{text[0]}</span>{text.slice(1)}</> : text;
+  return signedText(formatEuros(cents, locale, options));
+}
+
+export function signedText(text: string): ReactNode {
+  return text[0] === "+" || text[0] === "−" || text[0] === "-" ? <><span className="sign">{text[0]}</span>{text.slice(1)}</> : text;
 }

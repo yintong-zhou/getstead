@@ -214,11 +214,11 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
   return <div className="stack stack-fluid investment-view">
     <NoticeLine notice={action.notice} />
     {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend}
-      action={marketEnabled && marketTargets ? <button type="button" className="button button-quiet" disabled={action.pending} aria-busy={action.pending}
+      action={marketEnabled && marketTargets ? <button type="button" className="button button-quiet" aria-label={copy.syncPrices} title={copy.syncPrices} disabled={action.pending} aria-busy={action.pending}
         onClick={() => { void action.run(() => investmentCall<{ changed: boolean; unavailable: number }>("POST", "/quotes/refresh"),
           ({ changed, unavailable }) => changed ? { kind: "ok", text: copy.syncUpdated }
             : unavailable ? { kind: "warn", text: copy.syncUnavailable } : { kind: "ok", text: copy.syncCurrent }); }}>
-        <Icon name="sync" size={18} />{copy.syncPrices}
+        <Icon name="sync" size={18} />
       </button> : undefined} />}
     <Allocation locale={locale} allocation={data.allocation} />
     <Holdings locale={locale} data={data} instruments={instruments} />
