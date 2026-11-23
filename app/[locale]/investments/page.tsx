@@ -8,6 +8,7 @@ import { readPageUser } from "@/server/auth/page-access";
 import { listAccounts } from "@/server/cash-flow/catalog";
 import { getPortfolio, listInstruments, listQuotes, listTransactions } from "@/server/investments/service";
 import { isLocale } from "@/server/locale";
+import { listPensions } from "@/server/net-worth/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,11 +29,11 @@ export default async function InvestmentsPage({ params }: Props) {
 
   let loaded;
   try {
-    const [data, instruments, transactions, accounts, quotes] = await Promise.all([
+    const [data, instruments, transactions, accounts, quotes, pensions] = await Promise.all([
       getPortfolio(user.userId, undefined, { trend: true }), listInstruments(user.userId), listTransactions(user.userId),
-      listAccounts(user.userId, true), listQuotes(user.userId),
+      listAccounts(user.userId, true), listQuotes(user.userId), listPensions(user.userId),
     ]);
-    loaded = { data, instruments, transactions, quotes: quotes.map(({ id, instrumentId, asOf, unitPrice }) => ({ id, instrumentId, asOf, unitPrice })),
+    loaded = { data, instruments, transactions, pensions, quotes: quotes.map(({ id, instrumentId, asOf, unitPrice }) => ({ id, instrumentId, asOf, unitPrice })),
       accounts: accounts.filter((account) => account.type === "BROKERAGE" || account.type === "CRYPTO") };
   } catch {
     return <UnavailableNotice locale={locale} path="/investments" />;

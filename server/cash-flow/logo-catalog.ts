@@ -179,6 +179,7 @@ export const logoGroupsByType: Record<string, readonly LogoGroup[]> = {
   CRYPTO: ["crypto"],
   DEBT: ["bank"],
   CASH: [],
+  PENSION: ["bank", "broker"],
 };
 
 export const catalogLogoPath = (id: string) => `/account-logos/${id}.webp`;

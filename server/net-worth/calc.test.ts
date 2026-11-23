@@ -165,3 +165,25 @@ test("properties add their value share to assets in the total and the series, an
   const october = series.find((point) => point.month === "2026-10")!;
   assert.equal(september.assetsCents - october.assetsCents, 10_000_000, "the flat drops out once it is sold on 2026-10-15");
 });
+
+test("a pension account counts once as an asset, next to holdings, and never inside them", () => {
+  const accounts = [{ id: "broker" }, { id: "pension" }];
+  const transactions: Transaction[] = [
+    { id: "b", accountId: "broker", instrumentId: "etf", type: "BUY", tradeDate: "2026-10-02", ordinal: 1, quantity: "2", amountCents: 60_000n, feesCents: 0n, taxWithheldCents: 0n },
+  ];
+  const investments = { instruments: [{ id: "etf", name: "Synthetic ETF", kind: "ETF" as const }], transactions,
+    quotes: [{ instrumentId: "etf", asOf: "2026-11-01", unitPrice: "310" }] };
+  const pensionChecks = [
+    { accountId: "pension", asOf: "2026-06-30", balanceCents: 1_500_000 },
+    { accountId: "pension", asOf: "2026-09-30", balanceCents: 1_620_000 },
+  ];
+  const brokerChecks = [{ accountId: "broker", asOf: "2026-10-01", balanceCents: 100_000 }];
+  const today = "2026-11-20";
+  const total = netWorthAt(accounts, [...brokerChecks, ...pensionChecks], [], today, investments);
+  const withoutPension = netWorthAt([{ id: "broker" }], brokerChecks, [], today, investments);
+  assert.equal(total.holdingsCents, 62_000, "holdings are the ETF only");
+  assert.equal(total.holdingsCents, withoutPension.holdingsCents, "the pension never enters holdings");
+  assert.equal(total.perAccount.find(({ accountId }) => accountId === "pension")?.balanceCents, 1_620_000, "latest dated check");
+  assert.equal(total.assetsCents, withoutPension.assetsCents + 1_620_000, "the pension adds exactly its balance, once");
+  assert.equal(monthlySeries(accounts, [...brokerChecks, ...pensionChecks], [], today, investments).at(-1)?.netCents, total.netCents);
+});

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
+import type { AccountDto, AccountTypeDto, CategoryDto } from "@/server/cash-flow/catalog";
 import { logoGroupsByType } from "@/server/cash-flow/logo-catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
@@ -10,7 +10,7 @@ import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
 import { amountInputProps } from "../amount-input";
 import { parseLimit } from "../money";
-import { Select } from "../select";
+import { Select, type SelectGroup } from "../select";
 import { AccountLogoControls, accountLogoLabel, accountLogoPath } from "./account-logo";
 import { call } from "./api";
 import { cashFlowCopy } from "./copy";
@@ -18,9 +18,31 @@ import { MoreActions } from "./more-actions";
 import { useConfirm } from "../confirm-dialog";
 import { NoticeLine, useAction } from "./use-action";
 
-const accountTypes = ["CHECKING", "CARD", "CASH", "BROKERAGE", "CRYPTO", "DEBT"] as const;
+const accountTypes = ["CHECKING", "CARD", "CASH", "BROKERAGE", "CRYPTO", "PENSION", "DEBT"] as const;
+type BaseType = AccountDto["type"];
 
-type Props = { locale: Locale; accounts: AccountDto[]; categories: CategoryDto[]; rules: RuleDto[] };
+type Props = { locale: Locale; accounts: AccountDto[]; accountTypes: AccountTypeDto[]; categories: CategoryDto[]; rules: RuleDto[] };
+
+// A type choice is a built-in type ("CHECKING") or one of the user's types ("custom:<id>"); the server derives the base kind.
+const CUSTOM = "custom:";
+const typeValue = (account: Pick<AccountDto, "type" | "customTypeId">) => account.customTypeId ? CUSTOM + account.customTypeId : account.type;
+const typeBody = (value: string) => value.startsWith(CUSTOM) ? { customTypeId: value.slice(CUSTOM.length) } : { type: value };
+const baseOf = (value: string, types: AccountTypeDto[]) =>
+  value.startsWith(CUSTOM) ? types.find((type) => CUSTOM + type.id === value)?.baseType : value as BaseType;
+
+/** Built-in types keep their localized label; a custom type shows the user's own name. */
+function accountTypeLabel(locale: Locale, account: Pick<AccountDto, "type" | "customTypeId">, types: AccountTypeDto[]) {
+  const custom = account.customTypeId ? types.find((type) => type.id === account.customTypeId) : undefined;
+  return custom?.name ?? cashFlowCopy[locale].accountTypes[account.type];
+}
+
+/** Archived custom types stay out of the choices, except the one an account already carries. */
+function typeGroups(locale: Locale, types: AccountTypeDto[], currentId?: string | null): SelectGroup[] {
+  const copy = cashFlowCopy[locale];
+  const custom = types.filter((type) => !type.archived || type.id === currentId);
+  const builtIn = { label: copy.builtInTypes, options: accountTypes.map((type) => ({ value: type, label: copy.accountTypes[type] })) };
+  return custom.length ? [builtIn, { label: copy.customTypes, options: custom.map((type) => ({ value: CUSTOM + type.id, label: type.name })) }] : [builtIn];
+}
 
 function formData(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
@@ -78,24 +100,56 @@ function Row({ locale, name, meta, archived, logo, menuItems, confirmDelete, met
   );
 }
 
-function AccountRow({ locale, account, lookup, action }: {
-  locale: Locale; account: AccountDto; lookup?: "pending" | "failed"; action: ReturnType<typeof useAction>;
+/** Changes an account's type in place; its movements, balance checks and logo stay as they are. */
+function TypeForm({ locale, account, types, action, onDone }: {
+  locale: Locale; account: AccountDto; types: AccountTypeDto[]; action: ReturnType<typeof useAction>; onDone: () => void;
+}) {
+  const copy = cashFlowCopy[locale];
+  const [value, setValue] = useState(typeValue(account));
+  const id = useId();
+  return (
+    <form
+      className="inline-form"
+      aria-label={`${copy.changeType}: ${account.name}`}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (value === typeValue(account)) return onDone();
+        if (await action.run(() => call("PATCH", `/accounts/${account.id}`, typeBody(value)), copy.typeChanged)) onDone();
+      }}
+    >
+      <label className="visually-hidden" htmlFor={id}>{copy.accountType}</label>
+      <Select id={id} value={value} onChange={setValue} groups={typeGroups(locale, types, account.customTypeId)} />
+      <button className="button" type="submit" disabled={action.pending}>{copy.save}</button>
+      <button className="button button-quiet" type="button" onClick={onDone}>{copy.cancel}</button>
+    </form>
+  );
+}
+
+function AccountRow({ locale, account, types, lookup, action }: {
+  locale: Locale; account: AccountDto; types: AccountTypeDto[]; lookup?: "pending" | "failed"; action: ReturnType<typeof useAction>;
 }) {
   const copy = cashFlowCopy[locale];
   const [logoOpen, setLogoOpen] = useState<boolean>();
+  const [typeOpen, setTypeOpen] = useState(false);
   const showLogo = logoOpen ?? lookup === "failed";
   const path = `/accounts/${account.id}`;
 
   return (
     <Row
-      locale={locale} name={account.name} archived={account.archived} meta={copy.accountTypes[account.type]}
+      locale={locale} name={account.name} archived={account.archived} meta={accountTypeLabel(locale, account, types)}
       confirmDelete={copy.confirmDeleteAccount(account.name)}
-      logo={<AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} onDone={() => setLogoOpen(false)} />}
-      menuItems={(
+      logo={<>
+        {typeOpen && <TypeForm locale={locale} account={account} types={types} action={action} onDone={() => setTypeOpen(false)} />}
+        <AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} onDone={() => setLogoOpen(false)} />
+      </>}
+      menuItems={(<>
+        <button className="button button-quiet" type="button" aria-expanded={typeOpen} onClick={() => setTypeOpen(!typeOpen)}>
+          {copy.changeType}
+        </button>
         <button className="button button-quiet" type="button" aria-expanded={showLogo} onClick={() => setLogoOpen(!showLogo)}>
           {accountLogoLabel(locale)}
         </button>
-      )}
+      </>)}
       onRename={(name) => action.run(() => call("PATCH", path, { name }), copy.saved)}
       onArchive={() => action.run(() => call("PATCH", path, { archived: !account.archived }), copy.saved)}
       onDelete={() => void action.run(() => call("DELETE", path), copy.removed)}
@@ -103,10 +157,11 @@ function AccountRow({ locale, account, lookup, action }: {
   );
 }
 
-export function AccountsView({ locale, accounts, categories, rules }: Props) {
+export function AccountsView({ locale, accounts, accountTypes: types, categories, rules }: Props) {
   const copy = cashFlowCopy[locale];
   const router = useRouter();
   const accountsAction = useAction(locale);
+  const typesAction = useAction(locale);
   const categoriesAction = useAction(locale);
   const rulesAction = useAction(locale);
   const [showArchived, setShowArchived] = useState(false);
@@ -114,7 +169,9 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
   const categoryName = new Map(categories.map((category) => [category.id, category.name]));
   const visibleAccounts = accounts.filter((account) => showArchived || !account.archived);
   const visibleCategories = categories.filter((category) => showArchived || !category.archived);
-  const hasArchived = accounts.some((account) => account.archived) || categories.some((category) => category.archived);
+  const visibleTypes = types.filter((type) => showArchived || !type.archived);
+  const hasArchived = accounts.some((account) => account.archived) || categories.some((category) => category.archived)
+    || types.some((type) => type.archived);
   const activeCategories = categories.filter((category) => !category.archived);
 
   return (
@@ -138,7 +195,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
         {visibleAccounts.length === 0 ? <p className="empty-inline">{copy.accountsEmpty}</p> : (
           <ul className="rows">
             {visibleAccounts.map((account) => (
-              <AccountRow key={account.id} locale={locale} account={account} lookup={lookups.get(account.id)} action={accountsAction} />
+              <AccountRow key={account.id} locale={locale} account={account} types={types} lookup={lookups.get(account.id)} action={accountsAction} />
             ))}
           </ul>
         )}
@@ -148,7 +205,8 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           onSubmit={async (event) => {
             const form = event.currentTarget;
             const data = formData(event);
-            const accountType = String(data.get("type"));
+            const typeChoice = String(data.get("type"));
+            const accountType = baseOf(typeChoice, types);
             const balanceText = String(data.get("balance") ?? "").trim();
             const cents = balanceText ? parseLimit(balanceText) : undefined;
             if (cents === null) {
@@ -158,7 +216,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
             // Cards and debts hold what you owe: the amount typed is stored as negative.
             const openingBalanceCents = cents === undefined ? undefined : accountType === "CARD" || accountType === "DEBT" ? -cents : cents;
             const result = await accountsAction.run(
-              () => call<AccountDto>("POST", "/accounts", { name: String(data.get("name") ?? ""), type: accountType, ...(cents === undefined ? {} : { openingBalanceCents }) }),
+              () => call<AccountDto>("POST", "/accounts", { name: String(data.get("name") ?? ""), ...typeBody(typeChoice), ...(cents === undefined ? {} : { openingBalanceCents }) }),
               copy.accountAdded,
             );
             if (!result) return;
@@ -182,7 +240,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           </div>
           <div className="form-field">
             <label htmlFor="account-type">{copy.accountType}</label>
-            <Select id="account-type" name="type" defaultValue="CHECKING" options={accountTypes.map((type) => ({ value: type, label: copy.accountTypes[type] }))} />
+            <Select id="account-type" name="type" defaultValue="CHECKING" groups={typeGroups(locale, types)} />
           </div>
           <div className="form-field">
             <label htmlFor="account-balance">{copy.openingBalance}</label>
@@ -192,6 +250,49 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           <button className="button form-submit" type="submit" disabled={accountsAction.pending}>{copy.addAccount}</button>
         </form>
         <NoticeLine notice={accountsAction.notice} />
+      </section>
+
+      <section className="card" aria-labelledby="account-types-title">
+        <h2 id="account-types-title">{copy.accountTypesSection}</h2>
+        <p className="hint">{copy.accountTypesIntro}</p>
+        {visibleTypes.length === 0 ? <p className="empty-inline">{copy.accountTypesEmpty}</p> : (
+          <ul className="rows">
+            {visibleTypes.map((type) => (
+              <Row
+                key={type.id} locale={locale} name={type.name} archived={type.archived}
+                meta={copy.worksLike(copy.accountTypes[type.baseType])}
+                onRename={(name) => typesAction.run(() => call("PATCH", `/account-types/${type.id}`, { name }), copy.saved)}
+                onArchive={() => typesAction.run(() => call("PATCH", `/account-types/${type.id}`, { archived: !type.archived }), copy.saved)}
+                confirmDelete={copy.confirmDeleteAccountType(type.name)}
+                onDelete={() => void typesAction.run(() => call("DELETE", `/account-types/${type.id}`), copy.removed)}
+              />
+            ))}
+          </ul>
+        )}
+        <form
+          className="form-grid"
+          aria-label={copy.newAccountType}
+          onSubmit={async (event) => {
+            const form = event.currentTarget;
+            const data = formData(event);
+            const result = await typesAction.run(
+              () => call("POST", "/account-types", { name: String(data.get("name") ?? ""), baseType: String(data.get("baseType")) }),
+              copy.accountTypeAdded,
+            );
+            if (result) form.reset();
+          }}
+        >
+          <div className="form-field">
+            <label htmlFor="account-type-name">{copy.name}</label>
+            <input id="account-type-name" name="name" className="field" maxLength={80} required />
+          </div>
+          <div className="form-field">
+            <label htmlFor="account-type-base">{copy.baseType}</label>
+            <Select id="account-type-base" name="baseType" defaultValue="CHECKING" options={accountTypes.map((type) => ({ value: type, label: copy.accountTypes[type] }))} />
+          </div>
+          <button className="button form-submit" type="submit" disabled={typesAction.pending}>{copy.addAccountType}</button>
+        </form>
+        <NoticeLine notice={typesAction.notice} />
       </section>
 
       <section className="card" aria-labelledby="categories-title">
