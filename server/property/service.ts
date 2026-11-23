@@ -19,9 +19,9 @@ import {
 } from "./calc.ts";
 
 type Client = Prisma.TransactionClient;
-const MAX_PROPERTIES = 50;
-const MAX_VALUATIONS = 2_000;
-const MAX_CHARGES = 2_000;
+export const MAX_PROPERTIES = 50;
+export const MAX_VALUATIONS = 2_000;
+export const MAX_CHARGES = 2_000;
 const MAX_VALUE_CENTS = 1_000_000_000_000;
 const MAX_BUILDING_CENTS = 100_000_000_000;
 
