@@ -408,6 +408,7 @@ h1 {
 .trend-card[data-tone="negative"] { --trend-color: var(--negative); }
 .trend-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-inline: -8px; }
 .trend-toolbar .button { gap: 8px; padding-inline: 8px; color: var(--muted); font-size: 13px; }
+.trend-action { margin-inline-start: auto; }
 .trend-toolbar .button:hover, .trend-toolbar .button[aria-pressed="true"] { color: var(--ink); }
 .trend-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
 .trend-card .trend-value.amount { margin-top: 2px; font-size: 36px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
@@ -847,6 +848,8 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   backdrop-filter: blur(var(--glass-blur)) saturate(180%); box-shadow: var(--glass-shadow), inset 0 0 0 1px var(--glass-hairline);
 }
 @media (prefers-reduced-motion: no-preference) { .toast { animation: toast-in 180ms var(--ease); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) { .button[aria-busy="true"] svg { animation: spin 900ms linear infinite; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 .toast-mark { display: grid; flex-shrink: 0; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 13px; font-weight: 800; }
 .toast-ok .toast-mark { background: var(--positive-soft); color: var(--positive-ink); }

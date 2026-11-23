@@ -129,9 +129,9 @@ test("daily closes update both investment and net-worth history without mixing u
     requests++;
     return { asOf: "2026-11-05", unitPrice: "75", currency: "USD", fxRate: "0.9", fxAsOf: "2026-11-05" };
   };
-  assert.deepEqual(await refreshMarketQuotes(userId, now, fetchClose), { changed: true });
+  assert.deepEqual(await refreshMarketQuotes(userId, now, fetchClose), { changed: true, unavailable: 0 });
   assert.equal(requests, 1);
-  assert.deepEqual(await refreshMarketQuotes(userId, now, fetchClose), { changed: false });
+  assert.deepEqual(await refreshMarketQuotes(userId, now, fetchClose), { changed: false, unavailable: 0 });
   assert.equal((await getPortfolio(userId, now, { trend: true })).gainCents, 15_000);
   assert.equal((await getNetWorth(userId, now)).holdingsCents, 75_000);
   assert.equal((await getNetWorth(other.userId, now)).holdingsCents, 60_000);

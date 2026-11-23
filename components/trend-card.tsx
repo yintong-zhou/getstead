@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore } from "react";
+import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { trendRanges, type Trend, type TrendPoint, type TrendRange } from "@/server/trend";
 import { Area } from "@/components/charts/area";
@@ -50,8 +50,8 @@ const percentAt = (point: TrendPoint, first: TrendPoint) =>
   point.baseCents > 0 ? (point.gainCents - first.gainCents) / point.baseCents : null;
 
 /** Value, performance and a period chart: shared by net worth and investments. */
-export function TrendCard({ locale, title, note, today, trend }: {
-  locale: Locale; title: string; note: string; today: string; trend: Trend;
+export function TrendCard({ locale, title, note, today, trend, action }: {
+  locale: Locale; title: string; note: string; today: string; trend: Trend; action?: ReactNode;
 }) {
   const labels = copy[locale];
   const ids = useId();
@@ -92,6 +92,7 @@ export function TrendCard({ locale, title, note, today, trend }: {
         <button type="button" className="button button-quiet" aria-pressed={percent} onClick={() => setPercent(!percent)}>
           <Icon name="recurring" size={18} />{percent ? labels.percent : labels.absolute}
         </button>
+        {action && <span className="trend-action">{action}</span>}
       </div>
       <div className="trend-head">
         <div>
