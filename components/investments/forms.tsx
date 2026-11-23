@@ -336,13 +336,19 @@ export function DeletePosition({ locale, id, name, counts, pending, onDelete }: 
   </>;
 }
 
-function MarketLink({ locale, instrument }: { locale: Locale; instrument: InstrumentDto }) {
+function MarketLink({ locale, instrument, marketEnabled }: { locale: Locale; instrument: InstrumentDto; marketEnabled: boolean }) {
   const copy = investmentsCopy[locale];
   const action = useInvestmentAction(locale);
   const [matches, setMatches] = useState<{ query: string; listings: MarketListing[] }>();
   const path = `/instruments/${instrument.id}/market`;
+  const label = instrument.market ? copy.changeMarket : copy.linkMarket;
+  if (!marketEnabled) return <details className="market-link">
+    <summary>{label}</summary>
+    <p className="hint">{copy.marketServiceDisabled}</p>
+  </details>;
+
   return <details className="market-link">
-    <summary>{instrument.market ? copy.changeMarket : copy.linkMarket}</summary>
+    <summary>{label}</summary>
     <div className="market-link-panel">
       {instrument.market && <div className="market-link-row">
         <p className="market-link-details">
@@ -406,8 +412,8 @@ function InstrumentRow({ locale, instrument, marketEnabled, ...position }: { loc
       </div>
     </div>
     <NoticeLine notice={action.notice} />
-    {marketEnabled && !instrument.archived && ["STOCK", "ETF", "FUND"].includes(instrument.kind) &&
-      <MarketLink locale={locale} instrument={instrument} />}
+    {!instrument.archived && ["STOCK", "ETF", "FUND"].includes(instrument.kind) &&
+      <MarketLink locale={locale} instrument={instrument} marketEnabled={marketEnabled} />}
     <div id={id} hidden={!editing}>{editing && <InstrumentForm locale={locale} instrument={instrument} onSaved={() => {
       setEditing(false);
       action.setNotice({ kind: "ok", text: copy.instrumentSaved });

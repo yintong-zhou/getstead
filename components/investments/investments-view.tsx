@@ -11,7 +11,7 @@ import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { investmentsCopy } from "./copy";
 import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numbers";
-import { DeletePosition, Instruments, PriceHistory, Transactions, useInvestmentAction, investmentCall, type DeletePositionProps, type Quote } from "./forms";
+import { Instruments, PriceHistory, Transactions, useInvestmentAction, investmentCall, type DeletePositionProps, type Quote } from "./forms";
 import { NoticeLine } from "../cash-flow/use-action";
 import { euros } from "@/components/euros";
 import { TrendCard } from "@/components/trend-card";
@@ -63,7 +63,7 @@ function Allocation({ locale, allocation }: { locale: Locale; allocation: Portfo
   </section>;
 }
 
-function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "locale" | "data" | "instruments"> & DeletePositionProps) {
+function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "data" | "instruments">) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const [expanded, setExpanded] = useState(false);
@@ -87,7 +87,6 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
         <thead role="rowgroup">
           <tr role="row">
             {[copy.instrument, ...fields].map((label) => <th key={label} role="columnheader" scope="col">{label}</th>)}
-            <th className="holding-action" role="columnheader" scope="col" aria-label={copy.deletePosition} />
           </tr>
         </thead>
         {data.holdings.map((holding) => {
@@ -119,9 +118,6 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
                 <span className="holding-label hint" aria-hidden="true">{fields[index]}</span>
                 <span className="amount">{cell}</span>
               </td>)}
-              <td className="holding-action" role="cell">
-                <DeletePosition locale={locale} id={holding.instrumentId} name={holding.name} {...position} />
-              </td>
             </tr>
           </tbody>;
         })}
@@ -204,7 +200,7 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
       if (result.ok && result.data.changed) router.refresh();
     });
   }, [marketEnabled, marketTargets, router]);
-  // Owned by the view, not the row: the row unmounts once the position is gone, and the toast must survive that.
+  // The notice stays visible after the instrument row unmounts.
   const action = useInvestmentAction(locale);
   const counts: DeletePositionProps["counts"] = new Map();
   for (const { id, marketQuoteCount } of instruments) counts.set(id, { transactions: 0, quotes: marketQuoteCount });
@@ -217,7 +213,7 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
     <NoticeLine notice={action.notice} />
     {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend} />}
     <Allocation locale={locale} allocation={data.allocation} />
-    <Holdings locale={locale} data={data} instruments={instruments} {...position} />
+    <Holdings locale={locale} data={data} instruments={instruments} />
     {pensions.length > 0 && <Pensions locale={locale} pensions={pensions} />}
     <Performance locale={locale} data={data} />
     <Transactions locale={locale} today={data.today} accounts={accounts} instruments={instruments} transactions={transactions} />

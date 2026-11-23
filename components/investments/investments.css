@@ -36,10 +36,11 @@
 }
 .investment-holdings th { grid-column: 1 / -1; overflow-wrap: anywhere; text-align: start; }
 .investment-holdings td { min-width: 0; }
-.investment-holdings td.holding-action { align-self: center; text-align: end; }
+.investment-holdings td:last-child { grid-column: 1 / -1; }
 .holding-label, .holding-kind { display: block; }
 .holding-kind { margin-top: 4px; font-weight: 500; }
-.holding-rate { display: block; margin-top: 4px; font-size: 12px; }
+.holding-rate { display: inline-block; margin-inline-start: 8px; font-size: 12px; }
+.holding-kind time { white-space: nowrap; }
 .investment-holdings .badge { margin-inline-start: 0; white-space: normal; }
 .investment-holdings th .badge { margin-inline-start: 8px; }
 
@@ -112,11 +113,16 @@
   }
   .investment-holdings tbody { display: table-row-group; }
   .investment-holdings tr { display: table-row; }
-  .investment-holdings th, .investment-holdings td { padding: 8px; text-align: start; vertical-align: top; }
+  .investment-holdings th, .investment-holdings td { padding: 10px 8px; vertical-align: top; }
+  .investment-holdings td, .investment-holdings thead th:not(:first-child) { text-align: end; }
   .investment-holdings thead th { font-size: 12px; color: var(--muted); }
-  .investment-holdings thead th:first-child { width: 22%; }
-  .investment-holdings thead .holding-action { width: 6.5rem; }
+  .investment-holdings thead th:nth-child(1) { width: 30%; }
+  .investment-holdings thead th:nth-child(2) { width: 9%; }
+  .investment-holdings thead th:nth-child(3) { width: 14%; }
+  .investment-holdings thead th:nth-child(4) { width: 19%; }
+  .investment-holdings thead th:nth-child(5) { width: 13%; }
   .holding-label { display: none; }
+  .holding-rate { display: block; margin: 4px 0 0; }
 }
 
 /* Layout: .stack-fluid (cash-flow.css) sizes the cards; wide content (chart, tables, allocation) spans the row. */
