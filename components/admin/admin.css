@@ -3,6 +3,43 @@
 .admin-submit { align-self: end; }
 .admin-secret { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--glass-hairline); border-radius: 16px; background: var(--warning-soft); }
 .admin-secret code { font-size: 16px; font-weight: 700; overflow-wrap: anywhere; user-select: all; }
-.manage-row code { font-size: 13px; overflow-wrap: anywhere; }
 /* Shared section tabs are mobile-only; the admin tabs are the only way to the log, so they always show. */
 .section-nav.admin-nav { display: flex; margin-block: 0 16px; }
+
+.page:has(> .admin-logs) { width: 100%; }
+.admin-logs.stack { max-width: none; grid-template-columns: minmax(0, 1fr); }
+.admin-logs .form-field { min-width: 0; }
+
+.admin-logs-scroll {
+  overflow-x: auto;
+  margin-top: 12px;
+  border: 1px solid var(--glass-hairline);
+  border-radius: 12px;
+}
+.admin-logs-table {
+  width: 100%;
+  min-width: 56rem;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.admin-logs-table th,
+.admin-logs-table td {
+  padding: 10px 12px;
+  text-align: start;
+  vertical-align: top;
+}
+.admin-logs-table th { background: var(--glass-recessed); color: var(--ink); font-weight: 700; }
+.admin-logs-table th:first-child { width: 11.5rem; }
+.admin-logs-table th:nth-child(2) { width: 9rem; }
+.admin-logs-table th:nth-child(3) { width: 14%; }
+.admin-logs-table th:nth-child(4) { width: 26%; }
+.admin-logs-table td {
+  border-top: 1px solid var(--glass-hairline);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.admin-logs-table td:nth-child(3) { color: var(--ink); }
+.admin-logs-table time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.admin-logs-table .badge { display: inline-block; }
+.admin-logs-table tbody tr:hover { background: var(--nav-hover); }

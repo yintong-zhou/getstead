@@ -22,7 +22,7 @@ export const adminCopy = {
     userCreated: "User created.", passwordReset: "Password reset.", userDisabled: "Account disabled.", userEnabled: "Account enabled.",
     noUsers: "No users match these filters.",
     kind: "Type", kindAll: "All", kindError: "Server errors", kindSecurity: "Security",
-    code: "Code", user: "User email", from: "From", to: "To", when: "When", route: "Route", actor: "By",
+    code: "Code", user: "User email", from: "From", to: "To", when: "Date and time", route: "Route", actor: "Actor email",
     noEvents: "No events match these filters.", retention: "Events are kept for 30 days. Dates are in UTC.",
     emptyPage: "This page is empty.", backToFirstPage: "Back to the first page",
     errors: {
@@ -53,7 +53,7 @@ export const adminCopy = {
     userCreated: "Utente creato.", passwordReset: "Password reimpostata.", userDisabled: "Account disattivato.", userEnabled: "Account riattivato.",
     noUsers: "Nessun utente corrisponde ai filtri.",
     kind: "Tipo", kindAll: "Tutti", kindError: "Errori del server", kindSecurity: "Sicurezza",
-    code: "Codice", user: "Email utente", from: "Dal", to: "Al", when: "Quando", route: "Percorso", actor: "Da",
+    code: "Codice", user: "Email utente", from: "Dal", to: "Al", when: "Data e ora", route: "Percorso", actor: "Email autore",
     noEvents: "Nessun evento corrisponde ai filtri.", retention: "Gli eventi sono conservati per 30 giorni. Le date sono in UTC.",
     emptyPage: "Questa pagina è vuota.", backToFirstPage: "Torna alla prima pagina",
     errors: {

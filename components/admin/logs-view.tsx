@@ -19,7 +19,7 @@ export function LogsView({ locale, query, list }: Props) {
   const date = new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" });
   const filtered = query.kind !== "all" || Boolean(query.code || query.email || query.from || query.to);
 
-  return <div className="stack">
+  return <div className="stack admin-logs">
     <section className="card" aria-labelledby="logs-filters-title">
       <h2 id="logs-filters-title">{cashFlowCopy[locale].filters}</h2>
       <form className="filters" method="get" action={`/${locale}/admin/logs`}>
@@ -59,22 +59,32 @@ export function LogsView({ locale, query, list }: Props) {
           {query.page > 1 && <Link className="text-link" href={logsHref(locale, { ...query, page: 1 })}>{copy.backToFirstPage}</Link>}
         </div>
       ) : (
-        <ul className="rows">{list.events.map((event) => (
-          <li key={event.id} className="manage-row">
-            <div className="row-text">
-              <p>
-                <span className={`badge ${event.kind === "ERROR" ? "badge-amber" : "badge-blue"}`}>{event.kind === "ERROR" ? copy.kindError : copy.kindSecurity}</span>
-                <code>{event.code}</code>
-              </p>
-              <span>
-                <time dateTime={event.createdAt}>{date.format(new Date(event.createdAt))}</time>
-                {event.route && <> · {copy.route}: {event.method} {event.route}</>}
-                {event.userEmail && <> · {copy.user}: {event.userEmail}</>}
-                {event.actorEmail && <> · {copy.actor}: {event.actorEmail}</>}
-              </span>
-            </div>
-          </li>
-        ))}</ul>
+        <div className="admin-logs-scroll" role="region" aria-labelledby="logs-list-title" tabIndex={0}>
+          <table className="admin-logs-table" aria-labelledby="logs-list-title">
+            <thead>
+              <tr>
+                <th scope="col">{copy.when} (UTC)</th>
+                <th scope="col">{copy.kind}</th>
+                <th scope="col">{copy.code}</th>
+                <th scope="col">{copy.route}</th>
+                <th scope="col">{copy.user}</th>
+                <th scope="col">{copy.actor}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.events.map((event) => (
+                <tr key={event.id}>
+                  <td><time dateTime={event.createdAt}>{date.format(new Date(event.createdAt))}</time></td>
+                  <td><span className={`badge ${event.kind === "ERROR" ? "badge-amber" : "badge-blue"}`}>{event.kind === "ERROR" ? copy.kindError : copy.kindSecurity}</span></td>
+                  <td><code>{event.code}</code></td>
+                  <td>{event.route ? <code>{event.method && `${event.method} `}{event.route}</code> : "—"}</td>
+                  <td>{event.userEmail ?? "—"}</td>
+                  <td>{event.actorEmail ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <Pager copy={cashFlowCopy[locale]} title={copy.logs} page={query.page} hasMore={list.hasMore} href={(page) => logsHref(locale, { ...query, page })} />
     </section>
