@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "../date-field";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
 import type { MovementDto } from "@/server/cash-flow/movements";
@@ -78,9 +79,9 @@ function MatchPanel({ locale, template, dueDate, onDone }: { locale: Locale; tem
       <h3>{copy.matchTitle}</h3>
       <div className="form-field">
         <label htmlFor={`${id}-month`}>{copy.matchMonth}</label>
-        <input
-          id={`${id}-month`} className="field" type="month" min={FIRST_MONTH} max={LAST_MONTH} placeholder="YYYY-MM"
-          pattern="\d{4}-\d{2}" value={month} onChange={(event) => setMonth(event.target.value)} aria-describedby={`${id}-hint`} aria-invalid={!validMonth}
+        <DateField locale={locale}
+          id={`${id}-month`} type="month" min={FIRST_MONTH} max={LAST_MONTH} placeholder="YYYY-MM"
+          pattern="\d{4}-\d{2}" value={month} onValueChange={setMonth} aria-describedby={`${id}-hint`} aria-invalid={!validMonth}
         />
         <span id={`${id}-hint`} className="hint">{copy.matchMonthHint}</span>
       </div>
@@ -218,11 +219,11 @@ function NewTemplate({ locale, today, accounts, categories }: Pick<Props, "local
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}start`}>{copy.startDate}</label>
-            <input id={`${ids}start`} name="startDate" className="field" type="date" defaultValue={today} required />
+            <DateField locale={locale} id={`${ids}start`} name="startDate" type="date" defaultValue={today} required />
           </div>
           <div className="form-field">
             <label htmlFor={`${ids}end`}>{copy.endDate}</label>
-            <input id={`${ids}end`} name="endDate" className="field" type="date" />
+            <DateField locale={locale} id={`${ids}end`} name="endDate" type="date" />
           </div>
         </div>
         <div className="form-actions">

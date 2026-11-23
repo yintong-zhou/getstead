@@ -36,9 +36,10 @@
 }
 .investment-holdings th { grid-column: 1 / -1; overflow-wrap: anywhere; text-align: start; }
 .investment-holdings td { min-width: 0; }
-.investment-holdings td.holding-action { grid-column: 1 / -1; text-align: end; }
+.investment-holdings td.holding-action { align-self: center; text-align: end; }
 .holding-label, .holding-kind { display: block; }
 .holding-kind { margin-top: 4px; font-weight: 500; }
+.holding-rate { display: block; margin-top: 4px; font-size: 12px; }
 .investment-holdings .badge { margin-inline-start: 0; white-space: normal; }
 .investment-holdings th .badge { margin-inline-start: 8px; }
 
@@ -52,6 +53,7 @@
 .investment-item > div:not([hidden]) > form { margin-block: 8px 4px; }
 .investment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .investment-row .row-text { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.instrument-quote { display: block; margin-top: 4px; }
 .investment-actions { display: flex; flex-wrap: wrap; }
 .market-link { margin-block: 4px 8px; }
 .market-link summary { width: fit-content; padding-block: 8px; cursor: pointer; }

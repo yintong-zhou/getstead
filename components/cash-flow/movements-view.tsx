@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "../date-field";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
@@ -257,12 +258,12 @@ function NewMovement({ locale, today, accounts, categories: loaded }: Pick<Props
           {kind === "TRANSFER" && accountSelect("to", toAccountId, setToAccountId, copy.toAccount)}
           <div className="form-field">
             <label htmlFor={`${ids}date`}>{kind === "TRANSFER" ? copy.departureDate : copy.date}</label>
-            <input id={`${ids}date`} className="field" type="date" min="2000-01-01" max="2100-12-31" value={date} onChange={(event) => setDate(event.target.value)} required />
+            <DateField locale={locale} id={`${ids}date`} type="date" min="2000-01-01" max="2100-12-31" value={date} onValueChange={setDate} required />
           </div>
           {kind === "TRANSFER" && (
             <div className="form-field">
               <label htmlFor={`${ids}arrival`}>{copy.arrivalDate}</label>
-              <input id={`${ids}arrival`} className="field" type="date" min="2000-01-01" max="2100-12-31" value={arrival} onChange={(event) => setArrival(event.target.value)} aria-describedby={`${ids}arrival-hint`} />
+              <DateField locale={locale} id={`${ids}arrival`} type="date" min="2000-01-01" max="2100-12-31" value={arrival} onValueChange={setArrival} aria-describedby={`${ids}arrival-hint`} />
               <span id={`${ids}arrival-hint`} className="hint">{copy.arrivalHint}</span>
             </div>
           )}
@@ -411,7 +412,7 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
         </div>
         <div className="form-field">
           <label htmlFor={`${ids}date`}>{copy.date}</label>
-          <input id={`${ids}date`} className="field" type="date" min="2000-01-01" max="2100-12-31" value={date} onChange={(event) => setDate(event.target.value)} required />
+          <DateField locale={locale} id={`${ids}date`} type="date" min="2000-01-01" max="2100-12-31" value={date} onValueChange={setDate} required />
         </div>
         <div className="form-field">
           <label htmlFor={`${ids}amount`}>{copy.amount} (€)</label>

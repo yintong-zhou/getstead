@@ -43,6 +43,7 @@ export type Holding = {
   valueCents: number;
   costCents: number;
   gainCents: number;
+  gainRate: string | null;
   noPrice: boolean;
   priceAsOf: string | null;
   priceSource: "MANUAL" | "MARKET" | null;
@@ -191,10 +192,14 @@ export function holdingsValue(
     const unitPrice = quote ? decimalInput(quote.unitPrice, 8, "unitPrice") : averageCost;
     // Aggregate units may exceed the precision of a single transaction's quantity column.
     const valueCents = holdingValueCents(new ExactDecimal(quantity), costCents, quote ? new ExactDecimal(unitPrice) : undefined);
+    const gainCents = valueCents - costCents;
     holdings.push({
       instrumentId: instrument.id, name: instrument.name, kind: instrument.kind, quantity, averageCost, unitPrice,
       valueCents: toSafeCents(valueCents), costCents: toSafeCents(costCents),
-      gainCents: toSafeCents(valueCents - costCents), noPrice: !quote,
+      gainCents: toSafeCents(gainCents), noPrice: !quote,
+      gainRate: quote && costCents > 0n
+        ? new ExactDecimal(gainCents.toString()).dividedBy(costCents.toString()).toDecimalPlaces(4).toFixed()
+        : null,
       priceAsOf: quote?.asOf ?? null, priceSource: quote ? quote.source ?? "MANUAL" : null,
     });
   }
