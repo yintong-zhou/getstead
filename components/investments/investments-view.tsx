@@ -14,6 +14,7 @@ import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numb
 import { Instruments, PriceHistory, Transactions, useInvestmentAction, investmentCall, type DeletePositionProps, type Quote } from "./forms";
 import { NoticeLine } from "../cash-flow/use-action";
 import { euros } from "@/components/euros";
+import { Icon } from "@/components/icon";
 import { TrendCard } from "@/components/trend-card";
 import { PieCenter } from "@/components/charts/pie-center";
 import { PieChart } from "@/components/charts/pie-chart";
@@ -194,6 +195,7 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
   const open = new Set(data.holdings.map(({ instrumentId }) => instrumentId));
   const marketTargets = instruments.filter(({ id, archived, market }) => open.has(id) && !archived && market)
     .map(({ id, market }) => [id, market?.symbol, market?.currency].join(":")).sort().join(",");
+  // The automatic refresh below stays silent; the Sync button reports what happened.
   useEffect(() => {
     if (!marketEnabled || !marketTargets) return;
     void investmentCall<{ changed: boolean }>("POST", "/quotes/refresh").then((result) => {
@@ -211,7 +213,13 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
 
   return <div className="stack stack-fluid investment-view">
     <NoticeLine notice={action.notice} />
-    {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend} />}
+    {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend}
+      action={marketEnabled && marketTargets ? <button type="button" className="button button-quiet" disabled={action.pending} aria-busy={action.pending}
+        onClick={() => { void action.run(() => investmentCall<{ changed: boolean; unavailable: number }>("POST", "/quotes/refresh"),
+          ({ changed, unavailable }) => changed ? { kind: "ok", text: copy.syncUpdated }
+            : unavailable ? { kind: "warn", text: copy.syncUnavailable } : { kind: "ok", text: copy.syncCurrent }); }}>
+        <Icon name="sync" size={18} />{copy.syncPrices}
+      </button> : undefined} />}
     <Allocation locale={locale} allocation={data.allocation} />
     <Holdings locale={locale} data={data} instruments={instruments} />
     {pensions.length > 0 && <Pensions locale={locale} pensions={pensions} />}

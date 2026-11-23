@@ -340,7 +340,7 @@ export async function deleteQuote(userId: string, id: string) {
 
 export async function refreshMarketQuotes(userId: string, now = new Date(),
   readQuote = marketDataEnabled() ? marketQuote : undefined) {
-  if (!readQuote) return { changed: false };
+  if (!readQuote) return { changed: false, unavailable: 0 };
   const deadline = Date.now() + 10_000;
   const today = romeToday(now);
   const [instruments, rows, prices] = await db().$transaction([
@@ -352,12 +352,13 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
   const latest = new Map(prices.map(({ instrumentId, _max }) => [instrumentId, _max?.asOf?.getTime() ?? 0]));
   const eligible = instruments.filter(({ id }) => open.has(id))
     .sort((a, b) => (latest.get(a.id) ?? 0) - (latest.get(b.id) ?? 0));
-  let changed = false;
+  let changed = false, unavailable = 0;
   for (let index = 0; index < eligible.length && Date.now() < deadline; index += 4) {
     const results = await Promise.all(eligible.slice(index, index + 4).map(async (instrument) => {
       const listing = linkedMarket(instrument);
       if (!listing) return false;
       const quote = await readQuote(listing, now);
+      if (!quote) unavailable++;
       if (!quote || quote.asOf > today || (latest.get(instrument.id) ?? 0) >= toDate(quote.asOf).getTime()) return false;
       try {
         return await write(userId, async (client) => {
@@ -380,7 +381,7 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
     }));
     changed ||= results.some(Boolean);
   }
-  return { changed };
+  return { changed, unavailable };
 }
 
 /** `trend` adds the period chart; only the investments page asks for it. */
