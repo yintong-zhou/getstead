@@ -5,5 +5,5 @@ import nextTypeScript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
-  globalIgnores([".next/**", ".tmp/**", "db/generated/**", "next-env.d.ts", "components/charts/**", "components/shimmering-text.tsx"]),
+  globalIgnores([".next/**", ".tmp/**", ".import-data/**", "db/generated/**", "next-env.d.ts", "components/charts/**", "components/shimmering-text.tsx"]),
 ]);

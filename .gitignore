@@ -9,3 +9,6 @@ db/generated/
 next-env.d.ts
 *.tsbuildinfo
 .taste-skill/
+
+# Local scripts that read real financial exports and write to the real database
+.import-data/
