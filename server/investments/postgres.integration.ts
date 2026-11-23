@@ -13,8 +13,8 @@ import { db, disconnectDb } from "../auth/database.ts";
 import { createAccount, createAccountType, updateAccount } from "../cash-flow/catalog.ts";
 import { encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
-import { searchMarket } from "./alpha-vantage.ts";
-import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio, refreshMarketQuotes, linkInstrumentMarket } from "./service.ts";
+import { searchMarket } from "./market-data.ts";
+import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio, refreshMarketQuotes, linkInstrumentMarket, setupInstrument } from "./service.ts";
 
 let admin: PrismaClient;
 before(() => {
@@ -36,26 +36,77 @@ const rejects = (promise: Promise<unknown>, status: number, code?: string) => as
   return failure.status === status && (!code || failure.code === code);
 });
 
+test("instrument setup links a unique ISIN and falls back to the ticker when an ISIN has no match", async () => {
+  const { userId } = await fixture();
+  const paris = { symbol: "TEST.PA", name: "Example ETF", market: "Paris", currency: "EUR" };
+  const calls: string[] = [];
+  const lookup = async (query: string) => {
+    calls.push(query);
+    return query === "XS0000000001" || query === "TEST" ? [paris] : [];
+  };
+  const byIsin = await setupInstrument(userId, { name: "ISIN ETF", kind: "ETF", isin: "XS0000000001", symbol: "TEST" }, lookup);
+  assert.equal(byIsin.status, "created");
+  assert.equal(byIsin.instrument.market?.symbol, paris.symbol);
+  assert.deepEqual(calls, ["XS0000000001"]);
+  const byTicker = await setupInstrument(userId, { name: "Ticker ETF", kind: "ETF", isin: "XS0000000002", symbol: "TEST" }, lookup);
+  assert.equal(byTicker.status, "created");
+  assert.equal(byTicker.instrument.market?.symbol, paris.symbol);
+  assert.deepEqual(calls, ["XS0000000001", "XS0000000002", "TEST"]);
+});
+
+test("ambiguous tickers require a verified choice before an instrument is created", async () => {
+  const { userId } = await fixture();
+  const paris = { symbol: "TEST.PA", name: "Example ETF", market: "Paris", currency: "EUR" };
+  const london = { ...paris, symbol: "TEST.L", market: "London", currency: "GBP" };
+  const lookup = async () => [paris, london, { ...paris, symbol: "OTHER.PA" }];
+  const input = { name: "New ETF", kind: "ETF", symbol: "TEST" };
+  const before = (await listInstruments(userId)).length;
+  assert.deepEqual(await setupInstrument(userId, input, lookup), { status: "choose", listings: [paris, london] });
+  await rejects(setupInstrument(userId, { ...input, listingSymbol: "OTHER.PA" }, lookup), 422, "market_unavailable");
+  assert.equal((await listInstruments(userId)).length, before);
+  const confirmed = await setupInstrument(userId, { ...input, listingSymbol: london.symbol }, lookup);
+  assert.equal(confirmed.status, "created");
+  assert.equal(confirmed.instrument.market?.symbol, london.symbol);
+  assert.equal((await listInstruments(userId)).length, before + 1);
+});
+
+test("instrument setup distinguishes no match from an unavailable lookup", async () => {
+  const { userId } = await fixture();
+  const bond = await setupInstrument(userId, { name: "Bond", kind: "BOND", symbol: "TEST" }, async () => assert.fail("bond lookup"));
+  assert.equal(bond.status, "created");
+  assert.equal(bond.instrument.market, null);
+  assert.equal(bond.quoteLookup, undefined);
+  const stock = await setupInstrument(userId, { name: "Unknown Stock", kind: "STOCK", symbol: "UNKNOWN" }, async () => []);
+  assert.equal(stock.status, "created");
+  assert.equal(stock.instrument.market, null);
+  assert.equal(stock.quoteLookup, "unmatched");
+  const offline = await setupInstrument(userId, { name: "Offline stock", kind: "STOCK", symbol: "OFFLINE" }, async () => null);
+  assert.equal(offline.status, "created");
+  assert.equal(offline.instrument.market, null);
+  assert.equal(offline.quoteLookup, "unavailable");
+});
+
 test("Postgres shares the provider reservation and cached answer between concurrent requests", async (context) => {
   const query = `Synthetic ${randomUUID()}`;
-  const cacheKey = `search:${query.toLowerCase()}`;
+  const cacheKey = `yahoo:search:${query.toLowerCase()}`;
   const now = new Date();
-  const key = process.env.ALPHA_VANTAGE_SECRET;
-  process.env.ALPHA_VANTAGE_SECRET = "synthetic";
+  const environment = { VERCEL: "1", MARKET_DATA_BRIDGE_ORIGIN: "https://bridge.example.test", MARKET_DATA_BRIDGE_SECRET: "synthetic" };
+  const previous = Object.keys(environment).map((name) => [name, process.env[name]] as const);
+  Object.assign(process.env, environment);
   let calls = 0;
   context.mock.method(globalThis, "fetch", async () => {
     calls++;
-    return Response.json({ bestMatches: [{
-      "1. symbol": "TEST", "2. name": "Synthetic", "3. type": "ETF", "4. region": "XETRA", "8. currency": "EUR",
-    }] });
+    return Response.json([{ symbol: "TEST", name: "Synthetic", market: "XETRA", currency: "EUR" }]);
   });
   try {
     await Promise.all([searchMarket(query, now), searchMarket(query, now)]);
-    assert.equal((await searchMarket(query, now))[0]?.symbol, "TEST");
+    assert.equal((await searchMarket(query, now))?.[0]?.symbol, "TEST");
     assert.equal(calls, 1);
   } finally {
-    if (key === undefined) delete process.env.ALPHA_VANTAGE_SECRET;
-    else process.env.ALPHA_VANTAGE_SECRET = key;
+    for (const [name, value] of previous) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
     await admin.marketCache.deleteMany({ where: { cacheKey } });
     await admin.marketRequest.deleteMany({ where: { attemptedAt: now } });
   }
@@ -89,7 +140,7 @@ test("daily closes update both investment and net-worth history without mixing u
   assert.equal((await getPortfolio(userId, now)).holdings[0].priceSource, "MANUAL");
   assert.equal((await getNetWorth(userId, now)).holdingsCents, 80_000);
   await deleteQuote(userId, manual.id);
-  assert.equal((await getPortfolio(userId, now)).holdings[0].priceSource, "ALPHA_VANTAGE");
+  assert.equal((await getPortfolio(userId, now)).holdings[0].priceSource, "MARKET");
   await rejects(linkInstrumentMarket(other.userId, instrument.id, { symbol: null }), 404);
   await linkInstrumentMarket(userId, instrument.id, { symbol: null });
   assert.equal((await listInstruments(userId)).find(({ id }) => id === instrument.id)?.market, null);

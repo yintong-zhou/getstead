@@ -1,12 +1,16 @@
 ﻿import { localeTags, type Locale } from "../../server/locale.ts";
 import { resolveAmountExpression } from "../money.ts";
 
-export function parseInvestmentEuros(text: string): number | null {
+const MAX_INVESTMENT_CENTS = 100_000_000_000n;
+
+export function parseInvestmentEuros(text: string, maxCents = MAX_INVESTMENT_CENTS): number | null {
   const match = /^(\d{1,10})(?:[.,](\d{1,2}))?$/.exec(resolveAmountExpression(text, 2)?.trim() ?? "");
   if (!match) return null;
   const cents = BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
-  return cents <= 100_000_000_000n ? Number(cents) : null;
+  return cents <= maxCents ? Number(cents) : null;
 }
+
+export const parsePurchaseTotal = (text: string) => parseInvestmentEuros(text, MAX_INVESTMENT_CENTS * 2n);
 
 export function parsePositiveDecimal(text: string, scale: 8 | 10): string | null {
   const match = /^(\d+)(?:[.,](\d+))?$/.exec(text.trim());

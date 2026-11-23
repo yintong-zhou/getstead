@@ -7,7 +7,7 @@ import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { allocation, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, portfolioTrend, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
 import { buildTrend } from "../trend.ts";
-import { marketDataEnabled, marketQuote, searchMarket, type MarketListing } from "./alpha-vantage.ts";
+import { marketDataEnabled, marketQuote, marketTicker, searchMarket, type MarketListing } from "./market-data.ts";
 
 type Client = Prisma.TransactionClient;
 const MAX_TRANSACTION_CENTS = 100_000_000_000;
@@ -24,7 +24,7 @@ export function quoteInput(row: PriceQuote) {
   return { ...row, asOf: fromDate(row.asOf), unitPrice: row.unitPrice.toFixed() };
 }
 export function marketQuoteInput(row: MarketPriceQuote) {
-  return { instrumentId: row.instrumentId, asOf: fromDate(row.asOf), unitPrice: row.unitPrice.toFixed(), source: "ALPHA_VANTAGE" as const };
+  return { instrumentId: row.instrumentId, asOf: fromDate(row.asOf), unitPrice: row.unitPrice.toFixed(), source: "MARKET" as const };
 }
 function transactionDto(row: InvestmentTransaction) {
   const input = transactionInput(row);
@@ -85,7 +85,11 @@ function supportsMarket(kind: Instrument["kind"]) {
 }
 function linkedMarket({ marketSymbol, marketName, marketCurrency, name, kind }: Instrument): MarketListing | null {
   return marketSymbol && marketName && marketCurrency && supportsMarket(kind)
-    ? { symbol: marketSymbol, market: marketName, currency: marketCurrency, name } : null;
+    ? { symbol: marketTicker(marketSymbol), market: marketName, currency: marketCurrency, name } : null;
+}
+
+function marketColumns(listing: MarketListing | null) {
+  return { marketSymbol: listing?.symbol ?? null, marketName: listing?.market ?? null, marketCurrency: listing?.currency ?? null };
 }
 
 export async function findInstrumentMarket(userId: string, instrumentId: string, input: Record<string, unknown>) {
@@ -95,8 +99,9 @@ export async function findInstrumentMarket(userId: string, instrumentId: string,
   const instrument = await db().instrument.findFirst({ where: { userId, id: instrumentId } });
   if (!instrument) throw notFound();
   if (!supportsMarket(instrument.kind) || instrument.archivedAt) throw conflict("market_unavailable");
-  if (!marketDataEnabled()) throw new ApiError(503, "market_unavailable");
-  return searchMarket(query);
+  const listings = await searchMarket(query);
+  if (!listings) throw new ApiError(503, "market_unavailable");
+  return listings;
 }
 
 export async function linkInstrumentMarket(userId: string, instrumentId: string, input: Record<string, unknown>) {
@@ -115,7 +120,7 @@ export async function linkInstrumentMarket(userId: string, instrumentId: string,
     if (!instrument) throw notFound();
     if (listing && (instrument.archivedAt || !supportsMarket(instrument.kind))) throw conflict("market_unavailable");
     const row = await client.instrument.update({ where: { userId_id: { userId, id: instrumentId } },
-      data: { marketSymbol: listing?.symbol ?? null, marketName: listing?.market ?? null, marketCurrency: listing?.currency ?? null } });
+      data: marketColumns(listing ?? null) });
     return instrumentDto(row);
   });
 }
@@ -137,12 +142,57 @@ function instrumentData(input: Record<string, unknown>, partial = false) {
   reader.done();
   return { name, kind, symbol, isin, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) };
 }
-export async function createInstrument(userId: string, input: Record<string, unknown>) {
-  const data = instrumentData(input);
+async function insertInstrument(userId: string, data: ReturnType<typeof instrumentData>, listing: MarketListing | null = null) {
   return write(userId, async (client) => {
     if (await client.instrument.count({ where: { userId } }) >= MAX_INSTRUMENTS) throw new ApiError(422, "instrument_limit");
-    return instrumentDto(await client.instrument.create({ data: { ...data, userId, name: data.name!, kind: data.kind! } }));
+    return instrumentDto(await client.instrument.create({
+      data: { ...data, ...marketColumns(listing), userId, name: data.name!, kind: data.kind! },
+    }));
   });
+}
+
+export async function createInstrument(userId: string, input: Record<string, unknown>) {
+  return insertInstrument(userId, instrumentData(input));
+}
+
+export type InstrumentSetupResult =
+  | { status: "choose"; listings: MarketListing[] }
+  | { status: "created"; instrument: ReturnType<typeof instrumentDto>; quoteLookup?: "unmatched" | "unavailable" };
+
+export async function setupInstrument(userId: string, input: Record<string, unknown>, lookup = searchMarket): Promise<InstrumentSetupResult> {
+  const { listingSymbol, ...initial } = input;
+  const reader = new Reader({ listingSymbol });
+  const selection = reader.optionalText("listingSymbol", 24);
+  const data = instrumentData(initial);
+  const ticker = data.symbol ? marketTicker(data.symbol) : null;
+  const qualifiedTicker = ticker?.includes(".") ?? false;
+  let listings: MarketListing[] = [];
+  let quoteLookup: "unmatched" | "unavailable" | undefined;
+  async function find(query: string) {
+    const matches = await lookup(query);
+    if (matches === null) quoteLookup = "unavailable";
+    else quoteLookup ??= "unmatched";
+    return matches ?? [];
+  }
+  if (data.kind && supportsMarket(data.kind)) {
+    if (data.isin) listings = await find(data.isin);
+    if (qualifiedTicker && listings.some(({ symbol }) => symbol === ticker)) {
+      listings = listings.filter(({ symbol }) => symbol === ticker);
+    }
+    if (!listings.length && ticker) {
+      listings = (await find(ticker)).filter(({ symbol }) =>
+        symbol === ticker || (!qualifiedTicker && symbol.startsWith(ticker + ".")));
+    }
+  }
+
+  if (selection) {
+    const listing = listings.find(({ symbol }) => symbol === selection);
+    if (!listing) throw new ApiError(422, "market_unavailable");
+    return { status: "created", instrument: await insertInstrument(userId, data, listing) };
+  }
+  if (listings.length > 1) return { status: "choose", listings };
+  return { status: "created", instrument: await insertInstrument(userId, data, listings[0]),
+    quoteLookup: listings.length ? undefined : quoteLookup };
 }
 export async function updateInstrument(userId: string, id: string, input: Record<string, unknown>) {
   const data = instrumentData(input, true);
@@ -313,7 +363,7 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
         return await write(userId, async (client) => {
           const instrumentId = instrument.id;
           const current = await client.instrument.findFirst({ where: { userId, id: instrumentId, archivedAt: null } });
-          if (!current || current.marketSymbol !== listing.symbol || current.marketCurrency !== quote.currency || !supportsMarket(current.kind)) return false;
+          if (!current || current.marketSymbol !== instrument.marketSymbol || current.marketCurrency !== quote.currency || !supportsMarket(current.kind)) return false;
           const trades = await client.investmentTransaction.findMany({ where: { userId, instrumentId, voidedAt: null } });
           if (position(trades.map(transactionInput), today).quantity === "0") return false;
           const saved = await client.marketPriceQuote.createMany({ skipDuplicates: true, data: {

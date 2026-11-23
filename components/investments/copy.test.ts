@@ -2,16 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { investmentsCopy } from "./copy.ts";
 
-// "Gross" misled people: each transaction type must say what the amount excludes and how cash is derived.
-test("every transaction type has its own amount label and cash formula, in both locales", () => {
+test("purchases show only a total amount label and other transactions retain their cash formula", () => {
   for (const locale of ["en", "it"] as const) {
     const { types, amountLabels, amountHints } = investmentsCopy[locale];
     for (const type of Object.keys(types) as (keyof typeof types)[]) {
       assert.ok(amountLabels[type], `${locale}.${type} label`);
-      assert.ok(amountHints[type], `${locale}.${type} hint`);
+      if (type === "BUY") assert.equal(amountHints[type], undefined);
+      else assert.ok(amountHints[type], `${locale}.${type} hint`);
     }
     assert.equal(new Set(Object.values(amountLabels)).size, Object.keys(types).length, `${locale}: labels must differ per type`);
   }
+  assert.equal(investmentsCopy.it.amountLabels.BUY, "Importo totale");
+  assert.equal(investmentsCopy.en.amountLabels.BUY, "Total amount");
 });
 
 // Deleting is permanent and moves money figures: the dialog must say so and show the counts it will remove.

@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useId, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
 import { Select } from "../select";
 import type { AccountDto } from "@/server/cash-flow/catalog";
-import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
-import type { MarketListing } from "@/server/investments/alpha-vantage";
+import type { InstrumentDto, InstrumentSetupResult, PortfolioData, TransactionDto } from "@/server/investments/service";
+import type { MarketListing } from "@/server/investments/market-data";
 import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
@@ -14,7 +14,7 @@ import { amountInputProps } from "../amount-input";
 import { useConfirm } from "../confirm-dialog";
 import { editableEuros } from "../money";
 import { investmentsCopy } from "./copy";
-import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers";
+import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parsePurchaseTotal } from "./numbers";
 import { euros } from "@/components/euros";
 
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
@@ -78,6 +78,7 @@ function TransactionForm({ locale, today, accounts, instruments, transaction, on
   const action = useInvestmentAction(locale);
   const [type, setType] = useState<TransactionDto["type"]>(transaction?.type ?? "BUY");
   const trade = type === "BUY" || type === "SELL";
+  const parseAmount = type === "BUY" ? parsePurchaseTotal : parseInvestmentEuros;
   const headingId = useId();
   const noteId = useId();
 
@@ -86,11 +87,14 @@ function TransactionForm({ locale, today, accounts, instruments, transaction, on
     const form = event.currentTarget;
     const data = new FormData(form);
     const text = (field: string) => String(data.get(field) ?? "");
-    const amountCents = parseInvestmentEuros(text("amountCents"));
+    const enteredCents = parseAmount(text("amountCents"));
     const feesCents = parseInvestmentEuros(text("feesCents").trim() || "0");
     const taxWithheldCents = parseInvestmentEuros(text("taxWithheldCents").trim() || "0");
     const quantity = trade ? parsePositiveDecimal(text("quantity"), 10) : null;
-    const invalid = !amountCents ? copy.grossError : feesCents === null || taxWithheldCents === null ? copy.euroError
+    // The purchase form shows cash paid, while the API stores the price and fees separately.
+    const amountCents = type === "BUY" && enteredCents !== null && feesCents !== null ? enteredCents - feesCents : enteredCents;
+    const invalid = !enteredCents ? copy.grossError : feesCents === null || taxWithheldCents === null ? copy.euroError
+      : amountCents !== null && amountCents <= 0 ? copy.buyFeesError
       : trade && quantity === null ? copy.quantityError : null;
     if (invalid) {
       action.setNotice({ kind: "error", text: invalid });
@@ -124,9 +128,9 @@ function TransactionForm({ locale, today, accounts, instruments, transaction, on
         hint={copy.ordinalHint} required defaultValue={transaction.ordinal} />}
       {trade && <Input label={copy.quantity} name="quantity" maxLength={80} inputMode="decimal" required
         defaultValue={transaction?.quantity?.replace(".", locale === "it" ? "," : ".") ?? ""} />}
-      <Input label={copy.amountLabels[type]} hint={copy.amountHints[type]} name="amountCents" {...amountInputProps(locale, parseInvestmentEuros)} required
-        defaultValue={transaction ? editableEuros(transaction.amountCents, locale) : ""} />
-      {trade && <Input label={copy.feesCents} name="feesCents" {...amountInputProps(locale, parseInvestmentEuros)}
+      <Input label={copy.amountLabels[type]} hint={copy.amountHints[type]} name="amountCents" {...amountInputProps(locale, parseAmount)} required
+        defaultValue={transaction ? editableEuros(transaction.amountCents + (transaction.type === "BUY" ? transaction.feesCents : 0), locale) : ""} />
+      {trade && <Input label={type === "BUY" ? copy.buyFees : copy.feesCents} name="feesCents" {...amountInputProps(locale, parseInvestmentEuros)}
         defaultValue={editableEuros(transaction?.feesCents ?? 0, locale)} />}
       {type !== "BUY" && <Input label={copy.taxWithheldCents} name="taxWithheldCents" {...amountInputProps(locale, parseInvestmentEuros)}
         defaultValue={editableEuros(transaction?.taxWithheldCents ?? 0, locale)} />}
@@ -207,14 +211,71 @@ export function Transactions({ transactions, ...props }: TransactionProps & { tr
   </>;
 }
 
+type InstrumentDraft = { name: string; kind: string; symbol: string | null; isin: string | null };
+
+function InitialMarketChoice({ locale, listings, pending, error, onSelect, onCancel }: {
+  locale: Locale; listings: MarketListing[]; pending: boolean; error?: string;
+  onSelect: (symbol: string) => void; onCancel: () => void;
+}) {
+  const copy = investmentsCopy[locale];
+  const shared = cashFlowCopy[locale];
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const [selection, setSelection] = useState("");
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+
+  return <dialog ref={dialogRef} className="confirm-dialog market-choice-dialog" aria-labelledby={titleId}
+    onCancel={(event) => { event.preventDefault(); if (!pending) onCancel(); }}>
+    <h3 id={titleId}>{copy.chooseMarket}</h3>
+    <fieldset disabled={pending} className="market-choices" aria-labelledby={titleId}>
+      {listings.map((listing) => <label className="market-choice" key={listing.symbol}>
+        <input type="radio" name={titleId} value={listing.symbol} checked={selection === listing.symbol}
+          onChange={() => setSelection(listing.symbol)} />
+        <span className="market-link-details">
+          <strong>{listing.name}</strong>
+          <span className="hint">{listing.symbol} · {listing.market} · {listing.currency}</span>
+        </span>
+      </label>)}
+    </fieldset>
+    {error && <p role="alert">{error}</p>}
+    <div className="confirm-actions">
+      <button className="button button-quiet" type="button" disabled={pending} onClick={onCancel}>{shared.cancel}</button>
+      <button className="button button-solid" type="button" disabled={!selection || pending}
+        onClick={() => onSelect(selection)}>{pending ? shared.saving : copy.linkMarket}</button>
+    </div>
+  </dialog>;
+}
+
 function InstrumentForm({ locale, instrument, onSaved }: { locale: Locale; instrument?: InstrumentDto; onSaved?: () => void }) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
   const note = useId();
   const kindId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [setup, setSetup] = useState<{ draft: InstrumentDraft; listings: MarketListing[] } | null>(null);
 
-  return <form aria-label={instrument ? copy.editInstrument : copy.addInstrument} aria-describedby={note}
+  async function saveNew(draft: InstrumentDraft, listingSymbol?: string) {
+    const saved = await action.run(() => investmentCall<InstrumentSetupResult>("POST", "/instruments/setup", { ...draft, listingSymbol }));
+    if (!saved) return;
+    if (saved.data.status === "choose") {
+      setSetup({ draft, listings: saved.data.listings });
+      return;
+    }
+    setSetup(null);
+    formRef.current?.reset();
+    const { instrument: added, quoteLookup } = saved.data;
+    action.setNotice(quoteLookup
+      ? { kind: "warn", text: copy.instrumentQuoteStatus[quoteLookup] }
+      : { kind: "ok", text: added.market ? copy.instrumentLinked : copy.instrumentSaved });
+    onSaved?.();
+  }
+
+  return <><form ref={formRef} aria-label={instrument ? copy.editInstrument : copy.addInstrument} aria-describedby={note}
     onSubmit={async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -223,10 +284,11 @@ function InstrumentForm({ locale, instrument, onSaved }: { locale: Locale; instr
         name: String(data.get("name")).trim(), kind: String(data.get("kind")),
         symbol: String(data.get("symbol")).trim() || null, isin: String(data.get("isin")).trim().toUpperCase() || null,
       };
-      const saved = await action.run(() => instrument
-        ? investmentCall("PATCH", `/instruments/${instrument.id}`, body)
-        : investmentCall("POST", "/instruments", body), copy.instrumentSaved);
-      if (saved && !instrument) form.reset();
+      if (!instrument) {
+        await saveNew(body);
+        return;
+      }
+      const saved = await action.run(() => investmentCall("PATCH", `/instruments/${instrument.id}`, body), copy.instrumentSaved);
       if (saved) onSaved?.();
     }}>
     <div className="form-grid">
@@ -245,8 +307,13 @@ function InstrumentForm({ locale, instrument, onSaved }: { locale: Locale; instr
         {action.pending ? shared.saving : instrument ? shared.save : copy.addInstrument}
       </button>
     </div>
-    <NoticeLine notice={action.notice} />
-  </form>;
+    {!setup && <NoticeLine notice={action.notice} />}
+  </form>
+    {setup && <InitialMarketChoice locale={locale} listings={setup.listings} pending={action.pending}
+      error={action.notice?.kind === "error" ? action.notice.text : undefined}
+      onSelect={(symbol) => { void saveNew(setup.draft, symbol); }}
+      onCancel={() => { action.setNotice(null); setSetup(null); }} />}
+  </>;
 }
 
 /** Transactions and prices an instrument owns; deleting the position removes all of them. */
@@ -271,35 +338,41 @@ function MarketLink({ locale, instrument }: { locale: Locale; instrument: Instru
   const action = useInvestmentAction(locale);
   const [matches, setMatches] = useState<{ query: string; listings: MarketListing[] }>();
   const path = `/instruments/${instrument.id}/market`;
-  return <details>
+  return <details className="market-link">
     <summary>{instrument.market ? copy.changeMarket : copy.linkMarket}</summary>
-    {instrument.market && <div className="form-actions">
-      <span>{[instrument.market.symbol, instrument.market.market, instrument.market.currency].join(" · ")}</span>
-      <button className="button button-quiet" type="button" disabled={action.pending}
-        onClick={() => action.run(() => investmentCall("PATCH", path, { symbol: null }), copy.marketUnlinked)}>{copy.unlinkMarket}</button>
-    </div>}
-    <form onSubmit={async (event) => {
-      event.preventDefault();
-      const query = String(new FormData(event.currentTarget).get("query")).trim();
-      setMatches(undefined);
-      const result = await action.run(() => investmentCall<MarketListing[]>("POST", path, { query }));
-      if (result) setMatches({ query, listings: result.data });
-    }}>
-      <Input label={copy.marketSearchLabel} name="query" defaultValue={instrument.symbol ?? instrument.isin ?? ""} maxLength={64} required />
-      <div className="form-actions">
+    <div className="market-link-panel">
+      {instrument.market && <div className="market-link-row">
+        <p className="market-link-details">
+          <strong>{instrument.market.symbol}</strong>
+          <span className="hint">{instrument.market.market} · {instrument.market.currency}</span>
+        </p>
+        <button className="button button-quiet" type="button" disabled={action.pending}
+          onClick={() => action.run(() => investmentCall("PATCH", path, { symbol: null }), copy.marketUnlinked)}>{copy.unlinkMarket}</button>
+      </div>}
+      <form className="market-link-search" onSubmit={async (event) => {
+        event.preventDefault();
+        const query = String(new FormData(event.currentTarget).get("query")).trim();
+        setMatches(undefined);
+        const result = await action.run(() => investmentCall<MarketListing[]>("POST", path, { query }));
+        if (result) setMatches({ query, listings: result.data });
+      }}>
+        <Input label={copy.marketSearchLabel} name="query" defaultValue={instrument.market?.symbol ?? instrument.symbol ?? instrument.isin ?? ""} maxLength={64} required />
         <button className="button button-quiet" type="submit" disabled={action.pending}>{copy.marketSearch}</button>
-      </div>
-    </form>
-    {matches && (matches.listings.length ? <ul className="rows">{matches.listings.map((listing) =>
-      <li className="investment-row" key={listing.symbol}>
-        <span>{[listing.name, listing.symbol, listing.market, listing.currency].join(" · ")}</span>
-        <button className="button button-quiet" type="button" disabled={action.pending} aria-label={`${copy.linkMarket} · ${listing.symbol}`}
-          onClick={async () => {
-            const result = await action.run(() => investmentCall("PATCH", path, { query: matches.query, symbol: listing.symbol }), copy.marketLinked);
-            if (result) setMatches(undefined);
-          }}>{copy.linkMarket}</button>
-      </li>)}</ul> : <p className="hint" role="status">{copy.marketNoMatch}</p>)}
-    <NoticeLine notice={action.notice} />
+      </form>
+      {matches && (matches.listings.length ? <ul className="market-link-results">{matches.listings.map((listing) =>
+        <li className="market-link-row" key={listing.symbol}>
+          <p className="market-link-details">
+            <strong>{listing.name}</strong>
+            <span className="hint">{[listing.symbol, listing.market, listing.currency].join(" · ")}</span>
+          </p>
+          <button className="button button-quiet" type="button" disabled={action.pending} aria-label={`${copy.select} · ${listing.symbol}`}
+            onClick={async () => {
+              const result = await action.run(() => investmentCall("PATCH", path, { query: matches.query, symbol: listing.symbol }), copy.marketLinked);
+              if (result) setMatches(undefined);
+            }}>{copy.select}</button>
+        </li>)}</ul> : <p className="hint" role="status">{copy.marketNoMatch}</p>)}
+      <NoticeLine notice={action.notice} />
+    </div>
   </details>;
 }
 

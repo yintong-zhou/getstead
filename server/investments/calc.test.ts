@@ -24,7 +24,7 @@ const negativeError = { status: 422, code: "negative_position" };
 
 test("automatic closes value open holdings and a same-day manual quote takes precedence", () => {
   const nextDay = "2026-11-21";
-  const automatic = { instrumentId: stock.id, asOf, unitPrice: "15", source: "ALPHA_VANTAGE" as const };
+  const automatic = { instrumentId: stock.id, asOf, unitPrice: "15", source: "MARKET" as const };
   const manual = { instrumentId: stock.id, asOf, unitPrice: "16" };
   const later = { ...automatic, asOf: nextDay, unitPrice: "17" };
   const [holding] = holdingsValue([stock], [trade()], [automatic, manual, later], asOf);
