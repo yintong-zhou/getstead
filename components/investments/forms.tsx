@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { DateField } from "../date-field";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
 import { Select } from "../select";
@@ -39,11 +40,13 @@ export function useInvestmentAction(locale: Locale) {
   });
 }
 
-function Input({ label, hint, ...props }: ComponentProps<"input"> & { label: string; hint?: string }) {
+function Input({ label, hint, dateLocale, ...props }: ComponentProps<"input"> & { label: string; hint?: string; dateLocale?: Locale }) {
   const id = useId();
   return <div className="form-field">
     <label htmlFor={id}>{label}</label>
-    <input {...props} className="field" id={id} aria-describedby={hint ? `${id}-hint` : undefined} />
+    {dateLocale ? <DateField locale={dateLocale} id={id} name={props.name} required={props.required}
+      min={String(props.min)} max={String(props.max)} defaultValue={String(props.defaultValue ?? "")} aria-describedby={hint ? `${id}-hint` : undefined} />
+      : <input {...props} className="field" id={id} aria-describedby={hint ? `${id}-hint` : undefined} />}
     {hint && <p id={`${id}-hint`} className="hint">{hint}</p>}
   </div>;
 }
@@ -59,7 +62,7 @@ function Choice({ label, options, ...props }: { label: string; options: Opt[]; n
     </div>;
 }
 
-const dateBounds = { type: "date", min: "2000-01-01", max: "2100-12-31", required: true } as const;
+const dateBounds = { min: "2000-01-01", max: "2100-12-31", required: true } as const;
 
 function optionRows(rows: (InstrumentDto | AccountDto)[], archived: string, currentId?: string): Opt[] {
   return rows.map((row) => ({ value: row.id, label: row.name + (row.archived ? ` · ${archived}` : ""), disabled: row.archived && row.id !== currentId }));
@@ -123,7 +126,7 @@ function TransactionForm({ locale, today, accounts, instruments, transaction, on
         options={[{ value: "", label: copy.select, disabled: true }, ...optionRows(accounts, shared.archivedSuffix, transaction?.accountId)]} />
       <Choice label={copy.instrument} name="instrumentId" defaultValue={transaction?.instrumentId ?? ""} required
         options={[{ value: "", label: copy.select, disabled: true }, ...optionRows(instruments, shared.archivedSuffix, transaction?.instrumentId)]} />
-      <Input label={copy.tradeDate} name="tradeDate" {...dateBounds} defaultValue={transaction?.tradeDate ?? today} />
+      <Input label={copy.tradeDate} name="tradeDate" {...dateBounds} dateLocale={locale} defaultValue={transaction?.tradeDate ?? today} />
       {transaction && <Input label={copy.ordinal} name="ordinal" type="number" min="1" max="2147483647" step="1"
         hint={copy.ordinalHint} required defaultValue={transaction.ordinal} />}
       {trade && <Input label={copy.quantity} name="quantity" maxLength={80} inputMode="decimal" required
@@ -167,9 +170,9 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
           aria-label={`${editing ? shared.cancel : shared.edit} · ${label} · ${row.tradeDate} · #${row.ordinal}`}
           onClick={() => setEditing(!editing)}>{editing ? shared.cancel : shared.edit}</button>
         <button type="button" className="button button-quiet" disabled={action.pending || (row.voided && archived)}
-          aria-label={`${row.voided ? shared.restore : shared.void} · ${label} · ${row.tradeDate} · #${row.ordinal}`}
+          aria-label={`${row.voided ? shared.restore : shared.delete} · ${label} · ${row.tradeDate} · #${row.ordinal}`}
           onClick={() => action.run(() => investmentCall("PATCH", `/transactions/${row.id}`, { voided: !row.voided }),
-            row.voided ? copy.transactionRestored : copy.transactionVoided)}>{row.voided ? shared.restore : shared.void}</button>
+            row.voided ? copy.transactionRestored : copy.transactionVoided)}>{row.voided ? shared.restore : shared.delete}</button>
       </div>
     </div>
     {archived && <p className="hint">{copy.archivedParent}</p>}
@@ -388,6 +391,9 @@ function InstrumentRow({ locale, instrument, marketEnabled, ...position }: { loc
       <div className="row-text">
         <p>{instrument.name}{instrument.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
         <span>{[copy.kinds[instrument.kind], instrument.symbol, instrument.isin].filter(Boolean).join(" · ")}</span>
+        <span className="instrument-quote">{instrument.market
+          ? `${copy.linkedQuote}: ${instrument.market.symbol} · ${instrument.market.market} · ${instrument.market.currency} · Yahoo Finance`
+          : copy.noLinkedQuote}</span>
       </div>
       <div className="investment-actions">
         <button ref={editButton} type="button" className="button button-quiet" aria-expanded={editing} aria-controls={id}

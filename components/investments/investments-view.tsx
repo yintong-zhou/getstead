@@ -68,9 +68,12 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
   const shared = cashFlowCopy[locale];
   const [expanded, setExpanded] = useState(false);
   const byId = new Map(instruments.map((instrument) => [instrument.id, instrument]));
-  const fields = [copy.quantity, copy.averageCost, copy.marketValue, copy.gain];
+  const fields = [copy.quantity, copy.averageCost, copy.currentUnitPrice, copy.marketValue, copy.gain];
+  const dates = new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeZone: "UTC" });
+  const rates = new Intl.NumberFormat(localeTags[locale], { style: "percent", maximumFractionDigits: 2, signDisplay: "exceptZero" });
   const canExpand = data.holdings.some((holding) =>
-    hasHoldingPrecision(holding.quantity, false) || hasHoldingPrecision(holding.averageCost, true));
+    hasHoldingPrecision(holding.quantity, false) || hasHoldingPrecision(holding.averageCost, true)
+    || (!holding.noPrice && hasHoldingPrecision(holding.unitPrice, true)));
 
   return <section className="card" aria-labelledby="investments-holdings-title">
     <div className="card-head">
@@ -89,23 +92,28 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
         </thead>
         {data.holdings.map((holding) => {
           const instrument = byId.get(holding.instrumentId);
+          const tone = holding.gainCents > 0 ? "positive" : holding.gainCents < 0 ? "negative" : "";
           const cells = [
             formatHoldingDecimal(holding.quantity, locale, false, expanded),
             formatHoldingDecimal(holding.averageCost, locale, true, expanded),
+            holding.priceAsOf ? <>
+              {formatHoldingDecimal(holding.unitPrice, locale, true, expanded)}
+              <span className="hint holding-kind">
+                {holding.priceSource === "MARKET" ? copy.marketPrice : copy.manualPrice}
+                {" · "}<time dateTime={holding.priceAsOf}>{dates.format(new Date(holding.priceAsOf))}</time>
+              </span>
+            </> : <span className="hint">{instrument?.market ? copy.marketPricePending : "—"}</span>,
             formatEuros(holding.valueCents, locale),
-            <Gain key="gain" cents={holding.gainCents} locale={locale} />,
+            <>
+              <Gain cents={holding.gainCents} locale={locale} />
+              {holding.gainRate !== null && <span className={`holding-rate ${tone}`}>{rates.format(Number(holding.gainRate))}</span>}
+            </>,
           ];
           return <tbody key={holding.instrumentId} role="rowgroup">
             <tr role="row">
               <th role="rowheader" scope="row">
                 {holding.name}{instrument?.archived && <span className="badge">{shared.archivedSuffix}</span>}
                 <span className="hint holding-kind">{[copy.kinds[holding.kind], instrument?.symbol].filter(Boolean).join(" · ")}</span>
-                {holding.priceAsOf && <span className="hint holding-kind">
-                  {formatDecimal(holding.unitPrice, locale, true)} · {holding.priceSource === "MARKET" ? copy.marketPrice : copy.manualPrice}
-                  {" · "}{new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeZone: "UTC" })
-                    .format(new Date(holding.priceAsOf))}
-                </span>}
-                {holding.noPrice && instrument?.market && <span className="hint holding-kind">{copy.marketPricePending}</span>}
               </th>
               {cells.map((cell, index) => <td key={fields[index]} role="cell">
                 <span className="holding-label hint" aria-hidden="true">{fields[index]}</span>

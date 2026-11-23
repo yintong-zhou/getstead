@@ -140,14 +140,27 @@ test("holdings select the latest eligible quote and fall back to exact cost", ()
   const holdings = holdingsValue(instruments, transactions, quotes, asOf);
   assert.deepEqual(holdings[0], {
     instrumentId: stock.id, name: stock.name, kind: stock.kind, quantity: "2", averageCost: "12.5",
-    unitPrice: "15", valueCents: 3000, costCents: 2500, gainCents: 500, noPrice: false,
+    unitPrice: "15", valueCents: 3000, costCents: 2500, gainCents: 500, gainRate: "0.2", noPrice: false,
     priceAsOf: asOf, priceSource: "MANUAL",
   });
   assert.equal(holdings[1].noPrice, true);
   assert.equal(holdings[1].unitPrice, holdings[1].averageCost);
   assert.equal(holdings[1].valueCents, 100);
   assert.equal(holdings[1].gainCents, 0);
+  assert.equal(holdings[1].gainRate, null);
   assert.equal(holdings.length, 2);
+});
+
+test("unrealised gain rate is signed and requires a positive remaining cost basis", () => {
+  const quotes = [{ instrumentId: stock.id, asOf, unitPrice: "10.8333" }];
+  assert.equal(holdingsValue([stock], [trade({ amountCents: 3000n })], quotes, asOf)[0].gainRate, "-0.2777");
+  const nearlySold = [
+    trade({ quantity: "100", amountCents: 1n }),
+    trade({ type: "SELL", ordinal: 2, quantity: "99" }),
+  ];
+  const [holding] = holdingsValue([stock], nearlySold, quotes, asOf);
+  assert.equal(holding.costCents, 0);
+  assert.equal(holding.gainRate, null);
 });
 
 test("fallback also enforces the per-holding cap", () => {
@@ -179,7 +192,7 @@ test("a same-day sale changes the units valued by that day's quote", () => {
 test("allocation combines positions of a kind by value and handles a zero-value portfolio", () => {
   const holding = {
     instrumentId: stock.id, name: stock.name, kind: stock.kind, quantity: "1", averageCost: "1",
-    unitPrice: "1", costCents: 100, gainCents: 0, noPrice: true, priceAsOf: null, priceSource: null,
+    unitPrice: "1", costCents: 100, gainCents: 0, gainRate: null, noPrice: true, priceAsOf: null, priceSource: null,
   };
   assert.deepEqual(allocation([
     { ...holding, valueCents: 100 },

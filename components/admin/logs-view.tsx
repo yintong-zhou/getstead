@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "../date-field";
 import Link from "next/link";
 import type { EventDto } from "@/server/admin/logs";
 import { localeTags, type Locale } from "@/server/locale";
@@ -38,11 +39,11 @@ export function LogsView({ locale, query, list }: Props) {
         </div>
         <div className="form-field">
           <label htmlFor="logs-from">{copy.from}</label>
-          <input className="field" id="logs-from" name="from" type="date" defaultValue={query.from} />
+          <DateField locale={locale} id="logs-from" name="from" type="date" defaultValue={query.from} />
         </div>
         <div className="form-field">
           <label htmlFor="logs-to">{copy.to}</label>
-          <input className="field" id="logs-to" name="to" type="date" defaultValue={query.to} />
+          <DateField locale={locale} id="logs-to" name="to" type="date" defaultValue={query.to} />
         </div>
         <div className="form-field admin-submit"><button className="button">{copy.apply}</button></div>
       </form>

@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField } from "../date-field";
 import Link from "next/link";
 import { useState } from "react";
 import { addDays } from "@/server/cash-flow/dates";
@@ -95,8 +96,8 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
           </div>
           <div className="form-field">
             <label htmlFor="worth-date">{shared.date}</label>
-            <input id="worth-date" className="field" name="asOf" type="date" min="2000-01-01" max={data.today}
-              value={asOf} onChange={(event) => setAsOf(event.target.value)}
+            <DateField locale={locale} id="worth-date" name="asOf" type="date" min="2000-01-01" max={data.today}
+              value={asOf} onValueChange={setAsOf}
               aria-describedby={asOf === data.today ? "worth-today-note" : undefined} required />
             {asOf === data.today && <p id="worth-today-note" className="hint" role="note">{copy.todayWarning}</p>}
           </div>
