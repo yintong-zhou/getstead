@@ -139,6 +139,25 @@ The trend uses each month end for the last 12 months and today for the current m
 
 The authenticated API is `/api/net-worth` (GET totals and history), `/api/net-worth/balances` (GET the most recent 100 checks, ordered by date then ID descending; POST a check, returning 201 on creation or 200 on replacement with the same check body), and `/api/net-worth/balances/:id` (DELETE). Mutations require the same-origin `Origin` header. After applying the M2 migration, run `db/grant-runtime.sql` again: the runtime role can read, insert, delete, and update only `balance_cents` on checks. The cash flow PostgreSQL integration suite also verifies M2 runtime grants, cross-user rejection, and historical recalculation.
 
+### Account types and pension funds
+
+Every account has a built-in base type (`CHECKING`, `CARD`, `BROKERAGE`, `CRYPTO`, `CASH`, `DEBT`, `PENSION`), stored in `stead_accounts.type`, and every rule keys off it. On `/accounts` you can also create your own types (`stead_custom_account_types`): a name on top of a base type. The base type can't change after creation. You can rename, archive or restore a custom type, and delete it while no account uses it (409 `account_type_in_use`). An archived type can't be given to another account. Built-in labels are localized, and custom types show your name for them. The three-column foreign key `(user_id, custom_type_id, type)` keeps a custom type within one user and matched to the account's base type.
+
+You can change an account's type from its menu. Its balances, checks and movements stay as they are. The investment guard (`investment_account`) and the mortgage guard (`mortgage_account`) check the resulting base type.
+
+`PENSION` accounts are valued from dated balance checks, like any other account. They count once in net worth as an asset. Investments shows them in their own section, with their balance and last check date. They can't take investment transactions, so they never enter holdings, portfolio value, performance, allocation or tax estimates.
+
+Routes:
+- `/api/cash-flow/account-types`: GET, POST `{ name, baseType }`.
+- `/api/cash-flow/account-types/:id`: PATCH `{ name?, archived? }`, DELETE.
+- Account create and PATCH take either `type` or `customTypeId`, never both.
+
+Migrations:
+- `20261128090000_pension_account_type` only adds the enum value. It has to stay in its own migration.
+- `20261128090100_custom_account_types` adds the table and the nullable column.
+
+Apply them only to a local database unless separately approved. Then rerun `db/grant-runtime.sql`. The runtime role gets UPDATE on `custom_type_id` for accounts, and only on `name` and `archived_at` for custom types, never on `base_type`.
+
 ## Cash flow and budget (M1)
 
 Pages live under `/en` and `/it`: overview, `cash-flow` (Income and Expenses columns, new movement, separate Transfers group), `budget`, `recurring` and `accounts` (accounts, categories, rules). Each register group has its own 50-row server-filtered page (`pageIn`, `pageOut`, `pageTransfers`); month and filter changes reset all pages. Column totals remain the full month's totals, independent of account/category filters, and voided rows remain visible but do not count. Refunds reduce Expenses. The JSON API is under `/api/cash-flow/` (accounts, categories, movements, transfers, rules, budget, recurring, summary); every call needs the signed-in session, mutations need a same-origin `Origin` header, and responses are never cached. The movements endpoint accepts optional `direction=in|out|transfers` alongside its existing filters and `page`. Amounts are integer euro cents, movement dates are calendar dates, and "today" and calendar months follow Europe/Rome. Movement and recurring descriptions are stored as AES-256-GCM ciphertext, with a key derived from `AUTH_ENCRYPTION_KEY`: keep that key stable, because rotating it makes stored descriptions unreadable.

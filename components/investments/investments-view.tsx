@@ -1,7 +1,10 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
+import type { PensionDto } from "@/server/net-worth/service";
+import { netWorthCopy } from "../net-worth/copy";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { cashFlowCopy } from "../cash-flow/copy";
@@ -22,6 +25,7 @@ type ViewProps = {
   instruments: InstrumentDto[];
   transactions: TransactionDto[];
   quotes: Quote[];
+  pensions: PensionDto[];
 };
 
 function Gain({ cents, locale }: { cents: number; locale: Locale }) {
@@ -151,13 +155,35 @@ function Performance({ locale, data }: Pick<ViewProps, "locale" | "data">) {
   </>;
 }
 
-export function InvestmentsView({ locale, data, accounts, instruments, transactions, quotes }: ViewProps) {
+/** Pension funds sit apart from the portfolio: a balance from dated checks, never holdings, performance or tax. */
+function Pensions({ locale, pensions }: { locale: Locale; pensions: PensionDto[] }) {
+  const copy = investmentsCopy[locale];
+  const shared = cashFlowCopy[locale];
+  const worth = netWorthCopy[locale];
+  return <section className="card" aria-labelledby="investments-pensions-title">
+    <h2 id="investments-pensions-title">{copy.pensions}</h2>
+    <p className="hint investment-note">{copy.pensionsHint}</p>
+    <ul className="rows">{pensions.map((pension) => (
+      <li className="manage-row" key={pension.id}>
+        <div className="row-text">
+          <p>{pension.name}{pension.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
+          <span>{pension.customTypeName ?? shared.accountTypes[pension.type]} · {pension.lastCheckDate ? `${worth.lastCheck}: ${pension.lastCheckDate}` : worth.noCheck}</span>
+        </div>
+        <span className="amount">{euros(pension.balanceCents, locale)}</span>
+      </li>
+    ))}</ul>
+    <p><Link className="text-link" href={`/${locale}/net-worth`}>{copy.recordPension}</Link></p>
+  </section>;
+}
+
+export function InvestmentsView({ locale, data, accounts, instruments, transactions, quotes, pensions }: ViewProps) {
   const copy = investmentsCopy[locale];
 
   return <div className="stack investment-view">
     {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend} />}
     <Allocation locale={locale} allocation={data.allocation} />
     <Holdings locale={locale} data={data} instruments={instruments} />
+    {pensions.length > 0 && <Pensions locale={locale} pensions={pensions} />}
     <Performance locale={locale} data={data} />
     <Transactions locale={locale} today={data.today} accounts={accounts} instruments={instruments} transactions={transactions} />
     <Instruments locale={locale} instruments={instruments} />

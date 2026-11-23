@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { AccountsView } from "@/components/cash-flow/accounts-view";
 import { cashFlowCopy } from "@/components/cash-flow/copy";
 import { readPageUser } from "@/server/auth/page-access";
-import { listAccounts, listCategories } from "@/server/cash-flow/catalog";
+import { listAccountTypes, listAccounts, listCategories } from "@/server/cash-flow/catalog";
 import { listRules } from "@/server/cash-flow/rules";
 import { isLocale } from "@/server/locale";
 
@@ -29,12 +29,13 @@ export default async function AccountsPage({ params }: Props) {
 
   let data;
   try {
-    const [accounts, categories, rules] = await Promise.all([
+    const [accounts, accountTypes, categories, rules] = await Promise.all([
       listAccounts(user.userId, true),
+      listAccountTypes(user.userId),
       listCategories(user.userId, true),
       listRules(user.userId),
     ]);
-    data = { accounts, categories, rules };
+    data = { accounts, accountTypes, categories, rules };
   } catch {
     return <UnavailableNotice locale={locale} path="/accounts" />;
   }

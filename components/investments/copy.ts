@@ -79,6 +79,9 @@ const en = {
   taxableGains: "Gains",
   taxableLosses: "Losses",
   taxAmount: "Estimated tax",
+  pensions: "Pension funds",
+  pensionsHint: "Valued at your latest balance check. They count once in your net worth, and stay out of portfolio value, performance, allocation and tax estimates.",
+  recordPension: "Record a balance check",
   kinds: {
     STOCK: "Stock", ETF: "ETF", FUND: "Fund", IT_GOV_BOND: "Italian government bond",
     BOND: "Other bond", CRYPTO: "Crypto", OTHER: "Other",
@@ -174,6 +177,9 @@ export const investmentsCopy: Record<Locale, typeof en> = {
     taxableGains: "Plusvalenze",
     taxableLosses: "Minusvalenze",
     taxAmount: "Imposta stimata",
+    pensions: "Fondi pensione",
+    pensionsHint: "Valutati all’ultima verifica del saldo. Contano una volta nel patrimonio netto e restano fuori da valore del portafoglio, performance, allocazione e stime fiscali.",
+    recordPension: "Registra una verifica del saldo",
     kinds: {
       STOCK: "Azione", ETF: "ETF", FUND: "Fondo", IT_GOV_BOND: "Titolo di Stato italiano",
       BOND: "Altra obbligazione", CRYPTO: "Cripto", OTHER: "Altro",

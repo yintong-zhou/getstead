@@ -46,7 +46,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
           <li className="manage-row worth-account" key={account.id}>
             <div className="row-text">
               <p>{account.name}{account.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
-              <span>{shared.accountTypes[account.type]} · {account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
+              <span>{account.customTypeName ?? shared.accountTypes[account.type]} ·{account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
               {account.archived && account.balanceCents !== 0 && <p className="worth-flag">{copy.archivedBalance}</p>}
             </div>
             <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{euros(account.balanceCents, locale)}</span>

@@ -3,7 +3,8 @@ import { db } from "../auth/database.ts";
 import { fromDate, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
-import { monthlySeries, netWorthAt, netWorthTrend, seriesAt } from "./calc.ts";
+import type { AccountType } from "../../db/generated/client.ts";
+import { balanceAt, monthlySeries, netWorthAt, netWorthTrend, seriesAt } from "./calc.ts";
 import { buildTrend } from "../trend.ts";
 import { quoteInput, transactionInput } from "../investments/service.ts";
 import { toSafeCents } from "../investments/calc.ts";
@@ -49,12 +50,47 @@ export async function deleteCheck(userId: string, id: string) {
 export type NetWorthData = Awaited<ReturnType<typeof getNetWorth>>;
 export type CheckDto = Awaited<ReturnType<typeof listChecks>>[number];
 
+const accountSelect = { id: true, name: true, type: true, archivedAt: true, customType: { select: { name: true } } } as const;
+type AccountRow = { id: string; name: string; type: AccountType; archivedAt: Date | null; customType: { name: string } | null };
+/** `customTypeName` is the user's label for the account's type; null means the built-in (localized) label applies. */
+function accountRow(account: AccountRow, balanceCents: number, checks: readonly { accountId: string; asOf: string }[]) {
+  return {
+    id: account.id, name: account.name, type: account.type, customTypeName: account.customType?.name ?? null,
+    archived: account.archivedAt !== null, balanceCents,
+    lastCheckDate: checks.filter((check) => check.accountId === account.id).map((check) => check.asOf).sort().at(-1) ?? null,
+  };
+}
+
+/**
+ * Pension accounts with their balance today and the date of their last balance check. They are ordinary asset accounts,
+ * so net worth already counts them once through `balanceAt`; this read uses the same inputs, so both pages show one number.
+ * They never take investment transactions, so no holding, performance or tax figure includes them.
+ */
+export async function listPensions(userId: string, now = new Date()) {
+  const today = romeToday(now);
+  const pension = { type: "PENSION" } as const;
+  const [accounts, checks, rows] = await db().$transaction([
+    db().account.findMany({ where: { userId, ...pension }, select: accountSelect, orderBy: [{ name: "asc" }, { id: "asc" }] }),
+    db().balanceCheck.findMany({ where: { userId, asOf: { lte: toDate(today) }, account: pension }, select: checkSelect }),
+    db().movement.findMany({
+      where: { userId, voidedAt: null, bookingDate: { lte: toDate(today) }, account: pension },
+      select: { accountId: true, bookingDate: true, amountCents: true },
+    }),
+  ], { isolationLevel: "RepeatableRead" });
+  const datedChecks = checks.map(checkDto);
+  const movements = rows.map((row) => ({ ...row, bookingDate: fromDate(row.bookingDate) }));
+  return accounts.map((account) => accountRow(account, balanceAt(
+    datedChecks.filter((check) => check.accountId === account.id), movements.filter((row) => row.accountId === account.id), today,
+  ), datedChecks)).filter((row) => !row.archived || row.balanceCents !== 0);
+}
+export type PensionDto = Awaited<ReturnType<typeof listPensions>>[number];
+
 /** `trend` adds the period chart; only the net worth page asks for it. */
 export async function getNetWorth(userId: string, now = new Date(), { trend = false } = {}) {
   const today = romeToday(now);
   const [accounts, checks, rows, instruments, transactions, quotes, propertyRows, valuationRows] = await db().$transaction([
     db().account.findMany({
-      where: { userId }, select: { id: true, name: true, type: true, archivedAt: true },
+      where: { userId }, select: accountSelect,
       orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
     db().balanceCheck.findMany({ where: { userId, asOf: { lte: toDate(today) } }, select: checkSelect }),
@@ -84,11 +120,7 @@ export async function getNetWorth(userId: string, now = new Date(), { trend = fa
     holdingsCents: totals.holdingsCents,
     propertiesCents: totals.propertiesCents,
     changeCents: toSafeCents(BigInt(totals.netCents) - BigInt(series.at(-2)!.netCents)),
-    perAccount: accounts.map((account) => ({
-      id: account.id, name: account.name, type: account.type, archived: account.archivedAt !== null,
-      balanceCents: balances.get(account.id)!,
-      lastCheckDate: datedChecks.filter((check) => check.accountId === account.id).map((check) => check.asOf).sort().at(-1) ?? null,
-    })),
+    perAccount: accounts.map((account) => accountRow(account, balances.get(account.id)!, datedChecks)),
     series,
     // ponytail: recomputes every range on each page load; cache per user if large histories make it slow.
     trend: trend ? buildTrend(today, earliestDate(datedChecks.map((row) => row.asOf), movements.map((row) => row.bookingDate),
