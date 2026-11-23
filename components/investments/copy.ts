@@ -125,7 +125,7 @@ const en = {
   } satisfies Record<InstrumentDto["kind"], string>,
   types: { BUY: "Buy", SELL: "Sell", DIVIDEND: "Dividend", COUPON: "Coupon" } satisfies Record<TransactionDto["type"], string>,
   errors: {
-    market_unavailable: "The market quote is unavailable. Try again later or use a manual price.",
+    market_unavailable: "The market quote is unavailable. Try again later or record a price in Price history.",
     archived: "Choose an active account and instrument. Restore an archived instrument before recording a price.",
     negative_position: "This change would make the holding negative. Check the quantity, date and same-day order.",
     value_out_of_range: "This value is outside the supported range.",
@@ -261,7 +261,7 @@ export const investmentsCopy: Record<Locale, typeof en> = {
     },
     types: { BUY: "Acquisto", SELL: "Vendita", DIVIDEND: "Dividendo", COUPON: "Cedola" },
     errors: {
-      market_unavailable: "La quotazione non è disponibile. Riprova più tardi o usa un prezzo manuale.",
+      market_unavailable: "La quotazione non è disponibile. Riprova più tardi o registra un prezzo in Storico prezzi.",
       archived: "Scegli un conto e uno strumento attivi. Ripristina uno strumento archiviato prima di registrare un prezzo.",
       negative_position: "Questa modifica renderebbe negativa la posizione. Controlla quantità, data e ordine nella giornata.",
       value_out_of_range: "Questo valore supera i limiti consentiti.",

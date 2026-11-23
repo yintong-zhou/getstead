@@ -218,6 +218,6 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
     <Performance locale={locale} data={data} />
     <Transactions locale={locale} today={data.today} accounts={accounts} instruments={instruments} transactions={transactions} />
     <Instruments locale={locale} instruments={instruments} marketEnabled={marketEnabled} {...position} />
-    <PriceHistory locale={locale} instruments={instruments} quotes={quotes} displayPrice={(value) => formatDecimal(value, locale, true)} />
+    <PriceHistory locale={locale} today={data.today} instruments={instruments} quotes={quotes} displayPrice={(value) => formatDecimal(value, locale, true)} />
   </div>;
 }

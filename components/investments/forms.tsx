@@ -15,7 +15,7 @@ import { amountInputProps } from "../amount-input";
 import { useConfirm } from "../confirm-dialog";
 import { editableEuros } from "../money";
 import { investmentsCopy } from "./copy";
-import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parsePurchaseTotal } from "./numbers";
+import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parsePurchaseTotal, parseUnitPrice } from "./numbers";
 import { euros } from "@/components/euros";
 
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
@@ -433,16 +433,41 @@ export function Instruments({ locale, instruments, marketEnabled, ...position }:
   </section>;
 }
 
-export function PriceHistory({ locale, instruments, quotes, displayPrice }: { locale: Locale; instruments: InstrumentDto[]; quotes: Quote[];
+export function PriceHistory({ locale, today, instruments, quotes, displayPrice }: { locale: Locale; today: string; instruments: InstrumentDto[]; quotes: Quote[];
   displayPrice: (value: string) => string }) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
   const [visibleCount, setVisibleCount] = useState(25);
   const names = new Map(instruments.map((instrument) => [instrument.id, instrument.name]));
+  const active = instruments.filter((instrument) => !instrument.archived);
 
   return <section className="card stack-half" aria-labelledby="investments-prices-title">
     <h2 id="investments-prices-title">{copy.prices}</h2>
+    {active.length > 0 && <form aria-label={copy.addPrice} onSubmit={async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      const unitPrice = parseUnitPrice(String(data.get("unitPrice") ?? ""));
+      if (unitPrice === null) {
+        action.setNotice({ kind: "error", text: copy.priceError });
+        return;
+      }
+      const saved = await action.run(() => investmentCall("POST", "/quotes", {
+        instrumentId: data.get("instrumentId"), asOf: data.get("asOf"), unitPrice,
+      }), copy.priceSaved);
+      if (saved) form.reset();
+    }}>
+      <div className="form-grid">
+        <Choice label={copy.instrument} name="instrumentId" defaultValue="" required
+          options={[{ value: "", label: copy.select, disabled: true }, ...active.map(({ id, name }) => ({ value: id, label: name }))]} />
+        <Input label={copy.priceDate} name="asOf" {...dateBounds} dateLocale={locale} defaultValue={today} />
+        <Input label={copy.price} name="unitPrice" maxLength={80} {...amountInputProps(locale, parseUnitPrice)} required />
+      </div>
+      <div className="form-actions">
+        <button className="button button-solid" type="submit" disabled={action.pending}>{action.pending ? shared.saving : copy.addPrice}</button>
+      </div>
+    </form>}
     <NoticeLine notice={action.notice} />
     {quotes.length === 0 && <p className="empty-inline">{copy.noPrices}</p>}
     <ul className="rows">{quotes.slice(0, visibleCount).map(({ id, instrumentId, asOf, unitPrice }) => <li key={id} className="investment-item">
