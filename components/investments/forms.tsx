@@ -10,9 +10,10 @@ import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { amountInputProps } from "../amount-input";
+import { useConfirm } from "../confirm-dialog";
 import { editableEuros } from "../money";
 import { investmentsCopy } from "./copy";
-import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parseUnitPrice } from "./numbers";
+import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers";
 import { euros } from "@/components/euros";
 
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
@@ -122,7 +123,7 @@ function TransactionForm({ locale, today, accounts, instruments, transaction, on
         hint={copy.ordinalHint} required defaultValue={transaction.ordinal} />}
       {trade && <Input label={copy.quantity} name="quantity" maxLength={80} inputMode="decimal" required
         defaultValue={transaction?.quantity?.replace(".", locale === "it" ? "," : ".") ?? ""} />}
-      <Input label={copy.amountCents} name="amountCents" {...amountInputProps(locale, parseInvestmentEuros)} required
+      <Input label={copy.amountLabels[type]} hint={copy.amountHints[type]} name="amountCents" {...amountInputProps(locale, parseInvestmentEuros)} required
         defaultValue={transaction ? editableEuros(transaction.amountCents, locale) : ""} />
       {trade && <Input label={copy.feesCents} name="feesCents" {...amountInputProps(locale, parseInvestmentEuros)}
         defaultValue={editableEuros(transaction?.feesCents ?? 0, locale)} />}
@@ -188,14 +189,14 @@ export function Transactions({ transactions, ...props }: TransactionProps & { tr
   const activeInstruments = instruments.some((instrument) => !instrument.archived);
 
   return <>
-    <section className="card" aria-labelledby="investments-record-title">
+    <section className="card stack-half" aria-labelledby="investments-record-title">
       <h2 id="investments-record-title">{copy.transaction}</h2>
       <p className="hint investment-note">{copy.transactionHint}</p>
       {activeAccounts && activeInstruments && <TransactionForm {...props} />}
       {!activeAccounts && <div className="empty-inline"><p>{copy.accountHint}</p><Link className="text-link" href={`/${locale}/accounts`}>{shared.goToAccounts}</Link></div>}
       {!activeInstruments && <div className="empty-inline"><p>{copy.instrumentHint}</p><a className="text-link" href="#investments-instruments">{copy.instruments}</a></div>}
     </section>
-    <section className="card" aria-labelledby="investments-transactions-title">
+    <section className="card stack-half" aria-labelledby="investments-transactions-title">
       <h2 id="investments-transactions-title">{copy.transactions}</h2>
       {transactions.length === 0 && <p className="empty-inline">{copy.noTransactions}</p>}
       <ul className="rows">{transactions.slice(0, visibleCount).map((row) => <TransactionRow key={row.id} row={row} {...props} />)}</ul>
@@ -247,7 +248,24 @@ function InstrumentForm({ locale, instrument, onSaved }: { locale: Locale; instr
   </form>;
 }
 
-function InstrumentRow({ locale, instrument }: { locale: Locale; instrument: InstrumentDto }) {
+/** Transactions and prices an instrument owns; deleting the position removes all of them. */
+export type PositionCounts = Map<string, { transactions: number; quotes: number }>;
+export type DeletePositionProps = { counts: PositionCounts; pending: boolean; onDelete: (id: string) => void };
+
+/** The confirm dialog names the instrument and what disappears; nothing is sent until the person confirms. */
+export function DeletePosition({ locale, id, name, counts, pending, onDelete }: DeletePositionProps & { locale: Locale; id: string; name: string }) {
+  const copy = investmentsCopy[locale];
+  const shared = cashFlowCopy[locale];
+  const { confirm, dialog } = useConfirm(shared.cancel);
+  const { transactions = 0, quotes = 0 } = counts.get(id) ?? {};
+  return <>
+    <button type="button" className="button button-quiet" disabled={pending} aria-label={`${copy.deletePosition} · ${name}`}
+      onClick={async () => { if (await confirm(copy.deletePositionConfirm(name, transactions, quotes), copy.deletePosition, true)) onDelete(id); }}>{shared.delete}</button>
+    {dialog}
+  </>;
+}
+
+function InstrumentRow({ locale, instrument, ...position }: { locale: Locale; instrument: InstrumentDto } & DeletePositionProps) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
@@ -267,6 +285,7 @@ function InstrumentRow({ locale, instrument }: { locale: Locale; instrument: Ins
           aria-label={`${instrument.archived ? shared.restore : shared.archive} · ${instrument.name}`}
           onClick={() => action.run(() => investmentCall("PATCH", `/instruments/${instrument.id}`, { archived: !instrument.archived }),
             instrument.archived ? copy.instrumentRestored : copy.instrumentArchived)}>{instrument.archived ? shared.restore : shared.archive}</button>
+        <DeletePosition locale={locale} id={instrument.id} name={instrument.name} {...position} />
       </div>
     </div>
     <NoticeLine notice={action.notice} />
@@ -278,45 +297,15 @@ function InstrumentRow({ locale, instrument }: { locale: Locale; instrument: Ins
   </li>;
 }
 
-export function Instruments({ locale, instruments }: { locale: Locale; instruments: InstrumentDto[] }) {
+export function Instruments({ locale, instruments, ...position }: { locale: Locale; instruments: InstrumentDto[] } & DeletePositionProps) {
   const copy = investmentsCopy[locale];
-  return <section className="card" aria-labelledby="investments-instruments">
+  return <section className="card stack-half" aria-labelledby="investments-instruments">
     <h2 id="investments-instruments">{copy.instruments}</h2>
     <p className="hint investment-note">{copy.archiveHint}</p>
     <InstrumentForm locale={locale} />
     {instruments.length === 0 && <p className="empty-inline">{copy.noInstruments}</p>}
-    <ul className="rows">{instruments.map((instrument) => <InstrumentRow key={instrument.id} instrument={instrument} locale={locale} />)}</ul>
+    <ul className="rows">{instruments.map((instrument) => <InstrumentRow key={instrument.id} instrument={instrument} locale={locale} {...position} />)}</ul>
   </section>;
-}
-
-export function QuickPrice({ locale, today, instrumentId, name }: { locale: Locale; today: string; instrumentId: string; name: string }) {
-  const copy = investmentsCopy[locale];
-  const shared = cashFlowCopy[locale];
-  const action = useInvestmentAction(locale);
-  const details = useRef<HTMLDetailsElement>(null);
-  return <details ref={details} className="investment-details">
-    <summary className="button button-quiet" aria-label={`${copy.addPrice} · ${name}`}>{copy.addPrice}</summary>
-    <form className="form-grid" aria-label={`${copy.addPrice} · ${name}`} onSubmit={async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const data = new FormData(form);
-      const unitPrice = parseUnitPrice(String(data.get("unitPrice") ?? ""));
-      if (unitPrice === null) {
-        action.setNotice({ kind: "error", text: copy.priceError });
-        return;
-      }
-      const saved = await action.run(() => investmentCall("POST", "/quotes", { instrumentId, asOf: data.get("asOf"), unitPrice }), copy.priceSaved);
-      if (saved) {
-        form.reset();
-        if (details.current) details.current.open = false;
-      }
-    }}>
-      <Input label={copy.priceDate} name="asOf" {...dateBounds} defaultValue={today} />
-      <Input label={copy.price} name="unitPrice" {...amountInputProps(locale, parseUnitPrice)} required />
-      <button type="submit" className="button button-solid form-submit" disabled={action.pending}>{action.pending ? shared.saving : shared.save}</button>
-    </form>
-    <NoticeLine notice={action.notice} />
-  </details>;
 }
 
 export function PriceHistory({ locale, instruments, quotes, displayPrice }: { locale: Locale; instruments: InstrumentDto[]; quotes: Quote[];
@@ -327,7 +316,7 @@ export function PriceHistory({ locale, instruments, quotes, displayPrice }: { lo
   const [visibleCount, setVisibleCount] = useState(25);
   const names = new Map(instruments.map((instrument) => [instrument.id, instrument.name]));
 
-  return <section className="card" aria-labelledby="investments-prices-title">
+  return <section className="card stack-half" aria-labelledby="investments-prices-title">
     <h2 id="investments-prices-title">{copy.prices}</h2>
     <NoticeLine notice={action.notice} />
     {quotes.length === 0 && <p className="empty-inline">{copy.noPrices}</p>}

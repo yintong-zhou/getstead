@@ -74,7 +74,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   gap: 12px;
   margin-top: 12px;
 }
-.form-field { display: grid; gap: 4px; min-width: 0; }
+/* minmax(0, 1fr): the implicit auto track would grow to a long nowrap select label and push it over the next field. */
+.form-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; }
 .form-field > label, .form-field > legend { font-size: 12px; font-weight: 700; }
 .form-field.wide, .form-grid > .wide, .form-grid > .segmented { grid-column: 1 / -1; }
 
@@ -366,7 +367,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .limit-form .form-actions { margin-top: 8px; }
 
 @media (min-width: 768px) {
-  .stack { gap: 20px; max-width: 960px; }
+  .stack { gap: 20px; }
   .movement > .row-actions { padding-inline-start: 52px; }
   .stats dd { font-size: 17px; }
 }
@@ -399,7 +400,11 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .notice-warn { color: var(--warning-ink); }
 .notice-warn::before { content: "▲ "; }
 
-.cash-flow-view.stack { max-width: 1200px; }
+/* Fluid layout, opt-in: the page and .stack no longer cap their width, so cards use the whole browser width. One column on narrow screens, two (never more) once each
+   .stack-half card keeps 440px; every other child spans the row. Plain .stack screens (cash flow, admin) keep one full-width column. */
+.stack.stack-fluid { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(440px, calc(50% - 12px))), 1fr)); align-items: start; }
+.stack-fluid > * { grid-column: 1 / -1; }
+.stack-fluid > .stack-half { grid-column: auto; }
 .flow-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .flow-total { margin-block: 8px 12px; font-size: 22px; font-weight: 800; line-height: 28px; white-space: normal; overflow-wrap: anywhere; }
 .flow-columns .data-row { flex-wrap: wrap; }

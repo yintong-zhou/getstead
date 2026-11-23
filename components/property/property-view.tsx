@@ -34,7 +34,7 @@ function PropertyCard({ locale, property, accounts, today, costs }: { locale: Lo
   const separator = locale === "it" ? "," : ".";
   const mortgage = accounts.find((account) => account.id === property.mortgageAccountId);
   const sold = property.soldOn !== null && property.soldOn <= today;
-  return <section className="card property-card" aria-labelledby={`property-${property.id}`}>
+  return <section className="card property-card stack-half" aria-labelledby={`property-${property.id}`}>
     <div className="property-head">
       <h2 id={`property-${property.id}`}>{property.name}</h2>
       <span className="badge badge-blue">{copy.kinds[property.kind]}</span>
@@ -74,7 +74,7 @@ export function PropertyView({ locale, data, accounts, costs }: ViewProps) {
   const archived = data.properties.filter((property) => property.archived);
   const costsOf = (id: string) => costs.properties.find((row) => row.propertyId === id);
   const yearLink = (year: number) => `/${locale}/property?year=${year}`;
-  return <div className="stack property-view">
+  return <div className="stack stack-fluid property-view">
     <section className="card hero" aria-labelledby="property-total-title">
       <h2 id="property-total-title" className="hero-label">{copy.totalValue}</h2>
       <p className="hero-amount amount">{euros(data.propertiesCents, locale)}</p>
