@@ -405,10 +405,14 @@ model Instrument {
   symbol String? @db.VarChar(24)
   isin String? @db.VarChar(12)
   kind InstrumentKind
+  marketSymbol String? @map("market_symbol")
+  marketName String? @map("market_name")
+  marketCurrency String? @map("market_currency")
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
   transactions InvestmentTransaction[]
   quotes PriceQuote[]
+  marketQuotes MarketPriceQuote[]
 
   @@unique([userId, id])
   @@unique([userId, name])
@@ -450,6 +454,37 @@ model PriceQuote {
   @@unique([userId, id])
   @@unique([userId, instrumentId, asOf])
   @@map("stead_price_quotes")
+}
+
+model MarketPriceQuote {
+  userId String @map("user_id") @db.Uuid
+  instrumentId String @map("instrument_id") @db.Uuid
+  asOf DateTime @map("as_of") @db.Date
+  unitPrice Decimal @map("unit_price") @db.Decimal(18, 8)
+  currency String
+  fxRate Decimal? @map("fx_rate") @db.Decimal(28, 12)
+  fxAsOf DateTime? @map("fx_as_of") @db.Date
+  instrument Instrument @relation(fields: [userId, instrumentId], references: [userId, id], onDelete: Cascade)
+
+  @@id([userId, instrumentId, asOf])
+  @@map("stead_market_price_quotes")
+}
+
+model MarketCache {
+  cacheKey String @id @map("cache_key")
+  attemptedAt DateTime @map("attempted_at") @db.Timestamptz(3)
+  payload Json?
+
+  @@map("stead_market_cache")
+}
+
+model MarketRequest {
+  id String @id @db.Uuid
+  attemptedAt DateTime @map("attempted_at") @db.Timestamptz(3)
+  throttled Boolean @default(false)
+
+  @@index([attemptedAt])
+  @@map("stead_market_requests")
 }
 
 enum PropertyKind {

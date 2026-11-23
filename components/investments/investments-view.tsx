@@ -1,7 +1,8 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { PensionDto } from "@/server/net-worth/service";
 import { netWorthCopy } from "../net-worth/copy";
@@ -27,6 +28,7 @@ type ViewProps = {
   transactions: TransactionDto[];
   quotes: Quote[];
   pensions: PensionDto[];
+  marketEnabled: boolean;
 };
 
 function Gain({ cents, locale }: { cents: number; locale: Locale }) {
@@ -97,6 +99,11 @@ function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "l
               <th role="rowheader" scope="row">
                 {holding.name}{instrument?.archived && <span className="badge">{shared.archivedSuffix}</span>}
                 <span className="hint holding-kind">{[copy.kinds[holding.kind], instrument?.symbol].filter(Boolean).join(" · ")}</span>
+                {holding.priceAsOf && <span className="hint holding-kind">
+                  {formatDecimal(holding.unitPrice, locale, true)} · {holding.priceSource === "ALPHA_VANTAGE" ? "Alpha Vantage" : copy.manualPrice}
+                  {" · "}{new Intl.DateTimeFormat(localeTags[locale], { dateStyle: "medium", timeZone: "UTC" })
+                    .format(new Date(holding.priceAsOf))}
+                </span>}
               </th>
               {cells.map((cell, index) => <td key={fields[index]} role="cell">
                 <span className="holding-label hint" aria-hidden="true">{fields[index]}</span>
@@ -175,11 +182,22 @@ function Pensions({ locale, pensions }: { locale: Locale; pensions: PensionDto[]
   </section>;
 }
 
-export function InvestmentsView({ locale, data, accounts, instruments, transactions, quotes, pensions }: ViewProps) {
+export function InvestmentsView({ locale, data, accounts, instruments, transactions, quotes, pensions, marketEnabled }: ViewProps) {
   const copy = investmentsCopy[locale];
+  const router = useRouter();
+  const open = new Set(data.holdings.map(({ instrumentId }) => instrumentId));
+  const marketTargets = instruments.filter(({ id, archived, market }) => open.has(id) && !archived && market)
+    .map(({ id, market }) => [id, market?.symbol, market?.currency].join(":")).sort().join(",");
+  useEffect(() => {
+    if (!marketEnabled || !marketTargets) return;
+    void investmentCall<{ changed: boolean }>("POST", "/quotes/refresh").then((result) => {
+      if (result.ok && result.data.changed) router.refresh();
+    });
+  }, [marketEnabled, marketTargets, router]);
   // Owned by the view, not the row: the row unmounts once the position is gone, and the toast must survive that.
   const action = useInvestmentAction(locale);
   const counts: DeletePositionProps["counts"] = new Map();
+  for (const { id, marketQuoteCount } of instruments) counts.set(id, { transactions: 0, quotes: marketQuoteCount });
   for (const { instrumentId } of transactions) counts.set(instrumentId, { transactions: (counts.get(instrumentId)?.transactions ?? 0) + 1, quotes: counts.get(instrumentId)?.quotes ?? 0 });
   for (const { instrumentId } of quotes) counts.set(instrumentId, { transactions: counts.get(instrumentId)?.transactions ?? 0, quotes: (counts.get(instrumentId)?.quotes ?? 0) + 1 });
   const position = { counts, pending: action.pending,
@@ -193,7 +211,7 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
     {pensions.length > 0 && <Pensions locale={locale} pensions={pensions} />}
     <Performance locale={locale} data={data} />
     <Transactions locale={locale} today={data.today} accounts={accounts} instruments={instruments} transactions={transactions} />
-    <Instruments locale={locale} instruments={instruments} {...position} />
+    <Instruments locale={locale} instruments={instruments} marketEnabled={marketEnabled} {...position} />
     <PriceHistory locale={locale} instruments={instruments} quotes={quotes} displayPrice={(value) => formatDecimal(value, locale, true)} />
   </div>;
 }

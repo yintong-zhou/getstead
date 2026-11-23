@@ -43,6 +43,9 @@ GRANT UPDATE (name, symbol, isin, kind, archived_at) ON public.stead_instruments
 GRANT UPDATE (account_id, instrument_id, type, trade_date, ordinal, quantity, amount_cents, fees_cents, tax_withheld_cents, voided_at)
   ON public.stead_investment_transactions TO stead_auth_app;
 GRANT UPDATE (unit_price), DELETE ON public.stead_price_quotes TO stead_auth_app;
+GRANT UPDATE (market_symbol, market_name, market_currency) ON public.stead_instruments TO stead_auth_app;
+GRANT SELECT, INSERT ON public.stead_market_price_quotes TO stead_auth_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.stead_market_cache, public.stead_market_requests TO stead_auth_app;
 
 -- Property and condominium (M4a): properties and charges are archived or voided, never deleted.
 -- Valuations, millesimal tables and schedule links are plain editable records.

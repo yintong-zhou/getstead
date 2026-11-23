@@ -5,6 +5,7 @@ import { useId, useRef, useState, type ComponentProps } from "react";
 import { Select } from "../select";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { InstrumentDto, PortfolioData, TransactionDto } from "@/server/investments/service";
+import type { MarketListing } from "@/server/investments/alpha-vantage";
 import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
@@ -19,8 +20,8 @@ import { euros } from "@/components/euros";
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
   "id" | "instrumentId" | "asOf" | "unitPrice">;
 
-export function investmentCall(method: string, path: string, body?: unknown) {
-  return call(method, path, body, "/api/investments");
+export function investmentCall<T = unknown>(method: string, path: string, body?: unknown) {
+  return call<T>(method, path, body, "/api/investments");
 }
 
 export function useInvestmentAction(locale: Locale) {
@@ -265,7 +266,44 @@ export function DeletePosition({ locale, id, name, counts, pending, onDelete }: 
   </>;
 }
 
-function InstrumentRow({ locale, instrument, ...position }: { locale: Locale; instrument: InstrumentDto } & DeletePositionProps) {
+function MarketLink({ locale, instrument }: { locale: Locale; instrument: InstrumentDto }) {
+  const copy = investmentsCopy[locale];
+  const action = useInvestmentAction(locale);
+  const [matches, setMatches] = useState<{ query: string; listings: MarketListing[] }>();
+  const path = `/instruments/${instrument.id}/market`;
+  return <details>
+    <summary>{instrument.market ? copy.changeMarket : copy.linkMarket}</summary>
+    {instrument.market && <div className="form-actions">
+      <span>{[instrument.market.symbol, instrument.market.market, instrument.market.currency].join(" · ")}</span>
+      <button className="button button-quiet" type="button" disabled={action.pending}
+        onClick={() => action.run(() => investmentCall("PATCH", path, { symbol: null }), copy.marketUnlinked)}>{copy.unlinkMarket}</button>
+    </div>}
+    <form onSubmit={async (event) => {
+      event.preventDefault();
+      const query = String(new FormData(event.currentTarget).get("query")).trim();
+      setMatches(undefined);
+      const result = await action.run(() => investmentCall<MarketListing[]>("POST", path, { query }));
+      if (result) setMatches({ query, listings: result.data });
+    }}>
+      <Input label={copy.marketSearchLabel} name="query" defaultValue={instrument.symbol ?? instrument.isin ?? ""} maxLength={64} required />
+      <div className="form-actions">
+        <button className="button button-quiet" type="submit" disabled={action.pending}>{copy.marketSearch}</button>
+      </div>
+    </form>
+    {matches && (matches.listings.length ? <ul className="rows">{matches.listings.map((listing) =>
+      <li className="investment-row" key={listing.symbol}>
+        <span>{[listing.name, listing.symbol, listing.market, listing.currency].join(" · ")}</span>
+        <button className="button button-quiet" type="button" disabled={action.pending} aria-label={`${copy.linkMarket} · ${listing.symbol}`}
+          onClick={async () => {
+            const result = await action.run(() => investmentCall("PATCH", path, { query: matches.query, symbol: listing.symbol }), copy.marketLinked);
+            if (result) setMatches(undefined);
+          }}>{copy.linkMarket}</button>
+      </li>)}</ul> : <p className="hint" role="status">{copy.marketNoMatch}</p>)}
+    <NoticeLine notice={action.notice} />
+  </details>;
+}
+
+function InstrumentRow({ locale, instrument, marketEnabled, ...position }: { locale: Locale; instrument: InstrumentDto; marketEnabled: boolean } & DeletePositionProps) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const action = useInvestmentAction(locale);
@@ -289,6 +327,8 @@ function InstrumentRow({ locale, instrument, ...position }: { locale: Locale; in
       </div>
     </div>
     <NoticeLine notice={action.notice} />
+    {marketEnabled && !instrument.archived && ["STOCK", "ETF", "FUND"].includes(instrument.kind) &&
+      <MarketLink locale={locale} instrument={instrument} />}
     <div id={id} hidden={!editing}>{editing && <InstrumentForm locale={locale} instrument={instrument} onSaved={() => {
       setEditing(false);
       action.setNotice({ kind: "ok", text: copy.instrumentSaved });
@@ -297,14 +337,14 @@ function InstrumentRow({ locale, instrument, ...position }: { locale: Locale; in
   </li>;
 }
 
-export function Instruments({ locale, instruments, ...position }: { locale: Locale; instruments: InstrumentDto[] } & DeletePositionProps) {
+export function Instruments({ locale, instruments, marketEnabled, ...position }: { locale: Locale; instruments: InstrumentDto[]; marketEnabled: boolean } & DeletePositionProps) {
   const copy = investmentsCopy[locale];
   return <section className="card stack-half" aria-labelledby="investments-instruments">
     <h2 id="investments-instruments">{copy.instruments}</h2>
     <p className="hint investment-note">{copy.archiveHint}</p>
     <InstrumentForm locale={locale} />
     {instruments.length === 0 && <p className="empty-inline">{copy.noInstruments}</p>}
-    <ul className="rows">{instruments.map((instrument) => <InstrumentRow key={instrument.id} instrument={instrument} locale={locale} {...position} />)}</ul>
+    <ul className="rows">{instruments.map((instrument) => <InstrumentRow key={instrument.id} instrument={instrument} locale={locale} marketEnabled={marketEnabled} {...position} />)}</ul>
   </section>;
 }
 

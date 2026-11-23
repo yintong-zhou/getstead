@@ -6,7 +6,7 @@ import { Reader } from "../cash-flow/validate.ts";
 import type { AccountType } from "../../db/generated/client.ts";
 import { balanceAt, monthlySeries, netWorthAt, netWorthTrend, seriesAt } from "./calc.ts";
 import { buildTrend } from "../trend.ts";
-import { quoteInput, transactionInput } from "../investments/service.ts";
+import { marketQuoteInput, quoteInput, transactionInput } from "../investments/service.ts";
 import { toSafeCents } from "../investments/calc.ts";
 
 const checkSelect = { id: true, accountId: true, asOf: true, balanceCents: true } as const;
@@ -88,7 +88,7 @@ export type PensionDto = Awaited<ReturnType<typeof listPensions>>[number];
 /** `trend` adds the period chart; only the net worth page asks for it. */
 export async function getNetWorth(userId: string, now = new Date(), { trend = false } = {}) {
   const today = romeToday(now);
-  const [accounts, checks, rows, instruments, transactions, quotes, propertyRows, valuationRows] = await db().$transaction([
+  const [accounts, checks, rows, instruments, transactions, quotes, marketQuotes, propertyRows, valuationRows] = await db().$transaction([
     db().account.findMany({
       where: { userId }, select: accountSelect,
       orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -101,12 +101,14 @@ export async function getNetWorth(userId: string, now = new Date(), { trend = fa
     db().instrument.findMany({ where: { userId } }),
     db().investmentTransaction.findMany({ where: { userId, tradeDate: { lte: toDate(today) } } }),
     db().priceQuote.findMany({ where: { userId, asOf: { lte: toDate(today) } } }),
+    db().marketPriceQuote.findMany({ where: { userId, asOf: { lte: toDate(today) } } }),
     db().property.findMany({ where: { userId }, select: { id: true, ownershipBps: true, soldOn: true } }),
     db().propertyValuation.findMany({ where: { userId, asOf: { lte: toDate(today) } }, select: { propertyId: true, asOf: true, valueCents: true } }),
   ], { isolationLevel: "RepeatableRead" });
   const datedChecks = checks.map(checkDto);
   const movements = rows.map((row) => ({ ...row, bookingDate: fromDate(row.bookingDate) }));
-  const investments = { instruments, transactions: transactions.map(transactionInput), quotes: quotes.map(quoteInput) };
+  const investments = { instruments, transactions: transactions.map(transactionInput),
+    quotes: [...quotes.map(quoteInput), ...marketQuotes.map(marketQuoteInput)] };
   const realEstate = {
     properties: propertyRows.map((row) => ({ id: row.id, ownershipBps: row.ownershipBps, soldOn: row.soldOn ? fromDate(row.soldOn) : null })),
     valuations: valuationRows.map((row) => ({ propertyId: row.propertyId, asOf: fromDate(row.asOf), valueCents: Number(row.valueCents) })),
