@@ -175,8 +175,8 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
   const activeCategories = categories.filter((category) => !category.archived);
 
   return (
-    <div className="stack">
-      <section className="card" aria-labelledby="accounts-title">
+    <div className="stack stack-fluid">
+      <section className="card stack-half" aria-labelledby="accounts-title">
         <header className="card-head">
           <h2 id="accounts-title">{copy.accountsSection}</h2>
           {hasArchived && (
@@ -252,7 +252,7 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
         <NoticeLine notice={accountsAction.notice} />
       </section>
 
-      <section className="card" aria-labelledby="account-types-title">
+      <section className="card stack-half" aria-labelledby="account-types-title">
         <h2 id="account-types-title">{copy.accountTypesSection}</h2>
         <p className="hint">{copy.accountTypesIntro}</p>
         {visibleTypes.length === 0 ? <p className="empty-inline">{copy.accountTypesEmpty}</p> : (
@@ -295,7 +295,7 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
         <NoticeLine notice={typesAction.notice} />
       </section>
 
-      <section className="card" aria-labelledby="categories-title">
+      <section className="card stack-half" aria-labelledby="categories-title">
         <h2 id="categories-title">{copy.categoriesSection}</h2>
         {visibleCategories.length === 0 ? (
           <div className="empty-inline">
@@ -351,7 +351,7 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
         <NoticeLine notice={categoriesAction.notice} />
       </section>
 
-      <section className="card" aria-labelledby="rules-title">
+      <section className="card stack-half" aria-labelledby="rules-title">
         <h2 id="rules-title">{copy.rulesSection}</h2>
         <p className="hint">{copy.rulesIntro}</p>
         {rules.length === 0 ? <p className="empty-inline">{copy.rulesEmpty}</p> : (

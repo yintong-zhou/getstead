@@ -29,7 +29,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
   const investmentCheck = checkType === "BROKERAGE" || checkType === "CRYPTO";
 
   return (
-    <div className="stack worth-view">
+    <div className="stack stack-fluid worth-view">
       {data.trend && <TrendCard locale={locale} title={copy.title} note={copy.trendNote} today={data.today} trend={data.trend} />}
 
       <dl className="worth-totals">
@@ -37,7 +37,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
         <div className="card"><dt>{copy.liabilities}</dt><dd className="amount">{euros(data.liabilitiesCents, locale)}</dd></div>
       </dl>
 
-      <section className="card" aria-labelledby="worth-accounts-title">
+      <section className={`card${data.perAccount.length > 0 ? " stack-half" : ""}`} aria-labelledby="worth-accounts-title">
         <h2 id="worth-accounts-title">{copy.accounts}</h2>
         <p className="hint">{copy.closingHint}</p>
         {data.perAccount.length === 0 && data.holdingsCents === 0 && data.propertiesCents === 0 ? (
@@ -71,7 +71,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
         {(data.perAccount.length > 0 || data.holdingsCents > 0 || data.propertiesCents > 0) && <p><Link className="text-link" href={`/${locale}/accounts`}>{shared.goToAccounts}</Link></p>}
       </section>
 
-      {data.perAccount.length > 0 && <section className="card" aria-labelledby="worth-record-title">
+      {data.perAccount.length > 0 && <section className="card stack-half" aria-labelledby="worth-record-title">
         <h2 id="worth-record-title">{copy.record}</h2>
         <p className="hint" id="worth-rule">{copy.rule}</p>
         {investmentCheck && <p className="hint" id="worth-investment-cash-note">{copy.investmentCashWarning}</p>}

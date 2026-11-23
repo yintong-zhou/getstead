@@ -38,15 +38,11 @@
 .investment-holdings td { min-width: 0; }
 .investment-holdings .holding-action { display: block; padding-block: 0 8px; }
 .investment-holdings .holding-action td { display: block; }
+.holding-buttons { display: flex; flex-wrap: wrap; align-items: start; gap: 4px 12px; }
 .holding-label, .holding-kind { display: block; }
 .holding-kind { margin-top: 4px; font-weight: 500; }
 .investment-holdings .badge { margin-inline-start: 0; white-space: normal; }
 .investment-holdings th .badge { margin-inline-start: 8px; }
-.investment-details summary { cursor: pointer; width: fit-content; }
-.investment-details summary::marker { content: ""; }
-.investment-details summary::-webkit-details-marker { display: none; }
-.investment-details[open] { padding-bottom: 8px; }
-.investment-details .form-grid { margin-top: 4px; }
 
 .investment-yearly, .investment-metrics { display: grid; gap: 8px 16px; margin-top: 12px; }
 .investment-metrics { grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr)); }
@@ -83,4 +79,12 @@
   .investment-holdings thead th:first-child { width: 22%; }
   .investment-holdings .holding-action td { display: table-cell; padding-block: 0 8px; }
   .holding-label { display: none; }
+}
+
+/* Layout: .stack-fluid (cash-flow.css) sizes the cards; wide content (chart, tables, allocation) spans the row. */
+
+@media (min-width: 768px) {
+  .investment-allocation { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 32px; align-items: center; }
+  .investment-allocation > h2, .investment-allocation > .empty-inline { grid-column: 1 / -1; }
+  .investment-allocation .allocation-donut { margin-block: 12px; }
 }

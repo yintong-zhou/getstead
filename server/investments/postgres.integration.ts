@@ -13,7 +13,7 @@ import { db, disconnectDb } from "../auth/database.ts";
 import { createAccount, createAccountType, updateAccount } from "../cash-flow/catalog.ts";
 import { encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
-import { createInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio } from "./service.ts";
+import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio } from "./service.ts";
 
 let admin: PrismaClient;
 before(() => {
@@ -277,4 +277,40 @@ test("net worth exposes holdings so account rows plus holdings add up to the tot
   const worth = await getNetWorth(userId, new Date("2026-11-20T12:00:00Z"));
   assert.equal(worth.holdingsCents, 60_000);
   assert.equal(worth.perAccount[0].balanceCents + worth.holdingsCents, worth.netCents);
+});
+
+test("deleting a position removes its transactions and prices, restores the cash effect, and never touches other data or other users", async () => {
+  const { userId, account, instrument } = await fixture();
+  const keep = await createInstrument(userId, { name: "Kept synthetic ETF", kind: "ETF" });
+  await recordCheck(userId, { accountId: account.id, asOf: "2026-11-01", balanceCents: 100_000 });
+  await createTransaction(userId, buy(account.id, instrument.id));
+  const voided = await createTransaction(userId, buy(account.id, instrument.id, { tradeDate: "2026-11-03" }));
+  await updateTransaction(userId, voided.id, { voided: true });
+  await recordQuote(userId, { instrumentId: instrument.id, asOf: "2026-11-10", unitPrice: "6" });
+  await createTransaction(userId, buy(account.id, keep.id, { amountCents: 10_000, quantity: "1" }));
+  const stranger = await fixture();
+  await createTransaction(stranger.userId, buy(stranger.account.id, stranger.instrument.id));
+  await recordQuote(stranger.userId, { instrumentId: stranger.instrument.id, asOf: "2026-11-10", unitPrice: "6" });
+  const now = new Date("2026-11-20T12:00:00Z");
+  assert.equal((await getNetWorth(userId, now)).perAccount[0].balanceCents, 30_000);
+
+  // Another user's id is a 404 and removes nothing, even though the instrument id exists.
+  await rejects(deleteInstrument(stranger.userId, instrument.id), 404);
+  await rejects(deleteInstrument(userId, stranger.instrument.id), 404);
+  assert.equal(await admin.instrument.count({ where: { id: instrument.id } }), 1);
+  assert.equal(await admin.investmentTransaction.count({ where: { instrumentId: instrument.id } }), 2);
+
+  assert.deepEqual(await deleteInstrument(userId, instrument.id), { transactions: 2, quotes: 1 });
+  assert.equal(await admin.instrument.count({ where: { id: instrument.id } }), 0);
+  assert.equal(await admin.investmentTransaction.count({ where: { instrumentId: instrument.id } }), 0);
+  assert.equal(await admin.priceQuote.count({ where: { instrumentId: instrument.id } }), 0);
+  assert.deepEqual((await listInstruments(userId)).map((row) => row.id), [keep.id]);
+  assert.equal((await listTransactions(userId)).length, 1);
+  // The 60 000 cents paid for the deleted buy come back to the account; the kept buy still costs 10 000.
+  assert.equal((await getNetWorth(userId, now)).perAccount[0].balanceCents, 90_000);
+  // The other user's position is untouched.
+  assert.equal((await listTransactions(stranger.userId)).length, 1);
+  assert.equal((await listQuotes(stranger.userId)).length, 1);
+  assert.equal((await listInstruments(stranger.userId)).length, 1);
+  await rejects(deleteInstrument(userId, instrument.id), 404);
 });

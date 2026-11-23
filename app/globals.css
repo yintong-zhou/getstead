@@ -152,7 +152,7 @@ a, summary { -webkit-tap-highlight-color: transparent; }
 .main-content:focus { outline: none; }
 
 .page {
-  width: min(100%, 1504px);
+  width: 100%;
   margin-inline: auto;
   padding: 16px 16px calc(112px + env(safe-area-inset-bottom));
 }
@@ -739,7 +739,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 
 /* The popup is portalled above cards so their blur never clips or traps it. */
 .select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: start; }
-.select-trigger > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-trigger > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .select-trigger > svg { flex-shrink: 0; }
 .select-search { position: relative; }
 .select-search > input { padding-inline-end: 40px; text-overflow: ellipsis; }

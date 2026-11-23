@@ -243,8 +243,8 @@ export function RecurringView(props: Props) {
   const nextFor = new Map(upcoming.map((item) => [item.templateId, item.dueDate]));
 
   return (
-    <div className="stack">
-      <section className="card" aria-labelledby="due-title">
+    <div className="stack stack-fluid">
+      <section className="card stack-half" aria-labelledby="due-title">
         <h2 id="due-title">{copy.dueSection}</h2>
         {due.length === 0 ? <p className="empty-inline">{copy.dueEmpty}</p> : (
           <ul className="rows movement-list">
@@ -277,7 +277,7 @@ export function RecurringView(props: Props) {
         <NoticeLine notice={notice} />
       </section>
 
-      <section className="card" aria-labelledby="templates-title">
+      <section className="card stack-half" aria-labelledby="templates-title">
         <h2 id="templates-title">{copy.templatesSection}</h2>
         {templates.length === 0 ? <p className="empty-inline">{copy.templatesEmpty}</p> : (
           <ul className="rows">

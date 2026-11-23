@@ -124,7 +124,7 @@ function BudgetMonth({ locale, month, currentMonth, rows }: { locale: Locale; mo
   const editTrigger = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="stack">
+    <div className="stack stack-fluid">
       <section className="card" aria-labelledby="budget-month-title">
         <div className="card-head">
           <h2 id="budget-month-title">{copy.month}</h2>

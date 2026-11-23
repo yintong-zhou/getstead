@@ -10,7 +10,8 @@ import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { investmentsCopy } from "./copy";
 import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numbers";
-import { Instruments, PriceHistory, QuickPrice, Transactions, type Quote } from "./forms";
+import { DeletePosition, Instruments, PriceHistory, Transactions, useInvestmentAction, investmentCall, type DeletePositionProps, type Quote } from "./forms";
+import { NoticeLine } from "../cash-flow/use-action";
 import { euros } from "@/components/euros";
 import { TrendCard } from "@/components/trend-card";
 import { PieCenter } from "@/components/charts/pie-center";
@@ -60,15 +61,14 @@ function Allocation({ locale, allocation }: { locale: Locale; allocation: Portfo
   </section>;
 }
 
-function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "data" | "instruments">) {
+function Holdings({ locale, data, instruments, ...position }: Pick<ViewProps, "locale" | "data" | "instruments"> & DeletePositionProps) {
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
   const [expanded, setExpanded] = useState(false);
   const byId = new Map(instruments.map((instrument) => [instrument.id, instrument]));
-  const fields = [copy.quantity, copy.averageCost, copy.price, copy.marketValue, copy.gain];
+  const fields = [copy.quantity, copy.averageCost, copy.marketValue, copy.gain];
   const canExpand = data.holdings.some((holding) =>
-    hasHoldingPrecision(holding.quantity, false) || hasHoldingPrecision(holding.averageCost, true)
-      || (!holding.noPrice && hasHoldingPrecision(holding.unitPrice, true)));
+    hasHoldingPrecision(holding.quantity, false) || hasHoldingPrecision(holding.averageCost, true));
 
   return <section className="card" aria-labelledby="investments-holdings-title">
     <div className="card-head">
@@ -89,7 +89,6 @@ function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "dat
           const cells = [
             formatHoldingDecimal(holding.quantity, locale, false, expanded),
             formatHoldingDecimal(holding.averageCost, locale, true, expanded),
-            holding.noPrice ? <span key="no-price" className="badge badge-amber">{copy.noPrice}</span> : formatHoldingDecimal(holding.unitPrice, locale, true, expanded),
             formatEuros(holding.valueCents, locale),
             <Gain key="gain" cents={holding.gainCents} locale={locale} />,
           ];
@@ -104,9 +103,9 @@ function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "dat
                 <span className="amount">{cell}</span>
               </td>)}
             </tr>
-            {!instrument?.archived && <tr className="holding-action" role="row"><td role="cell" colSpan={6}>
-              <QuickPrice locale={locale} today={data.today} instrumentId={holding.instrumentId} name={holding.name} />
-            </td></tr>}
+            <tr className="holding-action" role="row"><td role="cell" colSpan={5}><div className="holding-buttons">
+              <DeletePosition locale={locale} id={holding.instrumentId} name={holding.name} {...position} />
+            </div></td></tr>
           </tbody>;
         })}
       </table>
@@ -178,15 +177,23 @@ function Pensions({ locale, pensions }: { locale: Locale; pensions: PensionDto[]
 
 export function InvestmentsView({ locale, data, accounts, instruments, transactions, quotes, pensions }: ViewProps) {
   const copy = investmentsCopy[locale];
+  // Owned by the view, not the row: the row unmounts once the position is gone, and the toast must survive that.
+  const action = useInvestmentAction(locale);
+  const counts: DeletePositionProps["counts"] = new Map();
+  for (const { instrumentId } of transactions) counts.set(instrumentId, { transactions: (counts.get(instrumentId)?.transactions ?? 0) + 1, quotes: counts.get(instrumentId)?.quotes ?? 0 });
+  for (const { instrumentId } of quotes) counts.set(instrumentId, { transactions: counts.get(instrumentId)?.transactions ?? 0, quotes: (counts.get(instrumentId)?.quotes ?? 0) + 1 });
+  const position = { counts, pending: action.pending,
+    onDelete: (id: string) => { void action.run(() => investmentCall("DELETE", `/instruments/${id}`), copy.positionDeleted); } };
 
-  return <div className="stack investment-view">
+  return <div className="stack stack-fluid investment-view">
+    <NoticeLine notice={action.notice} />
     {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend} />}
     <Allocation locale={locale} allocation={data.allocation} />
-    <Holdings locale={locale} data={data} instruments={instruments} />
+    <Holdings locale={locale} data={data} instruments={instruments} {...position} />
     {pensions.length > 0 && <Pensions locale={locale} pensions={pensions} />}
     <Performance locale={locale} data={data} />
     <Transactions locale={locale} today={data.today} accounts={accounts} instruments={instruments} transactions={transactions} />
-    <Instruments locale={locale} instruments={instruments} />
+    <Instruments locale={locale} instruments={instruments} {...position} />
     <PriceHistory locale={locale} instruments={instruments} quotes={quotes} displayPrice={(value) => formatDecimal(value, locale, true)} />
   </div>;
 }

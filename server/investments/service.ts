@@ -105,6 +105,22 @@ export async function updateInstrument(userId: string, id: string, input: Record
   });
 }
 
+/**
+ * Permanently deletes one instrument with all its transactions and price quotes ("position" in the UI).
+ * One transaction under the user lock, so it is all-or-nothing and no concurrent write slips in between.
+ * Every statement filters on userId; another user's id is a 404 and touches nothing.
+ * Cash effects of the deleted transactions disappear too, so brokerage balances and net worth can change.
+ */
+export async function deleteInstrument(userId: string, id: string) {
+  return write(userId, async (client) => {
+    await lockInstrumentHistory(client, userId, id);
+    const quotes = await client.priceQuote.deleteMany({ where: { userId, instrumentId: id } });
+    const transactions = await client.investmentTransaction.deleteMany({ where: { userId, instrumentId: id } });
+    await client.instrument.delete({ where: { userId_id: { userId, id } } });
+    return { transactions: transactions.count, quotes: quotes.count };
+  });
+}
+
 function cents(reader: Reader, field: string, min = 0) {
   // Reader performs the boundary/type check; report the investment range with its stable code.
   let amount: number;
