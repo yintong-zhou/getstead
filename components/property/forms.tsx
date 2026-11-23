@@ -12,6 +12,7 @@ import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { amountInputProps } from "../amount-input";
 import { editableEuros } from "../money";
 import { Select } from "../select";
+import { InfoTip } from "@/components/info-tip";
 import { propertyCopy } from "./copy";
 import { MAX_BUILDING_CENTS, MAX_PAYABLE_CENTS, MAX_VALUE_CENTS, millesimiShare, ownershipText, parseEurosUpTo, parseOwnership } from "./numbers";
 import { euros } from "@/components/euros";
@@ -29,11 +30,10 @@ function usePropertyAction(locale: Locale) {
 function Input({ label, hint, dateLocale, ...props }: ComponentProps<"input"> & { label: string; hint?: string; dateLocale?: Locale }) {
   const id = useId();
   return <div className="form-field">
-    <label htmlFor={id}>{label}</label>
+    <div className="label-row"><label htmlFor={id}>{label}</label>{hint && <InfoTip id={`${id}-hint`} text={hint} />}</div>
     {dateLocale ? <DateField locale={dateLocale} id={id} name={props.name} required={props.required}
       min={String(props.min)} max={String(props.max)} defaultValue={String(props.defaultValue ?? "")} aria-describedby={hint ? `${id}-hint` : undefined} />
       : <input {...props} className="field" id={id} aria-describedby={hint ? `${id}-hint` : undefined} />}
-    {hint && <p id={`${id}-hint`} className="hint">{hint}</p>}
   </div>;
 }
 type Opt = { value: string; label: string; disabled?: boolean };
@@ -42,9 +42,8 @@ function Choice({ label, hint, options, ...props }: { label: string; hint?: stri
 )) {
   const id = useId();
   return <div className="form-field">
-    <label htmlFor={id}>{label}</label>
+    <div className="label-row"><label htmlFor={id}>{label}</label>{hint && <InfoTip id={`${id}-hint`} text={hint} />}</div>
     <Select {...(props as { name: string; defaultValue?: string })} id={id} options={options} aria-describedby={hint ? `${id}-hint` : undefined} />
-    {hint && <p id={`${id}-hint`} className="hint">{hint}</p>}
     </div>;
 }
 function accountOptions(rows: AccountDto[], archived: string, currentId?: string): Opt[] {

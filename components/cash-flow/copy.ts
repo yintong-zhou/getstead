@@ -3,6 +3,7 @@ import type { Locale } from "@/server/locale";
 const en = {
   // shared
   save: "Save",
+  info: "More information",
   saving: "Saving…",
   cancel: "Cancel",
   edit: "Edit",
@@ -260,6 +261,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
   en,
   it: {
     save: "Salva",
+    info: "Maggiori informazioni",
     saving: "Salvataggio…",
     cancel: "Annulla",
     edit: "Modifica",
