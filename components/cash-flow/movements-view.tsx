@@ -10,6 +10,7 @@ import { addMonths, formatDay, formatMonth } from "../format";
 import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
 import { Select, type SelectGroup } from "../select";
+import { amountInputProps } from "../amount-input";
 import { editableEuros, parseEuros } from "../money";
 import { call } from "./api";
 import { cashFlowCopy, type CashFlowCopy } from "./copy";
@@ -268,7 +269,7 @@ function NewMovement({ locale, today, accounts, categories: loaded }: Pick<Props
           <div className="form-field">
             <label htmlFor={`${ids}amount`}>{copy.amount} (€)</label>
             <input
-              id={`${ids}amount`} className="field amount-field" inputMode="decimal" autoComplete="off" placeholder="0,00"
+              id={`${ids}amount`} className="field amount-field" {...amountInputProps(locale, parseEuros, setAmount)} autoComplete="off" placeholder="0,00"
               value={amount} onChange={(event) => setAmount(event.target.value)} required aria-describedby={`${ids}amount-hint`}
             />
             <span id={`${ids}amount-hint`} className="hint">{copy.amountHint}</span>
@@ -414,7 +415,7 @@ function EditForm({ locale, movement, accounts, categories, onDone }: {
         </div>
         <div className="form-field">
           <label htmlFor={`${ids}amount`}>{copy.amount} (€)</label>
-          <input id={`${ids}amount`} className="field amount-field" inputMode="decimal" value={amount} disabled={paired} onChange={(event) => setAmount(event.target.value)} required />
+          <input id={`${ids}amount`} className="field amount-field" {...amountInputProps(locale, parseEuros, setAmount)} value={amount} disabled={paired} onChange={(event) => setAmount(event.target.value)} required />
         </div>
         <div className="form-field wide">
           <label htmlFor={`${ids}description`}>{copy.description}</label>

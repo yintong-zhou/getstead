@@ -8,6 +8,7 @@ import type { RuleDto } from "@/server/cash-flow/rules";
 import type { Locale } from "@/server/locale";
 import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
+import { amountInputProps } from "../amount-input";
 import { parseLimit } from "../money";
 import { Select } from "../select";
 import { AccountLogoControls, accountLogoLabel, accountLogoPath } from "./account-logo";
@@ -185,7 +186,7 @@ export function AccountsView({ locale, accounts, categories, rules }: Props) {
           </div>
           <div className="form-field">
             <label htmlFor="account-balance">{copy.openingBalance}</label>
-            <input id="account-balance" name="balance" className="field amount-field" inputMode="decimal" aria-describedby="account-balance-hint" />
+            <input id="account-balance" name="balance" className="field amount-field" {...amountInputProps(locale, parseLimit)} aria-describedby="account-balance-hint" />
             <p className="hint" id="account-balance-hint">{copy.openingBalanceHint}</p>
           </div>
           <button className="button form-submit" type="submit" disabled={accountsAction.pending}>{copy.addAccount}</button>

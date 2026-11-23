@@ -9,9 +9,10 @@ import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
+import { amountInputProps } from "../amount-input";
 import { editableEuros } from "../money";
 import { investmentsCopy } from "./copy";
-import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal } from "./numbers";
+import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parseUnitPrice } from "./numbers";
 import { euros } from "@/components/euros";
 
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
@@ -121,11 +122,11 @@ function TransactionForm({ locale, today, accounts, instruments, transaction, on
         hint={copy.ordinalHint} required defaultValue={transaction.ordinal} />}
       {trade && <Input label={copy.quantity} name="quantity" maxLength={80} inputMode="decimal" required
         defaultValue={transaction?.quantity?.replace(".", locale === "it" ? "," : ".") ?? ""} />}
-      <Input label={copy.amountCents} name="amountCents" maxLength={13} inputMode="decimal" required
+      <Input label={copy.amountCents} name="amountCents" {...amountInputProps(locale, parseInvestmentEuros)} required
         defaultValue={transaction ? editableEuros(transaction.amountCents, locale) : ""} />
-      {trade && <Input label={copy.feesCents} name="feesCents" maxLength={13} inputMode="decimal"
+      {trade && <Input label={copy.feesCents} name="feesCents" {...amountInputProps(locale, parseInvestmentEuros)}
         defaultValue={editableEuros(transaction?.feesCents ?? 0, locale)} />}
-      {type !== "BUY" && <Input label={copy.taxWithheldCents} name="taxWithheldCents" maxLength={13} inputMode="decimal"
+      {type !== "BUY" && <Input label={copy.taxWithheldCents} name="taxWithheldCents" {...amountInputProps(locale, parseInvestmentEuros)}
         defaultValue={editableEuros(transaction?.taxWithheldCents ?? 0, locale)} />}
     </div>
     <div className="form-actions">
@@ -299,7 +300,7 @@ export function QuickPrice({ locale, today, instrumentId, name }: { locale: Loca
       event.preventDefault();
       const form = event.currentTarget;
       const data = new FormData(form);
-      const unitPrice = parsePositiveDecimal(String(data.get("unitPrice") ?? ""), 8);
+      const unitPrice = parseUnitPrice(String(data.get("unitPrice") ?? ""));
       if (unitPrice === null) {
         action.setNotice({ kind: "error", text: copy.priceError });
         return;
@@ -311,7 +312,7 @@ export function QuickPrice({ locale, today, instrumentId, name }: { locale: Loca
       }
     }}>
       <Input label={copy.priceDate} name="asOf" {...dateBounds} defaultValue={today} />
-      <Input label={copy.price} name="unitPrice" inputMode="decimal" maxLength={80} required />
+      <Input label={copy.price} name="unitPrice" {...amountInputProps(locale, parseUnitPrice)} required />
       <button type="submit" className="button button-solid form-submit" disabled={action.pending}>{action.pending ? shared.saving : shared.save}</button>
     </form>
     <NoticeLine notice={action.notice} />

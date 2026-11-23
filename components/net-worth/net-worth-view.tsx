@@ -8,6 +8,7 @@ import { type Locale } from "@/server/locale";
 import { call } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
+import { amountInputProps } from "../amount-input";
 import { parseLimit } from "../money";
 import { Select } from "../select";
 import { netWorthCopy } from "./copy";
@@ -101,7 +102,7 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
           </div>
           <div className="form-field">
             <label htmlFor="worth-amount">{shared.amount} (EUR)</label>
-            <input id="worth-amount" className="field amount-field" name="amount" inputMode="decimal" aria-describedby="worth-amount-hint" required />
+            <input id="worth-amount" className="field amount-field" name="amount" {...amountInputProps(locale, parseLimit)} aria-describedby="worth-amount-hint" required />
             <p className="hint" id="worth-amount-hint">{shared.amountHint}</p>
           </div>
           <label className="check wide"><input type="checkbox" checked={owed} onChange={(event) => setOwed(event.target.checked)} />{copy.owed}</label>

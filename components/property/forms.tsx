@@ -8,6 +8,7 @@ import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
+import { amountInputProps } from "../amount-input";
 import { editableEuros } from "../money";
 import { Select } from "../select";
 import { propertyCopy } from "./copy";
@@ -121,7 +122,7 @@ export function Valuations({ locale, property, today }: { locale: Locale; proper
     }}>
       <div className="form-grid">
         <Input label={copy.valuationDate} name="asOf" {...dateBounds} required defaultValue={today} />
-        <Input label={copy.valuationValue} name="value" inputMode="decimal" maxLength={14} required />
+        <Input label={copy.valuationValue} name="value" {...amountInputProps(locale, (value) => parseEurosUpTo(value, MAX_VALUE_CENTS))} required />
       </div>
       <div className="form-actions"><SaveButton pending={action.pending} locale={locale} label={copy.addValuation} /></div>
       <NoticeLine notice={action.notice} />
@@ -200,7 +201,7 @@ export function Schedules({ locale, property, accounts, today }: { locale: Local
     }}>
       <div className="form-grid">
         <Input label={copy.description} name="description" maxLength={200} required />
-        <Input label={copy.amount} name="amount" inputMode="decimal" maxLength={13} required />
+        <Input label={copy.amount} name="amount" {...amountInputProps(locale, (value) => parseEurosUpTo(value, MAX_PAYABLE_CENTS))} required />
         <Choice label={copy.frequency} name="frequency" defaultValue="MONTHLY"
           options={Object.entries(copy.frequencies).map(([value, label]) => ({ value, label }))} />
         <Input label={copy.startDate} name="startDate" {...dateBounds} required defaultValue={today} />
@@ -246,8 +247,8 @@ function ChargeForm({ locale, property, today }: { locale: Locale; property: Pro
       <Input label={copy.approvedOn} name="approvedOn" {...dateBounds} />
       <Choice label={copy.tableOptional} value={tableId} onChange={setTableId}
         options={[{ value: "", label: copy.noTable }, ...property.tables.map((row) => ({ value: row.id, label: `${row.label} (${row.unitMillesimi}/${row.totalMillesimi})` }))]} />
-      {tableId && <Input label={copy.buildingTotal} value={building} onChange={(event) => setBuilding(event.target.value)} inputMode="decimal" maxLength={14} hint={copy.buildingHint} />}
-      <Input label={copy.chargeAmount} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" maxLength={13} required />
+      {tableId && <Input label={copy.buildingTotal} value={building} onChange={(event) => setBuilding(event.target.value)} {...amountInputProps(locale, (value) => parseEurosUpTo(value, MAX_BUILDING_CENTS), setBuilding)} hint={copy.buildingHint} />}
+      <Input label={copy.chargeAmount} value={amount} onChange={(event) => setAmount(event.target.value)} {...amountInputProps(locale, (value) => parseEurosUpTo(value, MAX_PAYABLE_CENTS), setAmount)} required />
     </div>
     {guide !== null && <p className="hint">{copy.expectedShare}: <strong className="amount">{euros(guide, locale)}</strong>{" "}
       <button className="button button-quiet" type="button" onClick={() => setAmount(editableEuros(guide, locale))}>{copy.useShare}</button></p>}

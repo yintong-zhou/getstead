@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { editableEuros, parseEuros, parseLimit } from "./money.ts";
+
+test("amount expressions calculate exact cents and keep each field's rules", () => {
+  assert.equal(parseEuros(" 120,50 - 20 + 5 "), 10_550);
+  assert.equal(parseEuros("0,10 + 0.20"), 30);
+  assert.equal(parseLimit("1 - 1"), 0);
+  assert.equal(parseEuros("1 - 2 + 3"), 200);
+  assert.equal(parseEuros("10000000 + 1 - 1"), MAX_CENTS);
+  assert.equal(parseEuros("10000000 + 0,01"), null);
+  assert.equal(parseEuros("1 - 1"), null);
+  assert.equal(parseLimit("1 - 2"), null);
+  for (const invalid of ["1+", "+1", "1+-2", "1--2", "1e2+1", "1.234+1", "1 2+3", "1+2*3", "1+".repeat(64) + "1"]) {
+    assert.equal(parseEuros(invalid), null, invalid);
+  }
+});
 import { MAX_CENTS } from "../server/cash-flow/money.ts";
 
 test("typed euros become exact cents", () => {

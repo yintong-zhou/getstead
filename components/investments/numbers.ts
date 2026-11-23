@@ -1,7 +1,8 @@
 ﻿import { localeTags, type Locale } from "../../server/locale.ts";
+import { resolveAmountExpression } from "../money.ts";
 
 export function parseInvestmentEuros(text: string): number | null {
-  const match = /^(\d{1,10})(?:[.,](\d{1,2}))?$/.exec(text.trim());
+  const match = /^(\d{1,10})(?:[.,](\d{1,2}))?$/.exec(resolveAmountExpression(text, 2)?.trim() ?? "");
   if (!match) return null;
   const cents = BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
   return cents <= 100_000_000_000n ? Number(cents) : null;
@@ -16,6 +17,11 @@ export function parsePositiveDecimal(text: string, scale: 8 | 10): string | null
   const significant = fraction.replace(/0+$/, "");
   if (!whole && !significant) return null;
   return significant ? `${whole || "0"}.${significant}` : whole;
+}
+
+export function parseUnitPrice(text: string): string | null {
+  const resolved = resolveAmountExpression(text, 8);
+  return resolved === null ? null : parsePositiveDecimal(resolved, 8);
 }
 
 /** Non-negative decimal string to a locale display string, rounded half-up to `maxScale` places (the exact value stays in the API). */
