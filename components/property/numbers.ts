@@ -1,4 +1,4 @@
-// Form-side helpers for property: euros, percentages and the millesimi share, all in integers.
+// Form-side helpers for property: euros, and percentages, all in integers.
 
 import { resolveAmountExpression } from "../money.ts";
 
@@ -10,7 +10,6 @@ export function parseEurosUpTo(text: string, maxCents: number): number | null {
   return cents > 0n && cents <= BigInt(maxCents) ? Number(cents) : null;
 }
 export const MAX_VALUE_CENTS = 1_000_000_000_000;
-export const MAX_BUILDING_CENTS = 100_000_000_000;
 export const MAX_PAYABLE_CENTS = 1_000_000_000;
 
 /** A percentage with up to two decimals ("50", "33,33") to basis points 1..10000, else null. */
@@ -23,10 +22,4 @@ export function parseOwnership(text: string): number | null {
 export function ownershipText(bps: number, separator: "." | ",") {
   const fraction = String(bps % 100).padStart(2, "0").replace(/0+$/, "");
   return `${Math.floor(bps / 100)}${fraction ? separator + fraction : ""}`;
-}
-
-/** Same rounding as `millesimiShareCents` in server/property/calc.ts (a parity test keeps them equal). */
-export function millesimiShare(totalCents: number, unit: number, total: number): number {
-  const divisor = BigInt(total);
-  return Number((BigInt(totalCents) * BigInt(unit) * 2n + divisor) / (divisor * 2n));
 }

@@ -25,7 +25,7 @@ getstead brings cash flow, budgets, net worth, investments and condominium costs
 | **Cash flow and budget** | Accounts, categories, movements, transfers, categorisation rules, monthly budgets and recurring expenses. |
 | **Net worth** | Account balance checks, assets and liabilities, and a 12-month trend. Investment holdings and property valuations contribute to the total. |
 | **Investments** | Instruments, trades, dividends, coupons, manual prices, holdings, allocation and indicative tax estimates. |
-| **Property** | Property valuations, ownership shares, condominium tables, instalments, one-off charges and annual costs. |
+| **Property** | Property valuations, ownership shares, condominium tables, instalments and annual costs. |
 | **Account** | Private sign-in with optional two-step verification, profile settings and language selection. |
 
 Tax figures are indicative estimates, not tax statements. Investment prices and property values are entered manually. CSV and Excel import, automatic bank connections and investment advice are not currently available.
@@ -68,7 +68,7 @@ npm ci
 npm run db:migrate
 ```
 
-Connect to the `stead` database in `psql` as `stead_auth_owner` and run `\i db/grant-runtime.sql` to grant the app role its permissions. Run it again after every migration: it covers authentication and the cash flow tables (no `DELETE` on movements or templates; accounts and categories can be deleted only while nothing references them, and `UPDATE` only on the columns the services change). The runtime uses `DATABASE_URL`. Prisma Migrate and owner commands use `DATABASE_ADMIN_URL` for administrative access. Keep the administrative URL in the migration or provisioning environment when deploying the app.
+Connect to the `stead` database in `psql` as `stead_auth_owner` and run `\i db/grant-runtime.sql` to grant the app role its permissions. Run it again after every migration: it covers authentication and the cash flow tables (no `DELETE` on movements; accounts and categories can be deleted only while nothing references them, and `UPDATE` only on the columns the services change). The runtime uses `DATABASE_URL`. Prisma Migrate and owner commands use `DATABASE_ADMIN_URL` for administrative access. Keep the administrative URL in the migration or provisioning environment when deploying the app.
 
 ```sh
 npm run auth:owner -- create
@@ -198,22 +198,23 @@ The fresh-chain test creates and drops only its uniquely named, empty `stead_m3_
 
 Open `/en/property` or `/it/property` to track properties and their condominium. A property has an estimated value over time (one valuation per date; the latest on or before today counts, with none it counts as zero and is flagged), your ownership share (basis points, for example 50% for half) and an optional informational link to a `DEBT` account as its mortgage. The loan already counts as a liability in net worth, so linking it changes no total; the card only shows equity (your value share minus the mortgage balance). A property sold on a date stops counting from that date. All values are your own estimates, not appraisals.
 
-Condominium: millesimi tables (for example General, Lift) hold your thousandths out of the building total; they split building-wide amounts and show your voting weight, and they never enter net worth. Regular instalments are ordinary expense recurrences linked to the property: confirm each one in Recurring, which books the movement exactly once. Balancing payments and approved extraordinary works are one-off charges with a due date; settling one books one expense movement, and a settling movement cannot be voided, turned into income, moved or paired until the charge is reopened (and it cannot also settle a recurring occurrence). A charge's payable amount stops at the movement limit of 10,000,000.00 EUR; the building-wide amount may be larger. Rental income, bills, subscriptions, attachments and reminders are not part of this slice.
+Condominium: millesimi tables (for example General, Lift) hold your thousandths out of the building total and show your voting weight. Instalments are recurring expenses linked to the property. Include any balancing payments and extraordinary works in the instalment amount, then confirm each payment in Recurring to book its movement.
 
 ### Property costs (M4b)
 
-In this phase a property is a cost: only condominium costs are tracked, regular instalments and one-off charges (balancing payments, extraordinary works). The property page and `GET /api/property/costs?year=YYYY[&propertyId=…]` show, per property and in total, for one calendar year (default: the current year in Europe/Rome):
+In this phase a property is a cost: only condominium instalments are tracked. The property page and `GET /api/property/costs?year=YYYY[&propertyId=…]` show, per property and in total, for one calendar year (default: the current year in Europe/Rome):
 
-- **Paid**: the real movement amounts of confirmed or matched instalments and of settled charges, by the movement's booking date, split into regular, extraordinary and balancing. Skipped instalments and voided charges never count. Paid means *currently linked settlement*: reopening a charge or an instalment unlinks its movement (which stays booked as a normal movement) and the amount moves back to pending or overdue.
-- **Pending charges**: unsettled, non-voided charges due in the year.
+- **Paid**: the movement amounts of confirmed or matched instalments, by booking date. Reopening an instalment unlinks the movement and returns the instalment to the unpaid totals.
 - **Overdue** and **still to come**: instalments of active schedules that Recurring has not resolved, at the schedule amount. Due before today they are overdue (never dropped from the total); from today to 31 December they are still to come. A past year has nothing to come, a future year is all to come.
-- **Expected total** = paid + pending charges + overdue + still to come. An estimate, not an accounting statement. Millesimi and ownership share are not applied: amounts are what you pay.
+- **Expected total** = paid + overdue + still to come. An estimate, not an accounting statement. Millesimi and ownership share are not applied: amounts are what you pay.
 
-Unlinking an instalment schedule (`DELETE /api/property/schedules/:id`) is refused with 409 `schedule_has_payments` once it has a payment, because the link is what attributes paid costs to the property; archive the recurring expense instead. The check runs under the recurring template row lock, the same lock confirm and match take. Rental or other income is not modelled: record it as a normal income movement and name the property in the description. Bills, subscriptions, a rental-income engine, attachments and reminders are not planned for now (see `docs/plans/2026-11-21-m4b-property-costs.md`). No schema change and no migration.
+Recurring expenses can be deleted from the active or archived list. A template with payments is hidden while its links remain available to the register and property cost history. A template without payments is deleted together with any skipped dates and property schedule link.
 
-APIs (same authenticated, same-origin, no-store wrapper): `GET /api/property`, `GET /api/property/costs`, `POST /api/property/properties`, `PATCH /api/property/properties/:id`, `POST /api/property/valuations`, `PATCH|DELETE /api/property/valuations/:id`, `POST /api/property/tables`, `PATCH|DELETE /api/property/tables/:id`, `POST /api/property/schedules`, `DELETE /api/property/schedules/:id`, `POST /api/property/charges`, `PATCH /api/property/charges/:id` (fields, `{ "voided": true }`, `{ "action": "settle", "accountId": "…" }` or `{ "action": "reopen" }`).
+Unlinking an instalment schedule (`DELETE /api/property/schedules/:id`) is refused with 409 `schedule_has_payments` once it has a payment, because the link is what attributes paid costs to the property; archive the recurring expense instead. The check runs under the recurring template row lock, the same lock confirm and match take. Rental or other income is not modelled: record it as a normal income movement and name the property in the description. Bills, subscriptions, a rental-income engine, attachments and reminders are not planned for now (see `docs/plans/2026-11-21-m4b-property-costs.md`).
 
-M4a writes take a per-user advisory lock (key 4), then lock the account row with `FOR NO KEY UPDATE` (never `FOR UPDATE`, which deadlocks with transfers), then property, charge and movement rows. The migration `20261124090000_property` follows investments. Apply only to a local database unless separately approved, then rerun `db/grant-runtime.sql` for the five new tables. The runtime role cannot delete properties or charges. No dependency was added. `test:postgres` includes `server/property/postgres.integration.ts`.
+APIs (same authenticated, same-origin, no-store wrapper): `GET /api/property`, `GET /api/property/costs`, `POST /api/property/properties`, `PATCH /api/property/properties/:id`, `POST /api/property/valuations`, `PATCH|DELETE /api/property/valuations/:id`, `POST /api/property/tables`, `PATCH|DELETE /api/property/tables/:id`, `POST /api/property/schedules`, `DELETE /api/property/schedules/:id`. The retired charge endpoints return 410 for authorized requests.
+
+Property writes take a per-user advisory lock (key 4) before account and property locks. The archive migration removes the link that prevented deletion of a millesimal table referenced by a historical charge. It preserves historical rows and movements, and backup JSON v1 still exports and restores them. Apply migrations locally unless separately approved, then rerun db/grant-runtime.sql. Runtime access to the historical table is limited to backup and restore reads and inserts.
 
 ## License
 

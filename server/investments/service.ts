@@ -8,6 +8,7 @@ import { Reader } from "../cash-flow/validate.ts";
 import { allocation, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, portfolioTrend, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
 import { buildTrend } from "../trend.ts";
 import { marketDataEnabled, marketQuote, marketTicker, searchMarket, type MarketListing } from "./market-data.ts";
+import type { TransactionQuery } from "./transaction-query.ts";
 
 type Client = Prisma.TransactionClient;
 const MAX_TRANSACTION_CENTS = 100_000_000_000;
@@ -126,8 +127,8 @@ export async function linkInstrumentMarket(userId: string, instrumentId: string,
 }
 export async function listInstruments(userId: string) {
   const rows = await db().instrument.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }],
-    include: { _count: { select: { marketQuotes: true } } } });
-  return rows.map((row) => ({ ...instrumentDto(row), marketQuoteCount: row._count.marketQuotes }));
+    include: { _count: { select: { marketQuotes: true, transactions: true } } } });
+  return rows.map((row) => ({ ...instrumentDto(row), marketQuoteCount: row._count.marketQuotes, transactionCount: row._count.transactions }));
 }
 export type InstrumentDto = Awaited<ReturnType<typeof listInstruments>>[number];
 
@@ -269,9 +270,24 @@ async function nextOrdinal(client: Client, userId: string, instrumentId: string,
   if (_max.ordinal === 2_147_483_647) throw new ApiError(422, "value_out_of_range", "ordinal");
   return (_max.ordinal ?? 0) + 1;
 }
-export async function listTransactions(userId: string) {
-  const rows = await db().investmentTransaction.findMany({ where: { userId }, orderBy: [{ tradeDate: "desc" }, { ordinal: "desc" }, { id: "desc" }] });
+const transactionOrder: Prisma.InvestmentTransactionOrderByWithRelationInput[] = [
+  { tradeDate: "desc" }, { ordinal: "desc" }, { id: "desc" },
+];
+
+export async function listTransactions(userId: string, take?: number) {
+  const rows = await db().investmentTransaction.findMany({ where: { userId }, take, orderBy: transactionOrder });
   return rows.map(transactionDto);
+}
+
+export async function listTransactionsPage(userId: string, query: TransactionQuery) {
+  const { page, month, accountId, instrumentId, type } = query;
+  const pageSize = 25;
+  const tradeDate = month ? { gte: toDate(monthStart(month)), lt: toDate(monthStart(addMonths(month, 1))) } : undefined;
+  const rows = await db().investmentTransaction.findMany({
+    where: { userId, accountId, instrumentId, type, tradeDate },
+    orderBy: transactionOrder, skip: (page - 1) * pageSize, take: pageSize + 1,
+  });
+  return { transactions: rows.slice(0, pageSize).map(transactionDto), hasMore: rows.length > pageSize };
 }
 export async function createTransaction(userId: string, input: Record<string, unknown>) {
   const data = transactionData(input);

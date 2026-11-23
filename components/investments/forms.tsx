@@ -10,6 +10,7 @@ import type { MarketListing } from "@/server/investments/market-data";
 import { type Locale } from "@/server/locale";
 import { call, errorText } from "../cash-flow/api";
 import { cashFlowCopy } from "../cash-flow/copy";
+import { movementsCopy } from "../cash-flow/movements-copy";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
 import { amountInputProps } from "../amount-input";
 import { useConfirm } from "../confirm-dialog";
@@ -18,6 +19,7 @@ import { InfoTip } from "@/components/info-tip";
 import { investmentsCopy } from "./copy";
 import { ordinalPatch, parseInvestmentEuros, parsePositiveDecimal, parsePurchaseTotal, parseUnitPrice } from "./numbers";
 import { euros } from "@/components/euros";
+import { transactionHistoryHref } from "@/server/investments/transaction-query";
 
 export type Quote = Pick<Awaited<ReturnType<typeof import("@/server/investments/service").listQuotes>>[number],
   "id" | "instrumentId" | "asOf" | "unitPrice">;
@@ -188,11 +190,18 @@ function TransactionRow({ row, ...props }: TransactionProps & { row: Transaction
   </li>;
 }
 
-export function Transactions({ transactions, ...props }: TransactionProps & { transactions: TransactionDto[] }) {
+type TransactionListProps = TransactionProps & { transactions: TransactionDto[] };
+
+export function TransactionList({ transactions, ...props }: TransactionListProps) {
+  return <ul className="rows">{transactions.map((row) => <TransactionRow key={row.id} row={row} {...props} />)}</ul>;
+}
+
+export function Transactions({ transactions, ...props }: TransactionListProps) {
   const { accounts, instruments, locale } = props;
   const copy = investmentsCopy[locale];
   const shared = cashFlowCopy[locale];
-  const [visibleCount, setVisibleCount] = useState(25);
+  const preview = movementsCopy[locale];
+  const [visibleCount, setVisibleCount] = useState<3 | 5>(3);
   const activeAccounts = accounts.some((account) => !account.archived);
   const activeInstruments = instruments.some((instrument) => !instrument.archived);
 
@@ -205,11 +214,14 @@ export function Transactions({ transactions, ...props }: TransactionProps & { tr
       {!activeInstruments && <div className="empty-inline"><p>{copy.instrumentHint}</p><a className="text-link" href="#investments-instruments">{copy.instruments}</a></div>}
     </section>
     <section className="card stack-half" aria-labelledby="investments-transactions-title">
-      <h2 id="investments-transactions-title">{copy.transactions}</h2>
+      <div className="card-head">
+        <h2 id="investments-transactions-title">{copy.transactions}</h2>
+        {transactions.length > 0 && <Link className="text-link" href={transactionHistoryHref(locale)}>{copy.viewAllTransactions}</Link>}
+      </div>
       {transactions.length === 0 && <p className="empty-inline">{copy.noTransactions}</p>}
-      <ul className="rows">{transactions.slice(0, visibleCount).map((row) => <TransactionRow key={row.id} row={row} {...props} />)}</ul>
-      {transactions.length > visibleCount && <button type="button" className="button button-quiet"
-        onClick={() => setVisibleCount((count) => count + 25)}>{copy.showMore}</button>}
+      {transactions.length > 0 && <TransactionList transactions={transactions.slice(0, visibleCount)} {...props} />}
+      {transactions.length > 3 && <button type="button" className="button button-quiet"
+        onClick={() => setVisibleCount(visibleCount === 3 ? 5 : 3)}>{visibleCount === 3 ? preview.previewFive : preview.previewThree}</button>}
     </section>
   </>;
 }

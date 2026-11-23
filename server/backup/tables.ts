@@ -15,7 +15,7 @@ export const BACKUP_VERSION = 1;
 type Nullable = { nullable?: boolean };
 export type Field =
   | { kind: "id" }
-  | ({ kind: "ref"; table: TableKey } & Nullable)
+  | ({ kind: "ref"; table: TableKey; archived?: true } & Nullable)
   | ({ kind: "text"; max: number } & Nullable)
   /** Stored encrypted with a context bound to the row id; exported in clear. */
   | { kind: "secret"; max: number; context: (id: string) => string }
@@ -74,6 +74,7 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
     id, accountId: ref("accounts"), categoryId: ref("categories", true),
     description: { kind: "secret", max: 200, context: templateContext }, amountCents: int(1, MAX_CENTS),
     frequency: oneOf(RecurrenceFrequency), startDate: date, endDate: nullableDate, archivedAt: nullableTimestamp, createdAt: timestamp,
+    deletedAt: nullableTimestamp,
   }],
   movements: ["movement", {
     id, accountId: ref("accounts"), categoryId: ref("categories", true), bookingDate: date,
@@ -100,7 +101,8 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
   }],
   condoCharges: ["condoCharge", {
     id, propertyId: ref("properties"), kind: oneOf(CondoChargeKind), title: { kind: "secret", max: 120, context: chargeContext },
-    dueDate: date, amountCents: int(1, MAX_CENTS), approvedOn: nullableDate, tableId: ref("condoTables", true),
+    dueDate: date, amountCents: int(1, MAX_CENTS), approvedOn: nullableDate,
+    tableId: { kind: "ref", table: "condoTables", nullable: true, archived: true },
     buildingTotalCents: int(1, 100_000_000_000, { big: true, nullable: true }), voidedAt: nullableTimestamp, movementId: ref("movements", true),
   }],
 };

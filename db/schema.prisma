@@ -348,6 +348,7 @@ model RecurringTemplate {
   startDate   DateTime              @map("start_date") @db.Date
   endDate     DateTime?             @map("end_date") @db.Date
   archivedAt  DateTime?             @map("archived_at") @db.Timestamptz(3)
+  deletedAt   DateTime?             @map("deleted_at") @db.Timestamptz(3)
   createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   user        User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   account     Account               @relation(fields: [userId, accountId], references: [userId, id], onDelete: Restrict)
@@ -553,7 +554,6 @@ model CondoTable {
   totalMillesimi Int @default(1000) @map("total_millesimi")
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
   property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
-  charges CondoCharge[]
 
   @@unique([userId, id])
   @@unique([userId, propertyId, id])
@@ -576,7 +576,7 @@ model CondoSchedule {
   @@map("stead_condo_schedules")
 }
 
-/// A dated one-off charge (balancing payment or approved extraordinary works). Settling books one expense movement.
+/// Historical one-off charges retained for backup and restore.
 model CondoCharge {
   id String @id @default(uuid()) @map("charge_id") @db.Uuid
   userId String @map("user_id") @db.Uuid
@@ -588,13 +588,13 @@ model CondoCharge {
   /// What the owner pays; at most the movement limit because settling books it as one movement.
   amountCents Int @map("amount_cents")
   approvedOn DateTime? @map("approved_on") @db.Date
+  /// Historical table ID. The referenced table may have been deleted since.
   tableId String? @map("table_id") @db.Uuid
   buildingTotalCents BigInt? @map("building_total_cents")
   voidedAt DateTime? @map("voided_at") @db.Timestamptz(3)
   movementId String? @map("movement_id") @db.Uuid
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
   property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
-  table CondoTable? @relation(fields: [userId, propertyId, tableId], references: [userId, propertyId, id], onDelete: Restrict)
   movement Movement? @relation(fields: [userId, movementId], references: [userId, id], onDelete: Restrict)
 
   @@unique([userId, id])

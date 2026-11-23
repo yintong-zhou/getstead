@@ -407,15 +407,14 @@ h1 {
 .trend-card[data-tone="positive"] { --trend-color: var(--positive); }
 .trend-card[data-tone="negative"] { --trend-color: var(--negative); }
 .trend-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-inline: -8px; }
-.trend-toolbar .button { gap: 8px; padding-inline: 8px; color: var(--muted); font-size: 13px; }
-.trend-action { margin-inline-start: auto; }
+.trend-toolbar .button { min-width: 44px; padding-inline: 8px; color: var(--muted); }
 .trend-toolbar .button:hover, .trend-toolbar .button[aria-pressed="true"] { color: var(--ink); }
 .trend-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
 .trend-card .trend-value.amount { margin-top: 2px; font-size: 36px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
 .trend-value small { font-size: .55em; font-weight: 650; }
 .trend-change { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
 .trend-card[data-tone] .trend-change { color: var(--trend-color); }
-.trend-arrow { display: inline-flex; }
+.trend-arrow { display: inline-flex; position: relative; top: .1em; }
 .trend-card[data-tone="negative"] .trend-arrow { transform: scaleY(-1); }
 .trend-period { color: var(--muted); font-weight: 600; }
 .trend-ranges { display: flex; gap: 2px; }
@@ -757,6 +756,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   box-shadow: inset 0 1px 0 var(--glass-stroke), inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
+.select-popup:popover-open { inset: auto; margin: 0; border: 0; }
 .select-option { display: flex; min-height: 44px; align-items: center; padding: 8px 12px; border-radius: 10px; overflow-wrap: anywhere; cursor: pointer; }
 .select-option + .select-option { border-top: 1px solid var(--glass-hairline); }
 .select-option[aria-selected="true"] { background: color-mix(in srgb, var(--brand-soft) 60%, transparent); font-weight: 700; }
@@ -862,7 +862,7 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
 .toast-warn .toast-mark { background: var(--warning-soft); color: var(--warning-ink); }
 .toast-error .toast-mark { background: var(--negative-soft); color: var(--negative); }
 .toast-text { flex: 1; min-width: 0; padding-block: 1px; overflow-wrap: anywhere; }
-.toast-close { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.toast-close { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: var(--muted); cursor: pointer; }
 @media (pointer: coarse) { .toast-close { width: 44px; height: 44px; } }
 .toast-close:hover { background: var(--brand-soft); color: var(--ink); }
 .toast-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }

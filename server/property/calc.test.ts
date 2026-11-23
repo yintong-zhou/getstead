@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { addDays, isOccurrence, nextOccurrenceAfter } from "../cash-flow/dates.ts";
 import { ApiError } from "../cash-flow/errors.ts";
 import {
-  addCosts, costsToNumbers, equityCents, millesimiShareCents, propertiesAt, propertyCosts, shareValueCents, valueAt, votingWeight,
+  addCosts, costsToNumbers, equityCents, propertiesAt, propertyCosts, shareValueCents, valueAt, votingWeight,
   type CostSchedule, type Property, type Valuation,
 } from "./calc.ts";
 
@@ -38,12 +38,7 @@ test("propertiesAt sums value shares, flags missing valuations and drops a prope
   assert.equal(after.rows.find((row) => row.id === "sold")?.shareValueCents, 0);
 });
 
-test("millesimiShareCents splits a building-wide amount and votingWeight is the ratio", () => {
-  assert.equal(millesimiShareCents(1_000_000, 85, 1_000), 85_000);
-  assert.equal(millesimiShareCents(1_000, 1, 3), 333, "333.33 rounds down");
-  assert.equal(millesimiShareCents(1_000, 2, 3), 667, "666.67 rounds up");
-  assert.equal(millesimiShareCents(1_000_000, 100, 1_042), 95_969, "non-1000 building total");
-  assert.equal(millesimiShareCents(1, 1, 1_000), 0, "a share can round to zero");
+test("votingWeight shows the share of assembly votes", () => {
   assert.deepEqual(votingWeight(85, 1_000), { unit: 85, total: 1_000, percent: "8.5" });
   assert.equal(votingWeight(1, 3).percent, "33.33");
 });
@@ -68,21 +63,17 @@ test("sums stay exact at the caps and a total beyond the safe range raises the t
 const monthly = (startDate: string, extra: Partial<CostSchedule> = {}): CostSchedule =>
   ({ rule: { frequency: "MONTHLY", startDate, endDate: null }, amountCents: 10_000, archived: false, resolved: new Set(), ...extra });
 const costs = (over: Partial<Parameters<typeof propertyCosts>[0]>) =>
-  costsToNumbers(propertyCosts({ year: 2026, today: "2026-11-21", paid: [], pending: [], schedules: [], ...over }));
+  costsToNumbers(propertyCosts({ year: 2026, today: "2026-11-21", paid: [], schedules: [], ...over }));
 
-test("paid costs split by kind and use the booking date inside the calendar year", () => {
+test("paid instalments use the booking date inside the calendar year", () => {
   const result = costs({
     paid: [
-      { kind: "ORDINARY", cents: 10_000, date: "2026-01-01" }, { kind: "ORDINARY", cents: 12_345, date: "2026-12-31" },
-      { kind: "ORDINARY", cents: 99, date: "2025-12-31" }, { kind: "ORDINARY", cents: 99, date: "2027-01-01" },
-      { kind: "EXTRAORDINARY", cents: 500_000, date: "2026-06-30" }, { kind: "BALANCING", cents: 7_000, date: "2026-03-15" },
+      { cents: 10_000, date: "2026-01-01" }, { cents: 12_345, date: "2026-12-31" },
+      { cents: 99, date: "2025-12-31" }, { cents: 99, date: "2027-01-01" },
     ],
   });
-  assert.equal(result.paidOrdinary, 22_345);
-  assert.equal(result.paidExtraordinary, 500_000);
-  assert.equal(result.paidBalancing, 7_000);
-  assert.equal(result.paidTotal, 529_345);
-  assert.equal(result.expectedTotal, 529_345);
+  assert.equal(result.paidTotal, 22_345);
+  assert.equal(result.expectedTotal, 22_345);
 });
 
 test("an unpaid instalment becomes overdue instead of disappearing; resolved ones count nowhere", () => {
@@ -115,24 +106,18 @@ test("endDate, archive and empty periods", () => {
   assert.equal(costs({}).expectedTotal, 0);
 });
 
-test("pending charges count by due date, in the year only", () => {
-  const result = costs({ pending: [{ cents: 300_000, dueDate: "2026-02-01" }, { cents: 100_000, dueDate: "2027-02-01" }] });
-  assert.equal(result.pendingCharges, 300_000);
-  assert.equal(result.expectedTotal, 300_000);
-});
-
 test("a weekly schedule started in 2000 still forecasts 2100", () => {
   const result = costs({ year: 2100, today: "2026-11-21", schedules: [{ rule: { frequency: "WEEKLY", startDate: "2000-01-01", endDate: null }, amountCents: 100, archived: false, resolved: new Set() }] });
   assert.ok(result.forecastOrdinary >= 52 * 100, "about 52 Saturdays in 2100");
 });
 
 test("totals add up in bigint and an overflow is value_out_of_range", () => {
-  const big = { kind: "ORDINARY" as const, cents: 1_000_000_000, date: "2026-05-01" };
+  const big = { cents: 1_000_000_000, date: "2026-05-01" };
   assert.equal(costs({ paid: [big, big] }).paidTotal, 2_000_000_000);
-  const one = propertyCosts({ year: 2026, today: "2026-11-21", paid: [big], pending: [], schedules: [] });
+  const one = propertyCosts({ year: 2026, today: "2026-11-21", paid: [big], schedules: [] });
   let sum = one;
   for (let i = 0; i < 20; i++) sum = addCosts(sum, sum); // doubles 20 times: about 1e15 cents, still safe
-  assert.equal(costsToNumbers(sum).paidOrdinary, 1_000_000_000 * 2 ** 20);
+  assert.equal(costsToNumbers(sum).paidTotal, 1_000_000_000 * 2 ** 20);
   for (let i = 0; i < 10; i++) sum = addCosts(sum, sum); // beyond Number.MAX_SAFE_INTEGER
   assert.throws(() => costsToNumbers(sum), (error) => error instanceof ApiError && error.code === "value_out_of_range");
 });

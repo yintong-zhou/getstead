@@ -14,7 +14,7 @@ import { createAccount, createAccountType, updateAccount } from "../cash-flow/ca
 import { encryptText, movementContext } from "../cash-flow/text-crypto.ts";
 import { getNetWorth, recordCheck } from "../net-worth/service.ts";
 import { searchMarket } from "./market-data.ts";
-import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listQuotes, recordQuote, deleteQuote, getPortfolio, refreshMarketQuotes, linkInstrumentMarket, setupInstrument } from "./service.ts";
+import { createInstrument, deleteInstrument, updateInstrument, listInstruments, createTransaction, updateTransaction, listTransactions, listTransactionsPage, listQuotes, recordQuote, deleteQuote, getPortfolio, refreshMarketQuotes, linkInstrumentMarket, setupInstrument } from "./service.ts";
 
 let admin: PrismaClient;
 before(() => {
@@ -34,6 +34,33 @@ const buy = (accountId: string, instrumentId: string, extra = {}) => ({ accountI
 const rejects = (promise: Promise<unknown>, status: number, code?: string) => assert.rejects(promise, (error: unknown) => {
   const failure = error as { status?: number; code?: string };
   return failure.status === status && (!code || failure.code === code);
+});
+
+test("transaction history pages stable results and combines filters within the current user", async () => {
+  const owner = await fixture(), other = await fixture();
+  const november = Array.from({ length: 26 }, (_, index) => ({
+    userId: owner.userId, accountId: owner.account.id, instrumentId: owner.instrument.id,
+    type: "BUY" as const, tradeDate: new Date("2026-11-30"), ordinal: index + 1, amountCents: 100n, quantity: "1",
+    feesCents: 0n, taxWithheldCents: 0n,
+  }));
+  await admin.investmentTransaction.createMany({ data: [
+    ...november,
+    { ...november[0], tradeDate: new Date("2026-12-01") },
+    { ...november[0], userId: other.userId, accountId: other.account.id, instrumentId: other.instrument.id },
+  ] });
+  const query = { month: "2026-11", type: "BUY" as const, accountId: owner.account.id, instrumentId: owner.instrument.id };
+  const first = await listTransactionsPage(owner.userId, { ...query, page: 1 });
+  const second = await listTransactionsPage(owner.userId, { ...query, page: 2 });
+  assert.equal(first.transactions.length, 25);
+  assert.deepEqual(first.transactions.map(({ ordinal }) => ordinal), Array.from({ length: 25 }, (_, index) => 26 - index));
+  assert.deepEqual(second.transactions.map(({ ordinal }) => ordinal), [1]);
+  assert.deepEqual([first.hasMore, second.hasMore], [true, false]);
+  assert.deepEqual((await listTransactionsPage(other.userId, { ...query, page: 1 })).transactions, []);
+  assert.deepEqual((await listTransactionsPage(owner.userId, { ...query, type: "SELL", page: 1 })).transactions, []);
+  assert.deepEqual((await listTransactions(owner.userId, 5)).map(({ tradeDate, ordinal }) => [tradeDate, ordinal]), [
+    ["2026-12-01", 1], ["2026-11-30", 26], ["2026-11-30", 25], ["2026-11-30", 24], ["2026-11-30", 23],
+  ]);
+  assert.equal((await listInstruments(owner.userId))[0].transactionCount, 27);
 });
 
 test("instrument setup links a unique ISIN and falls back to the ticker when an ISIN has no match", async () => {

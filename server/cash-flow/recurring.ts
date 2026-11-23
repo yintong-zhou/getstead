@@ -64,6 +64,15 @@ async function activeAccount(client: Client, userId: string, id: string) {
   if (account.archivedAt) throw conflict("archived");
 }
 
+async function lockTemplate(client: Client, userId: string, id: string) {
+  const rows = await client.$queryRaw<{ id: string }[]>`
+    SELECT template_id AS id FROM stead_recurring_templates
+    WHERE user_id = ${userId}::uuid AND template_id = ${id}::uuid FOR UPDATE
+  `;
+  if (!rows.length) throw notFound();
+  return client.recurringTemplate.findUniqueOrThrow({ where: { userId_id: { userId, id } } });
+}
+
 /** `client` lets a caller (condominium schedules) create the template inside its own transaction. */
 export async function createTemplate(userId: string, input: Record<string, unknown>, client?: Client) {
   const reader = new Reader(input);
@@ -106,8 +115,8 @@ export async function updateTemplate(userId: string, id: string, input: Record<s
   reader.done();
 
   return db().$transaction(async (tx) => {
-    const current = await tx.recurringTemplate.findUnique({ where: { userId_id: { userId, id } } });
-    if (!current) throw notFound();
+    const current = await lockTemplate(tx, userId, id);
+    if (current.deletedAt) throw notFound();
     if (accountId && accountId !== current.accountId) await activeAccount(tx, userId, accountId);
     if (categoryId && categoryId !== current.categoryId) await expenseCategory(tx, userId, categoryId);
     if (endDate && endDate < fromDate(current.startDate)) throw new ApiError(422, "validation", "endDate");
@@ -127,11 +136,32 @@ export async function updateTemplate(userId: string, id: string, input: Record<s
   });
 }
 
+export async function deleteTemplate(userId: string, id: string) {
+  await db().$transaction(async (tx) => {
+    const current = await lockTemplate(tx, userId, id);
+    if (current.deletedAt) throw notFound();
+    const where = { userId, templateId: id };
+    const hasPayments = await tx.recurringOccurrence.count({ where: { ...where, movementId: { not: null } } });
+    if (hasPayments) {
+      // Keep payment links for the register and any historical property costs.
+      const now = new Date();
+      await tx.recurringTemplate.update({
+        where: { userId_id: { userId, id } },
+        data: { archivedAt: current.archivedAt ?? now, deletedAt: now },
+      });
+      return;
+    }
+    await tx.recurringOccurrence.deleteMany({ where });
+    await tx.condoSchedule.deleteMany({ where });
+    await tx.recurringTemplate.delete({ where: { userId_id: { userId, id } } });
+  });
+}
+
 export async function listRecurring(userId: string, params: URLSearchParams, now = new Date()) {
   const includeArchived = params.get("archived") === "1";
   const today = romeToday(now);
   const rows = await db().recurringTemplate.findMany({
-    where: { userId, ...(includeArchived ? {} : { archivedAt: null }) },
+    where: { userId, deletedAt: null, ...(includeArchived ? {} : { archivedAt: null }) },
     orderBy: [{ startDate: "asc" }, { id: "asc" }],
   });
   const resolved = await db().recurringOccurrence.findMany({
@@ -176,7 +206,7 @@ export async function occurrenceCandidates(userId: string, params: URLSearchPara
   if (!templateId || !dueDate) throw new ApiError(422, "validation", templateId ? "dueDate" : "templateId");
   const paging = candidatePaging(params);
   const template = await db().recurringTemplate.findUnique({ where: { userId_id: { userId, id: templateId } } });
-  if (!template) throw notFound();
+  if (!template || template.deletedAt) throw notFound();
 
   return nearestCandidates({
     userId, ...paging,
@@ -206,8 +236,12 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
   reader.done();
 
   if (action === "unskip") {
-    const { count } = await db().recurringOccurrence.deleteMany({ where: { userId, templateId, dueDate: toDate(dueDate), status: "SKIPPED" } });
-    if (!count) throw notFound();
+    await db().$transaction(async (tx) => {
+      const template = await lockTemplate(tx, userId, templateId);
+      if (template.deletedAt) throw notFound();
+      const { count } = await tx.recurringOccurrence.deleteMany({ where: { userId, templateId, dueDate: toDate(dueDate), status: "SKIPPED" } });
+      if (!count) throw notFound();
+    });
     return undefined;
   }
 
@@ -217,12 +251,7 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
     // An archived template can be reopened too: this is the only way to free its linked movements.
     // The archive itself is left alone, so nothing becomes due and the template stays inactive.
     return db().$transaction(async (tx): Promise<Resolution> => {
-      const locked = await tx.$queryRaw<{ id: string }[]>`
-        SELECT template_id AS id FROM stead_recurring_templates
-        WHERE user_id = ${userId}::uuid AND template_id = ${templateId}::uuid FOR UPDATE
-      `;
-      if (!locked.length) throw notFound();
-      const template = await tx.recurringTemplate.findUniqueOrThrow({ where: { userId_id: { userId, id: templateId } } });
+      const template = await lockTemplate(tx, userId, templateId);
       const occurrence = await tx.recurringOccurrence.findUnique({ where: { templateId_dueDate: { templateId, dueDate: toDate(dueDate) } } });
       if (!occurrence || occurrence.status === "SKIPPED") throw notFound();
       // Same lock order as match, edit and void (template, then movement), so none can interleave.
@@ -238,12 +267,8 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
 
   return db().$transaction(async (tx): Promise<Resolution> => {
     // The template row lock serializes concurrent resolutions of the same schedule.
-    const locked = await tx.$queryRaw<{ id: string }[]>`
-      SELECT template_id AS id FROM stead_recurring_templates
-      WHERE user_id = ${userId}::uuid AND template_id = ${templateId}::uuid FOR UPDATE
-    `;
-    if (!locked.length) throw notFound();
-    const template = await tx.recurringTemplate.findUniqueOrThrow({ where: { userId_id: { userId, id: templateId } } });
+    const template = await lockTemplate(tx, userId, templateId);
+    if (template.deletedAt) throw notFound();
     if (template.archivedAt) throw conflict("archived");
     if (!isOccurrence(rule(template), dueDate)) throw new ApiError(422, "validation", "dueDate");
     if (dueDate > romeToday(now)) throw conflict("not_due");
@@ -261,7 +286,7 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
       await lockMovements(tx, userId, [movementId!]);
       const movement = await tx.movement.findUniqueOrThrow({
         where: { userId_id: { userId, id: movementId! } },
-        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, category: { select: { kind: true } }, occurrence: { select: { id: true } }, condoCharge: { select: { id: true } } },
+        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, category: { select: { kind: true } }, occurrence: { select: { id: true } } },
       });
       if (movement.accountId !== template.accountId) throw conflict("account_mismatch");
       if (movement.amountCents >= 0) throw conflict("sign_mismatch");
@@ -270,7 +295,7 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
       if (movement.voidedAt) throw conflict("voided");
       if (movement.transferId) throw conflict("paired");
       // A movement settles at most one thing: an occurrence or a condominium charge (checked under the movement lock).
-      if (movement.occurrence || movement.condoCharge) throw conflict("already_linked");
+      if (movement.occurrence) throw conflict("already_linked");
       await tx.recurringOccurrence.create({ data: { ...base, status: "MATCHED", movementId } });
       return { occurrence: { templateId, dueDate, status: "MATCHED", movementId: movementId! } };
     }

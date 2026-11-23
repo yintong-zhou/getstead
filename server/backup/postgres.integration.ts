@@ -129,6 +129,19 @@ test("a backup restores every table into a new account and exports back identica
   assert.deepEqual(strip(await getPortfolio(target, now)), strip(await getPortfolio(source, now)));
 });
 
+test("backup round trips an archived charge after its millesimal table was deleted", async () => {
+  const source = await newUser();
+  const target = await newUser();
+  await importBackup(source, fullBackup());
+  await db().condoTable.deleteMany({ where: { userId: source } });
+  const first = await exportBackup(source);
+  assert.equal(first.data.condoTables.length, 0);
+  assert.equal(typeof first.data.condoCharges[0].tableId, "string");
+  await importBackup(target, first);
+  const second = await exportBackup(target);
+  assert.deepEqual(normalize(second), normalize(first));
+});
+
 test("a backup only restores into an empty account and never half-writes", async () => {
   const userId = await newUser();
   await importBackup(userId, fullBackup());

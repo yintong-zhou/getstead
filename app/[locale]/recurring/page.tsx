@@ -32,7 +32,7 @@ export default async function RecurringPage({ params }: Props) {
     const [accounts, categories, recurring] = await Promise.all([
       listAccounts(user.userId, true),
       listCategories(user.userId, true),
-      listRecurring(user.userId, new URLSearchParams()),
+      listRecurring(user.userId, new URLSearchParams({ archived: "1" })),
     ]);
     data = { accounts, categories, recurring };
   } catch {
