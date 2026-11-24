@@ -33,3 +33,9 @@ test("pages read the session through readPageUser, and only profile and admin pa
     assert.equal(/shared: true/.test(source), shared, `${path}: shared only on profile and admin pages`);
   }
 });
+
+test("application settings are shared with admins but require changing a temporary password first", () => {
+  const source = readFileSync("app/[locale]/profile/settings/page.tsx", "utf8");
+  assert.match(source, /readPageUser\(locale,\s*\{\s*shared: true\s*\}\)/);
+  assert.doesNotMatch(source, /allowPasswordChange:\s*true/);
+});

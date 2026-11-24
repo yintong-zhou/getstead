@@ -1,16 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { PasswordInput } from "../password-input";
 import type { Locale } from "@/server/locale";
 import type { Profile } from "@/server/profile/service";
 import { call } from "../cash-flow/api";
 import { NoticeLine, useAction } from "../cash-flow/use-action";
-import { BackupSettings } from "./backup-settings";
 import { profileCopy } from "./copy";
-import { GlassSettings } from "./glass-settings";
-import { ThemeSettings } from "./theme-settings";
 import { TotpSettings } from "./totp-settings";
 import "./profile.css";
 
@@ -26,10 +22,7 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
     {profile.mustChangePassword && <p className="notice notice-warn profile-must-change" role="alert">
       {copy.mustChangePassword} <a className="text-link" href="#profile-password-title">{copy.password}</a>
     </p>}
-    <ThemeSettings locale={locale} />
-    <GlassSettings locale={locale} />
     <TotpSettings locale={locale} initialEnabled={profile.totpEnabled} />
-    {!profile.admin && <BackupSettings locale={locale} />}
     <section className="card profile-card" aria-labelledby="profile-name-title">
       <h2 id="profile-name-title">{copy.displayName}</h2>
       <form onSubmit={async (event) => {
@@ -99,13 +92,6 @@ export function ProfileView({ locale, profile }: { locale: Locale; profile: Prof
         <button className="button" disabled={passwordAction.pending}>{passwordAction.pending ? copy.saving : copy.save}</button>
         <NoticeLine notice={passwordAction.notice} />
       </form>
-    </section>
-    <section className="card profile-card" aria-labelledby="profile-language-title">
-      <h2 id="profile-language-title">{copy.language}</h2>
-      <div className="profile-languages">
-        <Link className="button button-quiet" href="/en/profile" lang="en" hrefLang="en" aria-current={locale === "en" ? "page" : undefined}>English</Link>
-        <Link className="button button-quiet" href="/it/profile" lang="it" hrefLang="it" aria-current={locale === "it" ? "page" : undefined}>Italiano</Link>
-      </div>
     </section>
   </div>;
 }

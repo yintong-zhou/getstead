@@ -17,6 +17,8 @@ export async function loadCalcRows(userId: string, from: Month, to: Month): Prom
       transferId: true,
       bookingDate: true,
       category: { select: { kind: true } },
+      account: { select: { type: true } },
+      user: { select: { excludeCash: true } },
     },
   });
   return rows.map((row) => ({
@@ -25,6 +27,7 @@ export async function loadCalcRows(userId: string, from: Month, to: Month): Prom
     categoryKind: row.category?.kind ?? null,
     voided: row.voidedAt !== null,
     paired: row.transferId !== null,
+    excluded: row.user.excludeCash && row.account.type === "CASH",
     month: monthOf(fromDate(row.bookingDate)),
   }));
 }

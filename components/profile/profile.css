@@ -80,6 +80,15 @@
 .profile-card .button { justify-self: start; min-height: 44px; }
 .profile-card .profile-hint { color: var(--muted); font-size: 12px; line-height: 18px; }
 .profile-card > .profile-hint + .button { margin-top: 16px; }
+.backup-file-field { margin-top: 16px; }
+.backup-file-field .field { padding: 6px 8px; }
+.backup-file-field .field::file-selector-button {
+  min-height: 32px; margin-inline-end: 10px; padding: 4px 10px; border: 0; border-radius: 8px;
+  background: var(--glass-fill-strong); color: var(--ink); font: inherit; cursor: pointer;
+}
+.backup-confirm { margin-top: 12px; overflow-wrap: anywhere; }
+.cash-reporting-hint { margin-top: 8px; }
+.profile-card .cash-reporting-toggle { margin-top: 16px; max-width: 100%; white-space: normal; text-align: start; }
 .profile-totp-qr { width: min(224px, 100%); height: auto; background: #fff; border-radius: 12px; }
 .profile-email { margin-top: 8px; overflow-wrap: anywhere; color: var(--muted); }
 .profile-languages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }

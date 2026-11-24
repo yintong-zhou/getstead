@@ -7,6 +7,7 @@ import { MovementsView } from "@/components/cash-flow/movements-view";
 import { previewSize } from "@/components/cash-flow/movements-query";
 import { readPageUser } from "@/server/auth/page-access";
 import { listAccounts, listCategories } from "@/server/cash-flow/catalog";
+import { getCashReporting } from "@/server/cash-flow/cash-settings";
 import { monthOf, parseMonth, romeToday } from "@/server/cash-flow/dates";
 import { listMovements } from "@/server/cash-flow/movements";
 import { monthSummary } from "@/server/cash-flow/reports";
@@ -41,15 +42,16 @@ export default async function CashFlowPage({ params, searchParams }: Props) {
 
   let data;
   try {
-    const [accounts, categories, incoming, outgoing, transfers, summary] = await Promise.all([
+    const [accounts, categories, incoming, outgoing, transfers, summary, cashSettings] = await Promise.all([
       listAccounts(user.userId, true),
       listCategories(user.userId, true),
       recent("in"),
       recent("out"),
       recent("transfers"),
       monthSummary(user.userId, month),
+      getCashReporting(user.userId),
     ]);
-    data = { accounts, categories, incoming, outgoing, transfers, summary };
+    data = { accounts, categories, incoming, outgoing, transfers, summary, excludeCash: cashSettings.excludeCash };
   } catch {
     return <UnavailableNotice locale={locale} path="/cash-flow" />;
   }
