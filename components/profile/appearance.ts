@@ -44,6 +44,12 @@ export function readTheme(): Theme {
   return "system";
 }
 
+export function restoreTheme() {
+  const theme = readTheme();
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+}
+
 /** Applies the theme now and remembers it in this browser (the page still switches if storage is blocked). */
 export function saveTheme(theme: Theme) {
   if (theme === "system") delete document.documentElement.dataset.theme;

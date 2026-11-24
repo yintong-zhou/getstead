@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { MotionProvider } from "@/components/motion-provider";
 import { glassBootstrap, themeBootstrap } from "@/components/profile/appearance";
+import { ThemeRestorer } from "@/components/profile/theme-restorer";
 import { appOrigin } from "@/server/auth/config";
 import { isLocale, locales } from "@/server/locale";
 import "../globals.css";
@@ -48,7 +49,7 @@ export default async function RootLayout({ children, params }: LocaleParams & { 
   return (
     <html lang={locale} className={plusJakarta.className} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: glassBootstrap }} /><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
-      <body><MotionProvider>{children}</MotionProvider></body>
+      <body><ThemeRestorer locale={locale} /><MotionProvider>{children}</MotionProvider></body>
     </html>
   );
 }

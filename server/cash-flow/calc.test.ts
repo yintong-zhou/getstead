@@ -39,6 +39,17 @@ test("voided movements and both transfer legs are excluded from every total", ()
   assert.equal(spentByCategory(month).get("food"), 2_500);
 });
 
+test("excluded cash movements leave income, expenses and category spending without changing other movements", () => {
+  const rows = [
+    move(5000, null, null, { excluded: true }),
+    move(-1200, "food", "EXPENSE", { excluded: true }),
+    move(-800, "food", "EXPENSE"),
+  ];
+  assert.deepEqual(summarize(rows), { incomeCents: 0, expenseCents: 800, netCents: -800 });
+  assert.equal(spentByCategory(rows).get("food"), 800);
+  assert.deepEqual(summarize(rows.map((row) => ({ ...row, excluded: false }))), { incomeCents: 5000, expenseCents: 2000, netCents: 3000 });
+});
+
 test("integer cents stay exact where floating point would drift", () => {
   const month = Array.from({ length: 10 }, () => move(-10, "food", "EXPENSE"));
   assert.equal(spentByCategory(month).get("food"), 100);

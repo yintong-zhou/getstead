@@ -9,7 +9,7 @@ GRANT SELECT, INSERT, DELETE ON public.stead_login_challenges, public.stead_sess
 GRANT SELECT, INSERT, UPDATE ON public.stead_auth_limits TO stead_auth_app;
 
 -- Profile (M0 follow-up)
-GRANT UPDATE (email, password_hash, display_name) ON public.stead_users TO stead_auth_app;
+GRANT UPDATE (email, password_hash, display_name, exclude_cash) ON public.stead_users TO stead_auth_app;
 
 -- Cash flow and budget (M1). Least privilege: no table is TRUNCATE-able, rows that carry history
 -- are never DELETEd (movements are voided instead; an account or a category is

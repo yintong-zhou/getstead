@@ -11,11 +11,12 @@ export type CalcMovement = {
   categoryKind: CategoryKindName | null;
   voided: boolean;
   paired: boolean;
+  excluded?: boolean;
 };
 
 /** Voided movements and both legs of a transfer never reach any total. */
 export function counts(movement: CalcMovement) {
-  return !movement.voided && !movement.paired;
+  return !movement.voided && !movement.paired && !movement.excluded;
 }
 
 /**

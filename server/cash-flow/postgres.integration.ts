@@ -14,6 +14,7 @@ import { digestRateLimitSubject, digestToken, hashPassword, newToken, verifyPass
 import { db, disconnectDb } from "../auth/database.ts";
 import { sessionCookie } from "../auth/http.ts";
 import { getBudget, setLimit, clearOverride } from "./budget.ts";
+import { updateCashReporting } from "./cash-settings.ts";
 import {
   addStarterCategories, createAccount, createAccountType, createCategory, deleteAccountType, listAccounts, listAccountTypes, listCategories,
   updateAccount, updateAccountType, updateCategory,
@@ -55,6 +56,28 @@ async function newUser() {
   });
   return user.id;
 }
+
+test("cash reporting setting excludes cash from reports and budgets without changing balances, and is reversible and user-scoped", async () => {
+  const [user, other] = [await newUser(), await newUser()];
+  const cash = await createAccount(user, { name: "Cash", type: "CASH" });
+  const bank = await createAccount(user, { name: "Bank", type: "CHECKING" });
+  const category = await createCategory(user, { name: "Food", kind: "EXPENSE" });
+  await createMovement(user, { accountId: cash.id, bookingDate: "2026-11-05", description: "Cash income", amountCents: 5000 });
+  await createMovement(user, { accountId: cash.id, bookingDate: "2026-11-06", description: "Cash expense", amountCents: -1200, categoryId: category.id });
+  await createMovement(user, { accountId: bank.id, bookingDate: "2026-11-07", description: "Bank expense", amountCents: -800, categoryId: category.id });
+  const original = await monthSummary(user, "2026-11");
+  const worth = await getNetWorth(user, new Date("2026-11-24T12:00:00Z"));
+  assert.deepEqual(original, { month: "2026-11", incomeCents: 5000, expenseCents: 2000, netCents: 3000 });
+  assert.equal((await getBudget(user, "2026-11")).rows[0].spentCents, 2000);
+  await updateCashReporting(user, { excludeCash: true });
+  assert.deepEqual(await monthSummary(user, "2026-11"), { month: "2026-11", incomeCents: 0, expenseCents: 800, netCents: -800 });
+  assert.equal((await getBudget(user, "2026-11")).rows[0].spentCents, 800);
+  assert.deepEqual(await getNetWorth(user, new Date("2026-11-24T12:00:00Z")), worth);
+  assert.equal((await db().user.findUniqueOrThrow({ where: { id: other }, select: { excludeCash: true } })).excludeCash, false);
+  await updateCashReporting(user, { excludeCash: false });
+  assert.deepEqual(await monthSummary(user, "2026-11"), original);
+  await assert.rejects(updateCashReporting(user, { excludeCash: "true" }), { code: "validation" });
+});
 
 test("checking account logos are private, optional, encrypted and removable by the runtime role", async () => {
   const [owner, other] = [await newUser(), await newUser()];

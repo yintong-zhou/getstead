@@ -36,6 +36,7 @@ type Props = {
   outgoing: MovementDto[];
   transfers: MovementDto[];
   summary: { incomeCents: number; expenseCents: number; netCents: number };
+  excludeCash: boolean;
   show: 3 | 5;
 };
 
@@ -592,6 +593,7 @@ export function MovementsView(props: Props) {
           ))}
         </dl>
         <p className="hint">{copy.summaryNote}</p>
+        {props.excludeCash && <p className="hint">{copy.cashExcluded}</p>}
         {summary.expenseCents < 0 && <p className="hint">{copy.refundsExceed}</p>}
 
         <div className="preview-controls">
