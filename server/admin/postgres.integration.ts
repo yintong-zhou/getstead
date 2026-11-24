@@ -108,6 +108,15 @@ test("an admin on a temporary password can reach only the password change", asyn
   assert.equal((await open({ allowPasswordChange: true, shared: true })).status, 200);
 });
 
+test("the runtime role inserts every column Prisma sends for a new user, but never role", async () => {
+  // Prisma writes static @default columns explicitly; a missing INSERT grant fails createUser with 42501.
+  const [privileges] = await db().$queryRaw<Record<string, boolean>[]>`
+    SELECT has_column_privilege(current_user, 'stead_users', 'exclude_cash', 'INSERT') AS exclude_cash,
+      has_column_privilege(current_user, 'stead_users', 'must_change_password', 'INSERT') AS must_change_password,
+      has_column_privilege(current_user, 'stead_users', 'role', 'INSERT') AS role`;
+  assert.deepEqual(privileges, { exclude_cash: true, must_change_password: true, role: false });
+});
+
 test("a created user signs in with the temporary password and is locked to the password change", async () => {
   const actor = await user({ admin: true, totp: true });
   const email = `m5-${randomUUID()}@example.test`;
