@@ -12,13 +12,13 @@
   --brand-dark: #1b2b5e;
   --brand-ink: light-dark(#1b2b5e, #d6e0ff);
   --brand-soft: light-dark(#e3eafd, #1f2b52);
-  --bg: light-dark(#f5f6fa, #0b1020);
-  --surface: light-dark(#fff, #141b30);
-  --surface-alt: light-dark(#eef1f7, #1c2540);
-  --border: light-dark(#e2e8f0, #2b3659);
-  --ink: light-dark(#0f172a, #e8edf8);
-  --muted: light-dark(#536277, #a6b4cc);
-  --faint: light-dark(#66758b, #6f7d99);
+  --bg: light-dark(#f5f6fa, #000000);
+  --surface: light-dark(#fff, #1c1c1e);
+  --surface-alt: light-dark(#eef1f7, #2c2c2e);
+  --border: light-dark(#e2e8f0, #48484a);
+  --ink: light-dark(#0f172a, #f2f2f7);
+  --muted: light-dark(#536277, #b3b3bb);
+  --faint: light-dark(#66758b, #8e8e93);
   /* Navigation icon and label colors, measured on the lightest and darkest glass backdrops (≥ 4.5:1). */
   --nav-fg: var(--muted);
   --nav-fg-hover: var(--ink);
@@ -40,9 +40,9 @@
   --teal-soft: light-dark(#ccfbf1, #0f3a37);
   --scrollbar: light-dark(#1b2b5e40, #ffffff40);
   --glass-transparency: 100%;
-  --glass-fill: color-mix(in srgb, light-dark(#ffffff8c, #1a2340a6) var(--glass-transparency), var(--surface));
-  --glass-fill-strong: color-mix(in srgb, light-dark(#ffffffb8, #1a2340d1) var(--glass-transparency), var(--surface));
-  --glass-popup-fill: color-mix(in srgb, light-dark(#fffffff0, #182038f2) var(--glass-transparency), var(--surface));
+  --glass-fill: color-mix(in srgb, light-dark(#ffffff8c, #242426d9) var(--glass-transparency), var(--surface));
+  --glass-fill-strong: color-mix(in srgb, light-dark(#ffffffb8, #2c2c2ee8) var(--glass-transparency), var(--surface));
+  --glass-popup-fill: color-mix(in srgb, light-dark(#fffffff0, #2c2c2ef2) var(--glass-transparency), var(--surface));
   --glass-stroke: light-dark(#ffffffb3, #ffffff2e);
   --glass-edge: light-dark(#ffffff59, #ffffff1a);
   --glass-highlight: linear-gradient(180deg, light-dark(#ffffff99, #ffffff29), #ffffff00 2px);
@@ -53,7 +53,7 @@
   --glass-hairline: light-dark(#0f172a0f, #ffffff14);
   --glass-primary: color-mix(in srgb, #2f5beae6 var(--glass-transparency), var(--brand-fill));
   --glass-hero: color-mix(in srgb, #1b2b5ed9 var(--glass-transparency), var(--brand-dark));
-  --glass-recessed: color-mix(in srgb, light-dark(#eef1f799, #0b102099) var(--glass-transparency), var(--surface-alt));
+  --glass-recessed: color-mix(in srgb, light-dark(#eef1f799, #101011cc) var(--glass-transparency), var(--surface-alt));
   /* Liquid-glass "lens" (active tab, switch thumb): a bright reflection in light, a faint one in dark. */
   --lens-1: light-dark(#ffffffb3, #ffffff2e);
   --lens-2: light-dark(#ffffff73, #ffffff1f);
@@ -117,7 +117,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 12% 8%, #2f5bea29, transparent 62%),
+    radial-gradient(ellipse at 12% 8%, light-dark(#2f5bea29, #ffffff08), transparent 62%),
     var(--bg);
 }
 
