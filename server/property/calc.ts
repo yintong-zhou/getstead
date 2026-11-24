@@ -97,3 +97,20 @@ export const emptyCosts = (): CostTotals => ({ ...ZERO });
 export function costsToNumbers(totals: CostTotals) {
   return Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, toSafeCents(value)])) as Record<keyof CostTotals, number>;
 }
+
+// ---------------------------------------------------------------- utility bills
+
+export const billTypes = ["ELECTRICITY", "GAS", "INTERNET"] as const;
+export type BillStatus = "PAID" | "DUE" | "OVERDUE";
+
+/** Paid once linked to a movement; an open bill is overdue from the day after its due date (`today` is the Rome date). */
+export function billStatus(linked: boolean, dueDate: IsoDate, today: IsoDate): BillStatus {
+  return linked ? "PAID" : today > dueDate ? "OVERDUE" : "DUE";
+}
+
+/** Paid, due and overdue amounts of the given bills (the caller picks them by due date). */
+export function billTotals(bills: readonly { totalCents: number; status: BillStatus }[]) {
+  const sums = { PAID: 0n, DUE: 0n, OVERDUE: 0n };
+  for (const bill of bills) sums[bill.status] += BigInt(bill.totalCents);
+  return { paidCents: toSafeCents(sums.PAID), dueCents: toSafeCents(sums.DUE), overdueCents: toSafeCents(sums.OVERDUE) };
+}

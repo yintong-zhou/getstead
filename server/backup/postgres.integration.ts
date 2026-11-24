@@ -12,6 +12,8 @@ import { db, disconnectDb } from "../auth/database.ts";
 import { ApiError } from "../cash-flow/errors.ts";
 import { getPortfolio } from "../investments/service.ts";
 import { getNetWorth } from "../net-worth/service.ts";
+import { getBills } from "../property/bills.ts";
+import { getOverview } from "../property/service.ts";
 import { exportBackup } from "./export.ts";
 import { importBackup } from "./import.ts";
 import { TABLES } from "./tables.ts";
@@ -40,6 +42,29 @@ async function newUser() {
 
 /** A synthetic backup with at least one row in every table. */
 function fullBackup() {
+  const backup = v1Backup();
+  const { id } = backup;
+  return {
+    format: backup.format, version: 2, exportedAt: backup.exportedAt,
+    data: {
+      ...backup.data,
+      properties: [{ ...backup.data.properties[0], address: "Via Sintetica 1, 20100 Milano" }],
+      movements: [...backup.data.movements, {
+        id: id.power, accountId: id.checking, categoryId: null, bookingDate: "2026-11-18", description: "Synthetic power",
+        amountCents: -8_420, voidedAt: null, transferId: null, transferLeg: null, createdAt: backup.exportedAt,
+      }],
+      utilityBills: [
+        { id: id.electricity, propertyId: id.flat, type: "ELECTRICITY", provider: "Synthetic Power", periodStart: "2026-09-01", periodEnd: "2026-10-31",
+          dueDate: "2026-11-20", totalCents: 8_420, rawMaterialCents: 4_100, movementId: id.power, createdAt: backup.exportedAt },
+        { id: id.fibre, propertyId: id.flat, type: "INTERNET", provider: "Synthetic Fibre", periodStart: "2026-12-01", periodEnd: "2027-01-31",
+          dueDate: "2027-01-05", totalCents: 2_990, rawMaterialCents: null, movementId: null, createdAt: backup.exportedAt },
+      ],
+    },
+  };
+}
+
+/** The version 1 file format: no address and no utility bills. */
+function v1Backup() {
   const id = new Proxy({} as Record<string, string>, { get: (cache, name: string) => (cache[name] ??= randomUUID()) });
   const at = "2026-11-01T09:30:00.123Z";
   const account = (key: string, name: string, type: string, customTypeId: string | null = null) =>
@@ -49,7 +74,7 @@ function fullBackup() {
     voidedAt: null, transferId: null, transferLeg: null, createdAt: at, ...extra,
   });
   return {
-    format: "getstead-backup", version: 1, exportedAt: at,
+    id, format: "getstead-backup", version: 1, exportedAt: at,
     data: {
       customAccountTypes: [{ id: id.fund, name: "Synthetic fund", baseType: "PENSION", archivedAt: null, createdAt: at }],
       categories: [
@@ -127,6 +152,25 @@ test("a backup restores every table into a new account and exports back identica
   const strip = (value: unknown) => JSON.parse(JSON.stringify(value), (key, inner) => key === "id" || key.endsWith("Id") ? undefined : inner);
   assert.deepEqual(strip(await getNetWorth(target, now)), strip(await getNetWorth(source, now)));
   assert.deepEqual(strip(await getPortfolio(target, now)), strip(await getPortfolio(source, now)));
+
+  // A paid bill comes back paid by the restored movement, and the address decrypts under the new ids.
+  for (const year of [2026, 2027]) assert.deepEqual(strip(await getBills(target, { year }, now)), strip(await getBills(source, { year }, now)));
+  const restored = await getBills(target, { year: 2026 }, now);
+  assert.equal(restored.bills[0].status, "PAID");
+  assert.equal((await db().movement.findUniqueOrThrow({ where: { id: restored.bills[0].payment!.movementId } })).userId, target);
+  assert.equal((await getOverview(target, now)).properties[0].address, "Via Sintetica 1, 20100 Milano");
+  assert.equal(first.version, 2);
+});
+
+test("a version 1 backup (no address, no bills) still restores", async () => {
+  const userId = await newUser();
+  const file = v1Backup();
+  const counts = await importBackup(userId, { format: file.format, version: file.version, exportedAt: file.exportedAt, data: file.data });
+  assert.equal(counts.utilityBills, 0);
+  assert.equal(counts.movements, file.data.movements.length);
+  const exported = await exportBackup(userId);
+  assert.equal(exported.data.properties[0].address, null);
+  assert.deepEqual(exported.data.utilityBills, []);
 });
 
 test("backup round trips an archived charge after its millesimal table was deleted", async () => {

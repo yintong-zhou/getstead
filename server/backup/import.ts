@@ -12,8 +12,9 @@ import { ApiError } from "../cash-flow/errors.ts";
 import { encryptText } from "../cash-flow/text-crypto.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { audit, MAX_INSTRUMENTS, MAX_TRANSACTIONS } from "../investments/service.ts";
+import { MAX_BILLS } from "../property/bills.ts";
 import { MAX_PROPERTIES, MAX_VALUATIONS } from "../property/service.ts";
-import { BACKUP_FORMAT, BACKUP_VERSION, TABLES, type Field, type TableKey } from "./tables.ts";
+import { BACKUP_FORMAT, BACKUP_VERSIONS, TABLES, type Field, type TableKey } from "./tables.ts";
 
 type Row = Record<string, unknown>;
 export type BackupRows = Record<TableKey, Row[]>;
@@ -63,7 +64,7 @@ export function parseBackup(input: unknown): BackupRows {
   const file = input as Row;
   for (const key of Object.keys(file)) if (!["format", "version", "exportedAt", "data"].includes(key)) invalid(key);
   if (file.format !== BACKUP_FORMAT) invalid("format", "backup_format");
-  if (file.version !== BACKUP_VERSION) invalid("version", "backup_version");
+  if (!BACKUP_VERSIONS.includes(file.version as number)) invalid("version", "backup_version");
   if (!isObject(file.data)) invalid("data");
   const data = file.data as Row;
   for (const key of Object.keys(data)) if (!TABLES.some((table) => table.key === key)) invalid(`data.${key}`);
@@ -130,11 +131,24 @@ function checkRules(rows: BackupRows, ids: Record<TableKey, Map<string, Row>>) {
     const table = ids.condoTables.get(charge.tableId as string);
     if (table && table.propertyId !== charge.propertyId) invalid(`condoCharges[${index}].tableId`);
   });
+  // The same rules as createBill and linkBill: a paid bill holds one live expense of exactly its total,
+  // which no transfer, recurring occurrence or other bill uses.
+  const settled = new Set(rows.recurringOccurrences.map((row) => row.movementId).filter((id) => id !== null));
+  const categoryKind = (id: unknown) => ids.categories.get(id as string)?.kind;
+  rows.utilityBills.forEach((bill, index) => {
+    const at = `utilityBills[${index}]`;
+    if ((bill.periodStart as string) > (bill.periodEnd as string)) invalid(`${at}.periodEnd`);
+    if (bill.rawMaterialCents !== null && (bill.type === "INTERNET" || (bill.rawMaterialCents as number) > (bill.totalCents as number))) invalid(`${at}.rawMaterialCents`);
+    if (bill.movementId === null) return;
+    const movement = ids.movements.get(bill.movementId as string)!;
+    if (settled.has(bill.movementId) || movement.amountCents !== -(bill.totalCents as number) || movement.voidedAt !== null
+      || movement.transferId !== null || categoryKind(movement.categoryId) === "INCOME") invalid(`${at}.movementId`, "backup_bill");
+  });
 
   const caps: [TableKey, number, string][] = [
     ["instruments", MAX_INSTRUMENTS, "instrument_limit"], ["investmentTransactions", MAX_TRANSACTIONS, "transaction_limit"],
     ["properties", MAX_PROPERTIES, "property_limit"], ["propertyValuations", MAX_VALUATIONS, "valuation_limit"],
-    ["condoCharges", MAX_ARCHIVED_CHARGES, "charge_limit"],
+    ["condoCharges", MAX_ARCHIVED_CHARGES, "charge_limit"], ["utilityBills", MAX_BILLS, "bill_limit"],
   ];
   for (const [key, cap, code] of caps) if (rows[key].length > cap) invalid(key, code);
 }

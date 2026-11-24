@@ -45,3 +45,4 @@ export function decryptBytes(userId: string, context: string, encrypted: Uint8Ar
 export const movementContext = (id: string) => `movement:${id}`;
 export const templateContext = (id: string) => `template:${id}`;
 export const chargeContext = (id: string) => `charge:${id}`;
+export const addressContext = (id: string) => `property-address:${id}`;

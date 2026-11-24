@@ -23,4 +23,9 @@ export function formatDay(date: string, locale: Locale, today?: string, words?: 
   return new Intl.DateTimeFormat(localeTags[locale], { day: "numeric", month: "short", timeZone: "UTC" }).format(utc(date));
 }
 
+/** "22 Nov 2026". */
+export function formatDate(date: string, locale: Locale) {
+  return new Intl.DateTimeFormat(localeTags[locale], { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(utc(date));
+}
+
 export { editableEuros, parseEuros } from "./money";

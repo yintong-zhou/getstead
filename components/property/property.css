@@ -32,3 +32,10 @@
 .property-year a { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; font-size: 22px; line-height: 1; text-decoration: none; }
 .property-costs-heading { margin-inline-end: auto; }
 .property-year .year-gap { display: inline-block; min-width: 44px; }
+.property-address { margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.bill-title { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
+.bill-meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.bill-row .property-actions { margin-top: 8px; }
+.bill-row .pair-panel, .bill-row form { margin-top: 12px; }
+.badge-red { background: color-mix(in srgb, var(--negative-soft) 60%, transparent); color: var(--negative-ink); }
+.property-view .bill-overdue-amount { color: var(--negative-ink); }

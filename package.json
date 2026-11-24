@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --test",
-    "test:postgres": "node --env-file-if-exists=.tmp/stead-auth-test.env --test --test-concurrency=1 server/auth/postgres.integration.ts server/cash-flow/postgres.integration.ts server/investments/postgres.integration.ts server/property/postgres.integration.ts server/admin/postgres.integration.ts server/waitlist/postgres.integration.ts server/backup/postgres.integration.ts",
+    "test:postgres": "node --env-file-if-exists=.tmp/stead-auth-test.env --test --test-concurrency=1 server/auth/postgres.integration.ts server/cash-flow/postgres.integration.ts server/investments/postgres.integration.ts server/property/postgres.integration.ts server/property/bills.integration.ts server/admin/postgres.integration.ts server/waitlist/postgres.integration.ts server/backup/postgres.integration.ts",
     "db:migrate": "prisma migrate deploy",
     "auth:owner": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --env-file-if-exists=credentials/stead-postgres.env server/auth/owner-cli.ts",
     "build": "next build"

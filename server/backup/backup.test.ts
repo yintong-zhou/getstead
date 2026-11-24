@@ -62,7 +62,7 @@ test("a retired charge can keep the ID of a deleted millesimal table", () => {
 
 test("a backup is rejected before anything is written when the file is wrong", () => {
   rejects((b) => { b.format = "other"; }, "backup_format", "format");
-  rejects((b) => { b.version = 2; }, "backup_version", "version");
+  rejects((b) => { b.version = 3; }, "backup_version", "version");
   rejects((b) => { (b.data.accounts[0] as Record<string, unknown>).extra = 1; }, "validation", "accounts[0].extra");
   rejects((b) => { b.data.movements[0].amountCents = 0; }, "validation", "movements[0].amountCents");
   rejects((b) => { b.data.investmentTransactions[0].quantity = "1e3"; }, "validation", "investmentTransactions[0].quantity");
@@ -70,4 +70,36 @@ test("a backup is rejected before anything is written when the file is wrong", (
   rejects((b) => { b.data.movements[0].accountId = ids.food; }, "backup_reference", "movements[0].accountId");
   rejects((b) => { b.data.movements[1].amountCents = 4_000; }, "backup_transfer", "transfers[0]");
   rejects((b) => { b.data.investmentTransactions[0].accountId = ids.checking; }, "validation", "investmentTransactions[0].accountId");
+});
+
+test("version 2 adds an optional encrypted address and utility bills; a version 1 file still parses without them", () => {
+  const v1 = parseBackup(file());
+  assert.deepEqual(v1.utilityBills, []);
+
+  const flat = "00000000-0000-4000-8000-000000000009", bill = "00000000-0000-4000-8000-00000000000a", paid = "00000000-0000-4000-8000-00000000000b";
+  const payment = { id: paid, accountId: ids.checking, categoryId: ids.food, bookingDate: "2026-11-20", description: "Synthetic power",
+    amountCents: -8_420, voidedAt: null, transferId: null, transferLeg: null, createdAt: at };
+  const v2 = () => {
+    const backup = file();
+    return { ...backup, version: 2, data: {
+      ...backup.data,
+      movements: [...backup.data.movements, payment],
+      properties: [{ id: flat, name: "Synthetic flat", kind: "PRIMARY_RESIDENCE", ownershipBps: 10_000, address: "Via Sintetica 1, Milano" }],
+      utilityBills: [{ id: bill, propertyId: flat, type: "ELECTRICITY", provider: "Synthetic Power", periodStart: "2026-09-01",
+        periodEnd: "2026-10-31", dueDate: "2026-11-20", totalCents: 8_420, rawMaterialCents: 4_000, movementId: paid, createdAt: at }],
+    } };
+  };
+  const rows = parseBackup(v2());
+  assert.equal(rows.properties[0].address, "Via Sintetica 1, Milano");
+  assert.equal(rows.utilityBills[0].movementId, paid);
+
+  const broken = (change: (backup: ReturnType<typeof v2>) => void, code: string, field: string) => {
+    const backup = v2();
+    change(backup);
+    assert.throws(() => parseBackup(backup), (error: unknown) => error instanceof ApiError && error.code === code && error.field === field);
+  };
+  broken((b) => { b.data.utilityBills[0].totalCents = 8_421; }, "backup_bill", "utilityBills[0].movementId");
+  broken((b) => { b.data.utilityBills[0].periodEnd = "2026-08-31"; }, "validation", "utilityBills[0].periodEnd");
+  broken((b) => { b.data.utilityBills[0].type = "INTERNET"; }, "validation", "utilityBills[0].rawMaterialCents");
+  broken((b) => { b.data.utilityBills[0].movementId = ids.out; }, "backup_bill", "utilityBills[0].movementId");
 });

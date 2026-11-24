@@ -24,6 +24,7 @@ export const movementSelect = {
   transferId: true,
   transferLeg: true,
   occurrence: { select: { templateId: true, dueDate: true } },
+  utilityBill: { select: { id: true } },
 } satisfies Prisma.MovementSelect;
 const select = movementSelect;
 type Row = Prisma.MovementGetPayload<{ select: typeof select }>;
@@ -199,6 +200,8 @@ async function setVoided(userId: string, id: string, voided: boolean) {
     if (current.transferId) throw conflict("paired");
     // A movement that settles a recurring occurrence must be reopened first, or the occurrence would keep a dead link.
     if (voided && current.occurrence) throw conflict("linked");
+    // A movement that pays a utility bill must be unlinked from the bill first, for the same reason.
+    if (voided && current.utilityBill) throw conflict("bill_linked");
     const row = await tx.movement.update({
       where: { userId_id: { userId, id } },
       data: { voidedAt: voided ? current.voidedAt ?? new Date() : null },
@@ -235,14 +238,16 @@ export async function updateMovement(userId: string, id: string, input: Record<s
     if (current.transferId && (changesAccount || changesAmount)) throw conflict("paired");
     // A linked movement must stay an outflow in the occurrence's account.
     if (current.occurrence && (changesAccount || (amountCents !== undefined && amountCents > 0))) throw conflict("linked");
+    // A bill payment keeps the bill's exact amount; its account may change, a bill is not tied to one.
+    if (current.utilityBill && changesAmount) throw conflict("bill_linked");
 
     if (changesAccount) await activeAccount(tx, userId, accountId);
     if (categoryId && categoryId !== current.categoryId) await activeCategory(tx, userId, categoryId);
     const finalCategory = categoryId === undefined ? current.categoryId : categoryId;
     // A movement that settles an occurrence is an expense: an INCOME category would turn it into negative income.
-    if (finalCategory && finalCategory !== current.categoryId && current.occurrence) {
+    if (finalCategory && finalCategory !== current.categoryId && (current.occurrence || current.utilityBill)) {
       const picked = await tx.category.findFirst({ where: { userId, id: finalCategory }, select: { kind: true } });
-      if (picked?.kind === "INCOME") throw conflict("linked");
+      if (picked?.kind === "INCOME") throw conflict(current.occurrence ? "linked" : "bill_linked");
     }
     if (rememberPhrase !== undefined) {
       if (!finalCategory) throw new ApiError(422, "validation", "rememberPhrase");
@@ -329,6 +334,7 @@ export async function pairMovements(userId: string, input: Record<string, unknow
     if (a.voidedAt || b.voidedAt) throw conflict("voided");
     if (a.transferId || b.transferId) throw conflict("already_paired");
     if (a.occurrence || b.occurrence) throw conflict("linked");
+    if (a.utilityBill || b.utilityBill) throw conflict("bill_linked");
     if (a.accountId === b.accountId) throw conflict("same_account");
     if (a.amountCents !== -b.amountCents) throw conflict("amount_mismatch");
 
@@ -358,8 +364,9 @@ export const CANDIDATE_PAGE_SIZE = 20;
 
 type CandidateQuery = {
   userId: string;
-  accountId: string;
-  /** true: only that account (recurring); false: every other account (transfers). */
+  /** null: any account (utility bills). */
+  accountId: string | null;
+  /** true: only that account (recurring); false: every other account (transfers). Ignored when accountId is null. */
   sameAccount: boolean;
   /** Exact amount to match, or null for any. */
   amountCents: number | null;
@@ -378,7 +385,7 @@ export function candidatePaging(params: URLSearchParams) {
 }
 
 /**
- * Unvoided, unpaired movements that are not already settling a recurring occurrence, nearest
+ * Unvoided, unpaired movements that are not already settling a recurring occurrence or a utility bill, nearest
  * date first. The whole history is reachable through `offset`, and `month` narrows it, so no
  * valid counterpart is hidden by an arbitrary cut-off.
  */
@@ -389,7 +396,8 @@ export async function nearestCandidates(query: CandidateQuery) {
   const ids = await db().$queryRaw<{ id: string }[]>`
     SELECT m.movement_id AS id FROM stead_movements m
     WHERE m.user_id = ${userId}::uuid
-      AND ((${query.sameAccount}::boolean AND m.account_id = ${query.accountId}::uuid)
+      AND (${query.accountId}::uuid IS NULL
+        OR (${query.sameAccount}::boolean AND m.account_id = ${query.accountId}::uuid)
         OR (NOT ${query.sameAccount}::boolean AND m.account_id <> ${query.accountId}::uuid))
       AND (${query.amountCents}::int IS NULL OR m.amount_cents = ${query.amountCents}::int)
       AND (NOT ${query.outflowOnly}::boolean OR m.amount_cents < 0)
@@ -399,6 +407,9 @@ export async function nearestCandidates(query: CandidateQuery) {
       AND m.voided_at IS NULL AND m.transfer_id IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM stead_recurring_occurrences o WHERE o.user_id = m.user_id AND o.movement_id = m.movement_id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM stead_utility_bills b WHERE b.user_id = m.user_id AND b.movement_id = m.movement_id
       )
       AND (${from}::date IS NULL OR m.booking_date >= ${from}::date)
       AND (${to}::date IS NULL OR m.booking_date < ${to}::date)
@@ -424,7 +435,7 @@ export async function transferCandidates(userId: string, params: URLSearchParams
   if (!source) throw notFound();
   const empty = { pageSize: CANDIDATE_PAGE_SIZE, hasMore: false, movements: [] as MovementDto[] };
   // A voided, paired or recurring-linked movement cannot be paired, so it has no counterparts to offer.
-  if (source.voidedAt || source.transferId || source.occurrence) return empty;
+  if (source.voidedAt || source.transferId || source.occurrence || source.utilityBill) return empty;
 
   return nearestCandidates({
     userId, ...paging,

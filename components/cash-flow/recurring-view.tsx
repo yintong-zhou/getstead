@@ -1,12 +1,10 @@
 "use client";
 
 import { DateField } from "../date-field";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import type { AccountDto, CategoryDto } from "@/server/cash-flow/catalog";
-import type { MovementDto } from "@/server/cash-flow/movements";
 import type { OccurrenceRef, TemplateDto } from "@/server/cash-flow/recurring";
-import { formatEuros, type Locale } from "@/server/locale";
-import { FIRST_MONTH, LAST_MONTH } from "@/server/cash-flow/dates";
+import { type Locale } from "@/server/locale";
 import { formatDay } from "../format";
 import { amountInputProps } from "../amount-input";
 import { editableEuros, parseEuros } from "../money";
@@ -14,6 +12,7 @@ import { Icon } from "../icon";
 import { Select } from "../select";
 import { useConfirm } from "../confirm-dialog";
 import { call } from "./api";
+import { MovementPicker } from "./movement-picker";
 import { cashFlowCopy } from "./copy";
 import { NoticeLine, useAction } from "./use-action";
 import { euros } from "@/components/euros";
@@ -31,88 +30,12 @@ type Props = {
 
 const days = (locale: Locale) => (locale === "it" ? { today: "Oggi", yesterday: "Ieri" } : { today: "Today", yesterday: "Yesterday" });
 
-type CandidatePage = { movements: MovementDto[]; hasMore: boolean; pageSize: number };
-
-/** Booked expenses in the template's account, nearest to the due date first; a month and "show more" reach older or later payments. */
+/** Booked expenses in the template's account, nearest to the due date first (the shared picker). */
 function MatchPanel({ locale, template, dueDate, onDone }: { locale: Locale; template: TemplateDto; dueDate: string; onDone: () => void }) {
   const copy = cashFlowCopy[locale];
-  const id = useId();
-  const { pending, notice, run } = useAction(locale);
-  const [month, setMonth] = useState("");
-  const [list, setList] = useState<MovementDto[] | null>(null);
-  const [more, setMore] = useState(false);
-  const [choice, setChoice] = useState("");
-  const [loading, setLoading] = useState(false);
-  const validMonth = month === "" || (/^\d{4}-\d{2}$/.test(month) && month >= FIRST_MONTH && month <= LAST_MONTH);
-
-  const url = (offset: number) => {
-    const query = new URLSearchParams({ templateId: template.id, dueDate, offset: String(offset) });
-    if (month) query.set("month", month);
-    return `/recurring/candidates?${query}`;
-  };
-
-  async function showMore() {
-    setLoading(true);
-    const result = await call<CandidatePage>("GET", url(list?.length ?? 0));
-    setLoading(false);
-    if (!result.ok) return;
-    setList([...(list ?? []), ...result.data.movements]);
-    setMore(result.data.hasMore);
-  }
-
-  useEffect(() => {
-    if (!validMonth) return;
-    let current = true;
-    const query = new URLSearchParams({ templateId: template.id, dueDate });
-    if (month) query.set("month", month);
-    call<CandidatePage>("GET", `/recurring/candidates?${query}`).then((result) => {
-      if (!current) return;
-      const next = result.ok ? result.data.movements : [];
-      setList(next);
-      setMore(result.ok && result.data.hasMore);
-      setChoice(next[0]?.id ?? "");
-    });
-    return () => { current = false; };
-  }, [template.id, dueDate, month, validMonth]);
-
-  return (
-    <div className="pair-panel">
-      <h3>{copy.matchTitle}</h3>
-      <div className="form-field">
-        <label htmlFor={`${id}-month`}>{copy.matchMonth}</label>
-        <DateField locale={locale}
-          id={`${id}-month`} type="month" min={FIRST_MONTH} max={LAST_MONTH} placeholder="YYYY-MM"
-          pattern="\d{4}-\d{2}" value={month} onValueChange={setMonth} aria-describedby={`${id}-hint`} aria-invalid={!validMonth}
-        />
-        <span id={`${id}-hint`} className="hint">{copy.matchMonthHint}</span>
-      </div>
-      {list === null ? <p className="hint">…</p> : list.length === 0 ? <p className="hint">{copy.matchNone}</p> : (
-        <div className="form-field">
-          <label className="visually-hidden" htmlFor={id}>{copy.matchTitle}</label>
-          <Select id={id} value={choice} onChange={setChoice} options={list.map((candidate) => ({
-            value: candidate.id,
-            label: `${formatDay(candidate.bookingDate, locale)} ${candidate.bookingDate.slice(0, 4)} · ${formatEuros(candidate.amountCents, locale)} · ${candidate.description}`,
-          }))} />
-        </div>
-      )}
-      <div className="form-actions">
-        {list && list.length > 0 && (
-          <button
-            className="button button-solid" type="button" disabled={pending || !choice}
-            onClick={async () => {
-              const result = await run(() => call("POST", "/recurring/occurrences", { action: "match", templateId: template.id, dueDate, movementId: choice }), copy.matched);
-              if (result) onDone();
-            }}
-          >
-            {copy.link}
-          </button>
-        )}
-        {more && <button className="button" type="button" disabled={loading} onClick={showMore}>{copy.showMore}</button>}
-        <button className="button button-quiet" type="button" onClick={onDone}>{copy.cancel}</button>
-      </div>
-      <NoticeLine notice={notice} />
-    </div>
-  );
+  return <MovementPicker locale={locale} onDone={onDone} success={copy.matched}
+    path={(query) => { query.set("templateId", template.id); query.set("dueDate", dueDate); return `/recurring/candidates?${query}`; }}
+    link={(movementId) => call("POST", "/recurring/occurrences", { action: "match", templateId: template.id, dueDate, movementId })} />;
 }
 
 function DueRow({ locale, template, dueDate, today }: { locale: Locale; template: TemplateDto; dueDate: string; today: string }) {

@@ -45,6 +45,7 @@ model User {
   condoTables CondoTable[]
   condoSchedules CondoSchedule[]
   condoCharges CondoCharge[]
+  utilityBills UtilityBill[]
   customAccountTypes CustomAccountType[]
 
   @@map("stead_users")
@@ -296,6 +297,7 @@ model Movement {
   transfer    Transfer?            @relation(fields: [userId, transferId], references: [userId, id], onDelete: Restrict)
   occurrence  RecurringOccurrence?
   condoCharge CondoCharge?
+  utilityBill UtilityBill?
 
   @@unique([userId, id])
   @@unique([transferId, transferLeg])
@@ -517,12 +519,15 @@ model Property {
   mortgageAccountId String? @map("mortgage_account_id") @db.Uuid
   soldOn DateTime? @map("sold_on") @db.Date
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  /// AES-256-GCM envelope of the street address (see server/cash-flow/text-crypto.ts). Not unique: two units can share it.
+  address Bytes? @map("address_enc")
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
   mortgageAccount Account? @relation(fields: [userId, mortgageAccountId], references: [userId, id], onDelete: Restrict)
   valuations PropertyValuation[]
   tables CondoTable[]
   schedules CondoSchedule[]
   charges CondoCharge[]
+  bills UtilityBill[]
 
   @@unique([userId, id])
   @@unique([userId, name])
@@ -602,4 +607,40 @@ model CondoCharge {
   @@unique([userId, movementId])
   @@index([userId, propertyId, dueDate])
   @@map("stead_condo_charges")
+}
+
+enum UtilityBillType {
+  ELECTRICITY
+  GAS
+  INTERNET
+
+  @@map("stead_utility_bill_type")
+}
+
+/// A utility bill of one property. Paid means linked to exactly one expense movement of the same amount.
+model UtilityBill {
+  id String @id @default(uuid()) @map("bill_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  type UtilityBillType
+  /// The provider that issued this bill; it can change from one bill to the next.
+  provider String @db.VarChar(80)
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd DateTime @map("period_end") @db.Date
+  dueDate DateTime @map("due_date") @db.Date
+  /// What the owner pays; at most the movement limit because one movement settles it.
+  totalCents Int @map("total_cents")
+  /// Raw-material (energy) part of the total, for electricity and gas only.
+  rawMaterialCents Int? @map("raw_material_cents")
+  movementId String? @map("movement_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
+  movement Movement? @relation(fields: [userId, movementId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@unique([userId, movementId])
+  @@index([userId, propertyId, dueDate])
+  @@index([userId, dueDate])
+  @@map("stead_utility_bills")
 }

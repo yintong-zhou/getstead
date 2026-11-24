@@ -62,6 +62,7 @@ const en = {
     investment_account: "This account has investment transactions, so it must keep a brokerage or crypto type.",
     mortgage_account: "This account is a property’s mortgage, so it must keep a debt type. Unlink it in Property first.",
     linked: "This movement settles a recurring expense or a condominium charge. Reopen that occurrence or charge first, then change or void the movement.",
+    bill_linked: "This movement pays a utility bill. Unlink it from the bill in Property first, then change its amount, void or pair it.",
   } as Record<string, string>,
   fields: {
     name: "Name", description: "Description", amountCents: "Amount", bookingDate: "Date", accountId: "Account",
@@ -321,6 +322,7 @@ export const cashFlowCopy: Record<Locale, CashFlowCopy> = {
       investment_account: "Questo conto ha operazioni di investimento, quindi deve restare di tipo titoli o cripto.",
       mortgage_account: "Questo conto è il mutuo di un immobile, quindi deve restare di tipo debito. Scollegalo prima in Immobili.",
       linked: "Questo movimento salda una spesa ricorrente o un addebito condominiale. Riapri prima quella scadenza o quell’addebito, poi modifica o annulla il movimento.",
+      bill_linked: "Questo movimento paga una bolletta. Scollegalo prima dalla bolletta in Immobili, poi modificane l’importo, annullalo o abbinalo.",
     },
     fields: {
       name: "Nome", description: "Descrizione", amountCents: "Importo", bookingDate: "Data", accountId: "Conto",

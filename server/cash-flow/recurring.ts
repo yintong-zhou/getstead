@@ -286,7 +286,10 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
       await lockMovements(tx, userId, [movementId!]);
       const movement = await tx.movement.findUniqueOrThrow({
         where: { userId_id: { userId, id: movementId! } },
-        select: { accountId: true, amountCents: true, voidedAt: true, transferId: true, category: { select: { kind: true } }, occurrence: { select: { id: true } } },
+        select: {
+          accountId: true, amountCents: true, voidedAt: true, transferId: true, category: { select: { kind: true } },
+          occurrence: { select: { id: true } }, utilityBill: { select: { id: true } },
+        },
       });
       if (movement.accountId !== template.accountId) throw conflict("account_mismatch");
       if (movement.amountCents >= 0) throw conflict("sign_mismatch");
@@ -294,8 +297,8 @@ export async function resolveOccurrence(userId: string, input: Record<string, un
       if (movement.category?.kind === "INCOME") throw conflict("sign_mismatch");
       if (movement.voidedAt) throw conflict("voided");
       if (movement.transferId) throw conflict("paired");
-      // A movement settles at most one thing: an occurrence or a condominium charge (checked under the movement lock).
-      if (movement.occurrence) throw conflict("already_linked");
+      // A movement settles at most one thing: an occurrence or a utility bill (checked under the movement lock).
+      if (movement.occurrence || movement.utilityBill) throw conflict("already_linked");
       await tx.recurringOccurrence.create({ data: { ...base, status: "MATCHED", movementId } });
       return { occurrence: { templateId, dueDate, status: "MATCHED", movementId: movementId! } };
     }
