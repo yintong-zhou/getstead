@@ -40,12 +40,12 @@ Write **getstead** in lowercase. The mark is a glass drop with two round eyes, a
 | `--brand-fill` | `#2F5BEA` | `#2F5BEA` | Solid blue behind white text |
 | `--brand-dark` | `#1B2B5E` | `#1B2B5E` | Tinted summary surfaces |
 | `--brand-soft` | `#E3EAFD` | `#1F2B52` | Selection and hover backgrounds |
-| `--bg` | `#F5F6FA` | `#0B1020` | Page background |
-| `--surface` | `#FFFFFF` | `#141B30` | Opaque surface and popover text background |
-| `--surface-alt` | `#EEF1F7` | `#1C2540` | Recessed surface and control tracks |
-| `--border` | `#E2E8F0` | `#2B3659` | Borders where separation is needed |
-| `--ink` | `#0F172A` | `#E8EDF8` | Titles, values, and primary text |
-| `--muted` | `#536277` | `#A6B4CC` | Supporting text and quiet controls |
+| `--bg` | `#F5F6FA` | `#000000` | Page background |
+| `--surface` | `#FFFFFF` | `#1C1C1E` | Opaque surface and popover text background |
+| `--surface-alt` | `#EEF1F7` | `#2C2C2E` | Recessed surface and control tracks |
+| `--border` | `#E2E8F0` | `#48484A` | Borders where separation is needed |
+| `--ink` | `#0F172A` | `#F2F2F7` | Titles, values, and primary text |
+| `--muted` | `#536277` | `#B3B3BB` | Supporting text and quiet controls |
 | `--positive` | `#16A34A` | `#4ADE80` | Income, gains, and success |
 | `--negative` | `#DC2626` | `#F87171` | Losses, errors, and destructive actions |
 | `--warning` | `#F59E0B` | `#FBBF24` | Warnings and due dates |
@@ -58,9 +58,9 @@ Glass is a surface treatment. Keep text, figures, and strokes opaque. A fixed wa
 
 | Token | Light default | Dark default | Use |
 | --- | --- | --- | --- |
-| `--glass-fill` | `#FFFFFF8C` | `#1A2340A6` | Cards and controls |
-| `--glass-fill-strong` | `#FFFFFFB8` | `#1A2340D1` | Long lists |
-| `--glass-popup-fill` | `#FFFFFFF0` | `#182038F2` | Dropdowns, dialogs, and notifications |
+| `--glass-fill` | `#FFFFFF8C` | `#242426D9` | Cards and controls |
+| `--glass-fill-strong` | `#FFFFFFB8` | `#2C2C2EE8` | Long lists |
+| `--glass-popup-fill` | `#FFFFFFF0` | `#2C2C2EF2` | Dropdowns, dialogs, and notifications |
 | `--glass-hairline` | `#0F172A0F` | `#FFFFFF14` | Dividers |
 | `--glass-blur` | 24 px | 24 px | Main surfaces |
 | `--glass-blur-control` | 16 px | 16 px | Smaller controls |

@@ -14,7 +14,7 @@ export function CashReportingSettings({ locale, excludeCash }: { locale: Locale;
     <button className="button archived-filter cash-reporting-toggle" type="button" role="switch"
       aria-checked={excludeCash} aria-describedby="cash-reporting-hint" disabled={action.pending}
       onClick={() => void action.run(() => call("PATCH", "/settings", { excludeCash: !excludeCash }), copy.saved)}>
-      {copy.excludeCash}<span className="archived-filter-track" aria-hidden="true" />
+      <span className="cash-reporting-label">{copy.excludeCash}</span><span className="archived-filter-track" aria-hidden="true" />
     </button>
     <NoticeLine notice={action.notice} />
   </section>;
