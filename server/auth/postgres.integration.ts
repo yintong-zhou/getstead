@@ -1,23 +1,31 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import test, { afterEach, before } from "node:test";
-import { generate } from "otplib";
+import test, { after, afterEach, before } from "node:test";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { generate, generateSecret } from "otplib";
 import QRCode from "qrcode";
+import { PrismaClient } from "../../db/generated/client.ts";
 import { getProfile, updateTotp } from "../profile/service.ts";
 import { encryptionKey, localPostgresUrl } from "./config.ts";
-import { digestRateLimitSubject, totpEnrollmentUri } from "./crypto.ts";
+import { digestRateLimitSubject, digestToken, encryptSecret, newToken, totpEnrollmentUri } from "./crypto.ts";
 import { db, disconnectDb } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 import { createOwner, resetOwner } from "./owner.ts";
 import { readChallenge, readSession, signIn, signOut, verifyMfa } from "./service.ts";
 
+/** The admin connection, for owner-CLI operations only (`npm run auth:owner` runs on it too). */
+let owner: PrismaClient;
+
 before(() => {
   const url = localPostgresUrl(process.env.DATABASE_URL);
   assert.equal(url.pathname, "/stead_auth_test", "Use the dedicated synthetic-test database.");
   assert.equal(url.search, "", "Use the test database connection URL without overrides.");
+  assert.equal(localPostgresUrl(process.env.DATABASE_ADMIN_URL).pathname, "/stead_auth_test", "Use the dedicated synthetic-test database.");
+  owner = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_ADMIN_URL }) });
 });
 
 afterEach(disconnectDb);
+after(() => owner.$disconnect());
 
 test("a new account signs in with its password alone", async () => {
   const email = `test-${randomUUID()}@example.test`;
@@ -80,11 +88,31 @@ test("profile TOTP enrollment controls whether sign-in requires a code", async (
   assert.equal(passwordOnly.status, "ok");
   await signOut(success.token, undefined);
   assert.equal(await readSession(success.token), null);
+});
+
+test("an owner reset runs on the owner connection; the runtime role is refused without a partial reset", async () => {
+  const email = `test-${randomUUID()}@example.test`;
+  const password = "synthetic login password";
   const resetPassword = "new synthetic login password";
-  assert.equal(await resetOwner(email, resetPassword), true);
-  assert.equal(await readSession(passwordOnly.token), null);
+  await createOwner(email, password);
+  const { id: userId } = await owner.user.findUniqueOrThrow({ where: { email }, select: { id: true } });
+  await owner.user.update({ where: { id: userId }, data: { totpSecret: encryptSecret(encryptionKey(), userId, generateSecret()) } });
+  await owner.session.create({ data: { userId, tokenDigest: digestToken(newToken())!, expiresAt: new Date(Date.now() + 60_000) } });
+  assert.equal(await reserveAttempt("mfa", userId), true);
+  const limits = { subjectDigest: digestRateLimitSubject(encryptionKey(), userId) };
+
+  // Least privilege: the runtime role has no DELETE on stead_auth_limits, and the transaction rolls back whole.
+  await assert.rejects(resetOwner(email, resetPassword), (error: Error) => error.message.includes("42501"));
+  assert.equal(await owner.session.count({ where: { userId } }), 1);
+  assert.equal(await owner.authLimit.count({ where: limits }), 1);
+  assert.equal((await signIn(email, password)).status, "mfa");
+
+  assert.equal(await resetOwner(email, resetPassword, owner), true);
+  assert.equal(await owner.session.count({ where: { userId } }), 0);
+  assert.equal(await owner.authLimit.count({ where: limits }), 0);
   assert.deepEqual(await signIn(email, password), { status: "invalid" });
-  assert.equal((await signIn(email, resetPassword)).status, "ok");
+  assert.equal((await signIn(email, resetPassword)).status, "ok"); // the authenticator enrollment was cleared
+  assert.equal(await resetOwner(`missing-${randomUUID()}@example.test`, resetPassword, owner), false);
 });
 
 test("concurrent attempts share one budget and an expired window resets it", async () => {

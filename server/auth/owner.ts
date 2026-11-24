@@ -25,11 +25,15 @@ export async function promoteOwner(emailInput: string) {
   return count === 1;
 }
 
-export async function resetOwner(emailInput: string, password: string) {
+/**
+ * Owner-only: it clears the rate limits, and the runtime role cannot DELETE from stead_auth_limits.
+ * The CLI runs it on the admin connection through db(); tests pass their own owner client.
+ */
+export async function resetOwner(emailInput: string, password: string, client = db()) {
   const email = validatedOwner(emailInput, password);
   const hash = await hashPassword(password);
   const key = encryptionKey();
-  return db().$transaction(async (tx) => {
+  return client.$transaction(async (tx) => {
     const [owner] = await tx.user.updateManyAndReturn({
       where: { email },
       data: { passwordHash: hash, totpSecret: null, lastTotpStep: null },
