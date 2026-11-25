@@ -47,7 +47,6 @@ model User {
   condoCharges CondoCharge[]
   utilityBills UtilityBill[]
   utilityContracts UtilityContract[]
-  customAccountTypes CustomAccountType[]
 
   @@map("stead_users")
 }
@@ -100,6 +99,7 @@ model Session {
   tokenDigest Bytes    @id @map("token_digest")
   userId      String   @map("user_id") @db.Uuid
   expiresAt   DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId])
@@ -135,6 +135,7 @@ enum AccountType {
   CASH
   DEBT
   PENSION
+  SAVINGS
 
   @@map("stead_account_type")
 }
@@ -179,17 +180,13 @@ enum OccurrenceStatus {
 // Every M1 table carries user_id. Child rows reference their parents through (user_id, id),
 // so the database itself rejects a link between rows of two different users.
 
-/// `type` always holds the base kind every rule keys off. A custom type only adds a user-chosen label;
-/// the three-column foreign key keeps it in the same user and on the same base kind.
 model Account {
   id         String              @id @default(uuid()) @map("account_id") @db.Uuid
   userId     String              @map("user_id") @db.Uuid
   name       String              @db.VarChar(80)
   type       AccountType
-  customTypeId String?           @map("custom_type_id") @db.Uuid
   /// Bank or broker the account belongs to; accounts of one institution are grouped. Null: recognised from the name.
   institution String?            @db.VarChar(80)
-  customType CustomAccountType?  @relation(fields: [userId, customTypeId, type], references: [userId, id, baseType], onDelete: Restrict, onUpdate: Restrict)
   archivedAt DateTime?           @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -203,24 +200,6 @@ model Account {
   @@unique([userId, id])
   @@unique([userId, name])
   @@map("stead_accounts")
-}
-
-/// A per-user account type: a name on top of a fixed built-in base kind. The base never changes
-/// (the runtime role cannot UPDATE it); a type is deleted only while no account uses it.
-model CustomAccountType {
-  id         String      @id @default(uuid()) @map("type_id") @db.Uuid
-  userId     String      @map("user_id") @db.Uuid
-  name       String      @db.VarChar(80)
-  baseType   AccountType @map("base_type")
-  archivedAt DateTime?   @map("archived_at") @db.Timestamptz(3)
-  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  accounts   Account[]
-
-  @@unique([userId, id])
-  @@unique([userId, name])
-  @@unique([userId, id, baseType])
-  @@map("stead_custom_account_types")
 }
 
 model AccountLogo {

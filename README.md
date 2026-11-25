@@ -141,22 +141,20 @@ The authenticated API is `/api/net-worth` (GET totals and history), `/api/net-wo
 
 ### Account types and pension funds
 
-Every account has a built-in base type (`CHECKING`, `CARD`, `BROKERAGE`, `CRYPTO`, `CASH`, `DEBT`, `PENSION`), stored in `stead_accounts.type`, and every rule keys off it. On `/accounts` you can also create your own types (`stead_custom_account_types`): a name on top of a base type. The base type can't change after creation. You can rename, archive or restore a custom type, and delete it while no account uses it (409 `account_type_in_use`). An archived type can't be given to another account. Built-in labels are localized, and custom types show your name for them. The three-column foreign key `(user_id, custom_type_id, type)` keeps a custom type within one user and matched to the account's base type.
+Every account has a built-in base type (`CHECKING`, `SAVINGS`, `CARD`, `BROKERAGE`, `CRYPTO`, `CASH`, `DEBT`, `PENSION`), stored in `stead_accounts.type`, and every rule keys off it. Built-in labels are localized.
 
 You can change an account's type from its menu. Its balances, checks and movements stay as they are. The investment guard (`investment_account`) and the mortgage guard (`mortgage_account`) check the resulting base type.
 
-`PENSION` accounts are valued from dated balance checks, like any other account. They count once in net worth as an asset. Investments shows them in their own section, with their balance and last check date. They can't take investment transactions, so they never enter holdings, portfolio value, performance, allocation or tax estimates.
+`SAVINGS` (deposit or interest-bearing account) behaves like a bank account: movements, balance checks and transfers all work, and it counts as liquidity in net worth. Interest is not tracked separately: record it as an income movement.
 
-Routes:
-- `/api/cash-flow/account-types`: GET, POST `{ name, baseType }`.
-- `/api/cash-flow/account-types/:id`: PATCH `{ name?, archived? }`, DELETE.
-- Account create and PATCH take either `type` or `customTypeId`, never both.
+`PENSION` accounts are valued from dated balance checks, like any other account. They count once in net worth as an asset. Investments shows them in their own section, with their balance and last check date. They can't take investment transactions, so they never enter holdings, portfolio value, performance, allocation or tax estimates.
 
 Migrations:
 - `20261128090000_pension_account_type` only adds the enum value. It has to stay in its own migration.
-- `20261128090100_custom_account_types` adds the table and the nullable column.
+- `20261208110000_savings_account_type` only adds the enum value, in its own migration for the same reason.
+- `20261128090100_custom_account_types` added the custom-type table. `20261208100000_drop_custom_account_types` removes it again and drops `stead_accounts.custom_type_id`; accounts keep their built-in `type`, only the custom label is lost.
 
-Apply them only to a local database unless separately approved. Then rerun `db/grant-runtime.sql`. The runtime role gets UPDATE on `custom_type_id` for accounts, and only on `name` and `archived_at` for custom types, never on `base_type`.
+Apply them only to a local database unless separately approved. Then rerun `db/grant-runtime.sql`.
 
 ## Cash flow and budget (M1)
 

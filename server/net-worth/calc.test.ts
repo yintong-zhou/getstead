@@ -204,3 +204,9 @@ test("the asset split adds up to gross assets and leaves overdrawn accounts to l
   assert.equal(split.liquidityCents + split.investmentsCents + split.pensionCents + split.propertyCents, totals.assetsCents + 4_000 + 50_000);
   assert.equal(totals.liabilitiesCents, 9_500);
 });
+
+test("a savings account counts as liquidity, and an overdrawn one is not an asset", () => {
+  const split = assetSplit([{ type: "SAVINGS", balanceCents: 1_000_000 }, { type: "SAVINGS", balanceCents: -500 }], 0, 0);
+  assert.equal(split.liquidityCents, 1_000_000);
+  assert.equal(split.investmentsCents + split.pensionCents, 0);
+});

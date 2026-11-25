@@ -180,7 +180,7 @@ function Pensions({ locale, pensions }: { locale: Locale; pensions: PensionDto[]
       <li className="manage-row" key={pension.id}>
         <div className="row-text">
           <p>{pension.name}{pension.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
-          <span>{pension.customTypeName ?? shared.accountTypes[pension.type]} · {pension.lastCheckDate ? `${worth.lastCheck}: ${pension.lastCheckDate}` : worth.noCheck}</span>
+          <span>{shared.accountTypes[pension.type]} · {pension.lastCheckDate ? `${worth.lastCheck}: ${pension.lastCheckDate}` : worth.noCheck}</span>
         </div>
         <span className="amount">{euros(pension.balanceCents, locale)}</span>
       </li>

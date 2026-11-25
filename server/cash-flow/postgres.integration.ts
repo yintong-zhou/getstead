@@ -16,8 +16,8 @@ import { sessionCookie } from "../auth/http.ts";
 import { getBudget, setLimit, clearOverride } from "./budget.ts";
 import { updateCashReporting } from "./cash-settings.ts";
 import {
-  addStarterCategories, createAccount, createAccountType, createCategory, deleteAccountType, listAccounts, listAccountTypes, listCategories,
-  updateAccount, updateAccountType, updateCategory,
+  addStarterCategories, createAccount, createCategory, listAccounts, listCategories,
+  updateAccount, updateCategory,
 } from "./catalog.ts";
 import { getDashboard } from "./dashboard.ts";
 import { findAccountLogo, readAccountLogo, removeAccountLogo } from "./account-logo-service.ts";
@@ -339,64 +339,23 @@ test("an account created with an opening balance starts at that balance without 
   assert.equal((await listAccounts(user)).some(({ name }) => name === "Synthetic bad"), false);
 });
 
-test("custom account types: create, rename, archive, delete only while unused, and only by their owner", async () => {
-  const [owner, other] = [await newUser(), await newUser()];
-  const savings = await createAccountType(owner, { name: "Synthetic savings", baseType: "CHECKING" });
-  assert.deepEqual({ ...savings, id: undefined }, { id: undefined, name: "Synthetic savings", baseType: "CHECKING", archived: false });
-  await rejectsApi(createAccountType(owner, { name: "Synthetic bad base", baseType: "MORTGAGE" }), 422, "validation");
-  await rejectsApi(updateAccountType(owner, savings.id, { baseType: "CASH" }), 422, "validation");
-  await assert.rejects(createAccountType(owner, { name: "Synthetic savings", baseType: "CASH" }), (error) => (error as { code?: string }).code === "P2002");
-  await createAccountType(other, { name: "Synthetic savings", baseType: "CASH" });
-
-  assert.equal((await updateAccountType(owner, savings.id, { name: "Synthetic deposit" })).name, "Synthetic deposit");
-  await rejectsMissing(updateAccountType(other, savings.id, { name: "Intrusion" }));
-  await rejectsApi(deleteAccountType(other, savings.id), 404, "not_found");
-  assert.deepEqual((await listAccountTypes(other)).map(({ name }) => name), ["Synthetic savings"]);
-
-  const used = await createAccount(owner, { name: "Synthetic deposit account", customTypeId: savings.id });
-  assert.deepEqual([used.type, used.customTypeId], ["CHECKING", savings.id]);
-  await rejectsApi(deleteAccountType(owner, savings.id), 409, "account_type_in_use");
-
-  await updateAccountType(owner, savings.id, { archived: true });
-  await rejectsApi(createAccount(owner, { name: "Synthetic late", customTypeId: savings.id }), 409, "account_type_archived");
-  assert.equal((await updateAccount(owner, used.id, { name: "Synthetic kept", customTypeId: savings.id })).customTypeId, savings.id,
-    "an account may keep the archived type it already carries");
-  await updateAccount(owner, used.id, { type: "CHECKING" });
-  await deleteAccountType(owner, savings.id);
-  assert.equal((await listAccountTypes(owner)).length, 0);
-});
-
-test("account type changes keep balances and history, stay in the owner's types, and keep base kinds consistent", async () => {
+test("changing an account type keeps balances and history, and only the owner can change it", async () => {
   const [owner, other] = [await newUser(), await newUser()];
   const now = new Date("2026-11-19T10:00:00Z");
-  const mine = await createAccountType(owner, { name: "Synthetic wallet", baseType: "CASH" });
-  const theirs = await createAccountType(other, { name: "Synthetic foreign", baseType: "CASH" });
   const checking = await createAccount(owner, { name: "Synthetic retyped", type: "CHECKING", openingBalanceCents: 50_000 }, now);
   await movement(owner, checking.id, "2026-11-19", -1_000);
   const before = (await getNetWorth(owner, now)).perAccount.find(({ id }) => id === checking.id)!;
 
-  await rejectsApi(createAccount(owner, { name: "Synthetic both", type: "CASH", customTypeId: mine.id }), 422, "validation");
   await rejectsApi(createAccount(owner, { name: "Synthetic none" }), 422, "validation");
-  await rejectsApi(createAccount(owner, { name: "Synthetic foreign type", customTypeId: theirs.id }), 422, "validation");
-  await rejectsApi(updateAccount(owner, checking.id, { customTypeId: theirs.id }), 422, "validation");
-  await rejectsApi(updateAccount(other, checking.id, { customTypeId: theirs.id }), 404, "not_found");
+  await rejectsApi(createAccount(owner, { name: "Synthetic bad type", type: "MORTGAGE" }), 422, "validation");
+  await rejectsApi(updateAccount(owner, checking.id, { type: "MORTGAGE" }), 422, "validation");
+  await rejectsApi(updateAccount(other, checking.id, { type: "CASH" }), 404, "not_found");
 
-  const retyped = await updateAccount(owner, checking.id, { customTypeId: mine.id });
-  assert.deepEqual([retyped.type, retyped.customTypeId], ["CASH", mine.id], "the base kind follows the custom type");
+  assert.equal((await updateAccount(owner, checking.id, { type: "CASH" })).type, "CASH");
   const after = (await getNetWorth(owner, now)).perAccount.find(({ id }) => id === checking.id)!;
   assert.equal(after.balanceCents, before.balanceCents);
   assert.equal(after.lastCheckDate, before.lastCheckDate);
-  assert.equal(after.customTypeName, "Synthetic wallet");
   assert.equal(await db().movement.count({ where: { userId: owner, accountId: checking.id } }), 1);
-  // The base is immutable: no UPDATE grant for the runtime role, and ON UPDATE RESTRICT while an account uses the type.
-  await assert.rejects(db().$executeRaw`UPDATE stead_custom_account_types SET base_type = 'DEBT' WHERE type_id = ${mine.id}::uuid`, /permission denied|foreign key/i);
-
-  const back = await updateAccount(owner, checking.id, { type: "PENSION" });
-  assert.deepEqual([back.type, back.customTypeId], ["PENSION", null], "a built-in type clears the custom label");
-
-  // The three-column key refuses a custom label on the wrong base or of another user, even without the service.
-  await assert.rejects(db().$executeRaw`UPDATE stead_accounts SET custom_type_id = ${mine.id}::uuid WHERE account_id = ${checking.id}::uuid`, /foreign key/i);
-  await assert.rejects(db().$executeRaw`UPDATE stead_accounts SET type = 'CASH', custom_type_id = ${theirs.id}::uuid WHERE account_id = ${checking.id}::uuid`, /foreign key/i);
 });
 
 test("pension accounts are tracked by balance checks and listed with their balance and last check", async () => {
@@ -407,7 +366,7 @@ test("pension accounts are tracked by balance checks and listed with their balan
   await recordCheck(user, { accountId: pension.id, asOf: "2026-06-30", balanceCents: 1_200_000 }, now);
   await recordCheck(user, { accountId: pension.id, asOf: "2026-09-30", balanceCents: 1_350_000 }, now);
   const [listed] = await listPensions(user, now);
-  assert.deepEqual({ ...listed }, { id: pension.id, name: "Synthetic pension", type: "PENSION", customTypeName: null, archived: false, balanceCents: 1_350_000, lastCheckDate: "2026-09-30" });
+  assert.deepEqual({ ...listed }, { id: pension.id, name: "Synthetic pension", type: "PENSION", archived: false, balanceCents: 1_350_000, lastCheckDate: "2026-09-30" });
   const worth = await getNetWorth(user, now);
   assert.equal(worth.assetsCents, 1_360_000, "the pension counts once, next to the checking balance");
   assert.equal(worth.holdingsCents, 0);
