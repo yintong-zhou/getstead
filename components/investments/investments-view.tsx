@@ -12,7 +12,7 @@ import { investmentsCopy } from "./copy";
 import { formatDecimal, formatHoldingDecimal, hasHoldingPrecision } from "./numbers";
 import { Instruments, PriceHistory, Transactions, useInvestmentAction, investmentCall, type DeletePositionProps, type Quote } from "./forms";
 import { NoticeLine } from "../cash-flow/use-action";
-import { euros } from "@/components/euros";
+import { euros, signedText } from "@/components/euros";
 import { Icon } from "@/components/icon";
 import { TrendCard } from "@/components/trend-card";
 import { MarketRefresh } from "@/components/market-refresh";
@@ -106,7 +106,7 @@ function Holdings({ locale, data, instruments }: Pick<ViewProps, "locale" | "dat
             formatEuros(holding.valueCents, locale),
             <>
               <Gain cents={holding.gainCents} locale={locale} />
-              {holding.gainRate !== null && <span className={`holding-rate ${tone}`}>{rates.format(Number(holding.gainRate))}</span>}
+              {holding.gainRate !== null && <span className={`holding-rate ${tone}`}>{signedText(rates.format(Number(holding.gainRate)))}</span>}
             </>,
           ];
           return <tbody key={holding.instrumentId} role="rowgroup">

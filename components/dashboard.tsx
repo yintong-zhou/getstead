@@ -10,7 +10,7 @@ import { dashboardCopy, type DashboardCopy } from "./dashboard-copy";
 import { formatDay, formatMonth } from "./format";
 import { categoryIcon } from "./category-icon";
 import { Icon } from "./icon";
-import { euros } from "@/components/euros";
+import { euros, signedText } from "@/components/euros";
 import { CashFlowChart } from "./cash-flow-chart";
 
 const palette = ["var(--brand)", "var(--chart-2)", "var(--warning)", "#a855f7", "#f43f5e"];
@@ -105,7 +105,7 @@ function Worth({ data, locale, copy }: { data: DashboardData; locale: Locale; co
 function Change({ rate, locale }: { rate: number | null; locale: Locale }) {
   if (rate === null) return <span className="muted">—</span>;
   const text = new Intl.NumberFormat(localeTags[locale], { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(rate);
-  return <span className={`amount${rate > 0 ? " positive" : rate < 0 ? " negative" : ""}`}>{text}</span>;
+  return <span className={`amount${rate > 0 ? " positive" : rate < 0 ? " negative" : ""}`}>{signedText(text)}</span>;
 }
 
 function Investments({ summary, benchmarks, locale, copy }: {
@@ -151,7 +151,7 @@ function Investments({ summary, benchmarks, locale, copy }: {
           {vix && (
             <tr>
               <th scope="row">{copy.vix}</th>
-              <td className="amount">{points.format(Number(vix.close))} ({signedPoints.format(Number(vix.close) - Number(vix.previousClose))})</td>
+              <td className="amount">{points.format(Number(vix.close))} ({signedText(signedPoints.format(Number(vix.close) - Number(vix.previousClose)))})</td>
               <td><span className="muted">—</span></td>
             </tr>
           )}
