@@ -12,9 +12,9 @@ export function CashReportingSettings({ locale, excludeCash }: { locale: Locale;
     <h2 id="cash-reporting-title">{copy.cashReporting}</h2>
     <p className="profile-hint cash-reporting-hint" id="cash-reporting-hint">{copy.cashReportingHint}</p>
     <button className="button archived-filter cash-reporting-toggle" type="button" role="switch"
-      aria-checked={excludeCash} aria-describedby="cash-reporting-hint" disabled={action.pending}
+      aria-label={copy.excludeCash} aria-checked={excludeCash} aria-describedby="cash-reporting-hint" disabled={action.pending}
       onClick={() => void action.run(() => call("PATCH", "/settings", { excludeCash: !excludeCash }), copy.saved)}>
-      <span className="cash-reporting-label">{copy.excludeCash}</span><span className="archived-filter-track" aria-hidden="true" />
+      <span className="archived-filter-track" aria-hidden="true" />
     </button>
     <NoticeLine notice={action.notice} />
   </section>;

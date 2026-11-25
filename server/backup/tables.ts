@@ -4,13 +4,15 @@
 
 import {
   AccountType, BudgetLimitKind, CategoryKind, CondoChargeKind, InstrumentKind, InvestmentTransactionType,
-  OccurrenceStatus, PropertyKind, RecurrenceFrequency, TransferLeg,
+  OccurrenceStatus, PropertyKind, RecurrenceFrequency, TransferLeg, UtilityBillType,
 } from "../../db/generated/enums.ts";
 import { MAX_CENTS } from "../cash-flow/money.ts";
-import { chargeContext, movementContext, templateContext } from "../cash-flow/text-crypto.ts";
+import { addressContext, chargeContext, movementContext, templateContext } from "../cash-flow/text-crypto.ts";
 
 export const BACKUP_FORMAT = "getstead-backup";
-export const BACKUP_VERSION = 1;
+/** Version 3 adds contract terms; versions 1 and 2 remain readable. */
+export const BACKUP_VERSION = 3;
+export const BACKUP_VERSIONS: readonly number[] = [1, 2, 3];
 
 type Nullable = { nullable?: boolean };
 export type Field =
@@ -18,7 +20,7 @@ export type Field =
   | ({ kind: "ref"; table: TableKey; archived?: true } & Nullable)
   | ({ kind: "text"; max: number } & Nullable)
   /** Stored encrypted with a context bound to the row id; exported in clear. */
-  | { kind: "secret"; max: number; context: (id: string) => string }
+  | ({ kind: "secret"; max: number; context: (id: string) => string } & Nullable)
   | ({ kind: "enum"; values: readonly string[] } & Nullable)
   | ({ kind: "date" } & Nullable)
   | ({ kind: "timestamp" } & Nullable)
@@ -43,8 +45,8 @@ const MAX_INT = 2_147_483_647;
 
 const tableKeys = [
   "customAccountTypes", "categories", "transfers", "instruments", "accounts", "balanceChecks", "categoryRules",
-  "budgetLimits", "properties", "recurringTemplates", "movements", "investmentTransactions", "priceQuotes",
-  "marketPriceQuotes", "propertyValuations", "condoTables", "condoSchedules", "recurringOccurrences", "condoCharges",
+  "budgetLimits", "properties", "utilityContracts", "recurringTemplates", "movements", "investmentTransactions", "priceQuotes",
+  "marketPriceQuotes", "propertyValuations", "condoTables", "condoSchedules", "recurringOccurrences", "condoCharges", "utilityBills",
 ] as const;
 export type TableKey = (typeof tableKeys)[number];
 
@@ -68,7 +70,11 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
   }],
   properties: ["property", {
     id, name: text(80), kind: oneOf(PropertyKind), ownershipBps: int(1, 10_000), mortgageAccountId: ref("accounts", true),
-    soldOn: nullableDate, archivedAt: nullableTimestamp,
+    soldOn: nullableDate, archivedAt: nullableTimestamp, address: { kind: "secret", max: 200, context: addressContext, nullable: true },
+  }],
+  utilityContracts: ["utilityContract", {
+    id, propertyId: ref("properties"), type: oneOf(UtilityBillType), provider: text(80), unitPrice: { kind: "decimal", digits: 6, scale: 6 },
+    unit: text(30), activationDate: date, periodStart: date, periodEnd: date, durationMonths: int(1, 1200), createdAt: timestamp,
   }],
   recurringTemplates: ["recurringTemplate", {
     id, accountId: ref("accounts"), categoryId: ref("categories", true),
@@ -104,6 +110,10 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
     dueDate: date, amountCents: int(1, MAX_CENTS), approvedOn: nullableDate,
     tableId: { kind: "ref", table: "condoTables", nullable: true, archived: true },
     buildingTotalCents: int(1, 100_000_000_000, { big: true, nullable: true }), voidedAt: nullableTimestamp, movementId: ref("movements", true),
+  }],
+  utilityBills: ["utilityBill", {
+    id, propertyId: ref("properties"), type: oneOf(UtilityBillType), provider: text(80), periodStart: date, periodEnd: date, dueDate: date,
+    totalCents: int(1, MAX_CENTS), rawMaterialCents: int(1, MAX_CENTS, { nullable: true }), movementId: ref("movements", true), createdAt: timestamp,
   }],
 };
 

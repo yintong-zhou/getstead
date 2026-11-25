@@ -34,7 +34,9 @@ export default async function PropertyPage({ params, searchParams }: Props) {
     // An invalid ?year= falls back to the current year instead of failing the page.
     let costQuery;
     try { costQuery = parseCostQuery(query); } catch { costQuery = parseCostQuery(new URLSearchParams()); }
-    const [data, accounts, costs] = await Promise.all([getOverview(user.userId), listAccounts(user.userId, true), getCosts(user.userId, costQuery)]);
+    const [data, accounts, costs] = await Promise.all([
+      getOverview(user.userId), listAccounts(user.userId, true), getCosts(user.userId, costQuery),
+    ]);
     loaded = { data, accounts, costs };
   } catch {
     return <UnavailableNotice locale={locale} path="/property" />;

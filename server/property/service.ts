@@ -2,12 +2,13 @@
 // row locks in a fixed order: account (FOR NO KEY UPDATE, never FOR UPDATE: movement inserts hold
 // KEY SHARE on the account row and FOR UPDATE would deadlock with a transfer), then the property. Properties are archived.
 
+import { randomUUID } from "node:crypto";
 import type { Prisma, Property } from "../../db/generated/client.ts";
 import { db } from "../auth/database.ts";
 import { fromDate, nextOccurrenceAfter, occurrencesThrough, romeToday, toDate, type IsoDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { createTemplate } from "../cash-flow/recurring.ts";
-import { decryptText, templateContext } from "../cash-flow/text-crypto.ts";
+import { addressContext, decryptText, encryptText, templateContext } from "../cash-flow/text-crypto.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { getNetWorth } from "../net-worth/service.ts";
 import {
@@ -18,19 +19,20 @@ import {
 type Client = Prisma.TransactionClient;
 export const MAX_PROPERTIES = 50;
 export const MAX_VALUATIONS = 2_000;
+export const MAX_ADDRESS = 200;
 const MAX_VALUE_CENTS = 1_000_000_000_000;
 
 async function userLock(client: Client, userId: string) {
   await client.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${userId}, 4))`;
 }
-function write<T>(userId: string, operation: (client: Client) => Promise<T>) {
+export function write<T>(userId: string, operation: (client: Client) => Promise<T>) {
   return db().$transaction(async (client) => { await userLock(client, userId); return operation(client); }, { timeout: 30_000 });
 }
 async function lockAccount(client: Client, userId: string, id: string, field = "accountId") {
   const rows = await client.$queryRaw<{ id: string }[]>`SELECT account_id AS id FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${id}::uuid FOR NO KEY UPDATE`;
   if (!rows.length) throw new ApiError(422, "validation", field);
 }
-async function lockProperty(client: Client, userId: string, id: string) {
+export async function lockProperty(client: Client, userId: string, id: string) {
   const rows = await client.$queryRaw<{ id: string }[]>`SELECT property_id AS id FROM stead_properties WHERE user_id = ${userId}::uuid AND property_id = ${id}::uuid FOR UPDATE`;
   if (!rows.length) throw notFound();
 }
@@ -58,23 +60,31 @@ function propertyData(input: Record<string, unknown>, partial: boolean) {
   const mortgageAccountId = reader.nullableUuid("mortgageAccountId");
   const soldOn = reader.nullableDate("soldOn");
   const archived = partial ? reader.optionalBool("archived") : undefined;
+  const address = reader.nullableText("address", MAX_ADDRESS);
   reader.done();
   return {
-    name, kind, ownershipBps, mortgageAccountId, soldOn,
+    name, kind, ownershipBps, mortgageAccountId, soldOn, address,
     ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
   };
 }
 const soldOnData = (soldOn: IsoDate | null | undefined) => soldOn === undefined ? undefined : soldOn === null ? null : toDate(soldOn);
+/** The street address is sealed with the property id as context; null clears it, undefined leaves it. */
+export const addressData = (userId: string, id: string, address: string | null | undefined) =>
+  address === undefined ? undefined : address === null ? null : encryptText(userId, addressContext(id), address);
 
 export async function createProperty(userId: string, input: Record<string, unknown>) {
   const data = propertyData(input, false);
   return write(userId, async (client) => {
     if (await client.property.count({ where: { userId } }) >= MAX_PROPERTIES) throw new ApiError(422, "property_limit");
     if (data.mortgageAccountId) await mortgageAccount(client, userId, data.mortgageAccountId);
+    const id = randomUUID();
     const row = await client.property.create({
-      data: { userId, name: data.name!, kind: data.kind!, ownershipBps: data.ownershipBps!, mortgageAccountId: data.mortgageAccountId ?? null, soldOn: soldOnData(data.soldOn) ?? null },
+      data: {
+        id, userId, name: data.name!, kind: data.kind!, ownershipBps: data.ownershipBps!, mortgageAccountId: data.mortgageAccountId ?? null,
+        soldOn: soldOnData(data.soldOn) ?? null, address: addressData(userId, id, data.address) ?? null,
+      },
     });
-    return propertyDto(row);
+    return propertyDto(userId, row);
   });
 }
 export async function updateProperty(userId: string, id: string, input: Record<string, unknown>) {
@@ -84,14 +94,18 @@ export async function updateProperty(userId: string, id: string, input: Record<s
     await lockProperty(client, userId, id);
     const row = await client.property.update({
       where: { userId_id: { userId, id } },
-      data: { name: data.name, kind: data.kind, ownershipBps: data.ownershipBps, mortgageAccountId: data.mortgageAccountId, soldOn: soldOnData(data.soldOn), archivedAt: data.archivedAt },
+      data: {
+        name: data.name, kind: data.kind, ownershipBps: data.ownershipBps, mortgageAccountId: data.mortgageAccountId,
+        soldOn: soldOnData(data.soldOn), archivedAt: data.archivedAt, address: addressData(userId, id, data.address),
+      },
     });
-    return propertyDto(row);
+    return propertyDto(userId, row);
   });
 }
-function propertyDto(row: Property) {
+function propertyDto(userId: string, row: Property) {
   return {
     id: row.id, name: row.name, kind: row.kind, ownershipBps: row.ownershipBps,
+    address: row.address ? decryptText(userId, addressContext(row.id), row.address) : null,
     mortgageAccountId: row.mortgageAccountId, soldOn: row.soldOn ? fromDate(row.soldOn) : null, archived: row.archivedAt !== null,
   };
 }
@@ -233,7 +247,7 @@ export async function getOverview(userId: string, now = new Date()) {
       const debt = row.mortgageAccountId ? balances.get(row.mortgageAccountId) ?? null : null;
       const latest = valuationInput.filter((item) => item.propertyId === row.id && item.asOf <= today).sort((a, b) => b.asOf.localeCompare(a.asOf))[0];
       return {
-        ...propertyDto(row),
+        ...propertyDto(userId, row),
         valueCents: value.valueCents, valueAsOf: latest?.asOf ?? null, shareValueCents: value.shareValueCents, noValuation: value.noValuation,
         debtBalanceCents: debt, equityCents: debt === null || value.noValuation ? null : equityCents(value.shareValueCents, debt),
         valuations: valuations.filter((item) => item.propertyId === row.id).map((item) => ({ id: item.id, asOf: fromDate(item.asOf), valueCents: Number(item.valueCents) })),

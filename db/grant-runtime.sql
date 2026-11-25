@@ -52,18 +52,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.stead_market_cache, public.stead_
 -- Valuations, millesimal tables and schedule links are plain editable records.
 GRANT SELECT, INSERT ON public.stead_properties, public.stead_property_valuations, public.stead_condo_tables,
   public.stead_condo_schedules, public.stead_condo_charges TO stead_auth_app;
-GRANT UPDATE (name, kind, ownership_bps, mortgage_account_id, sold_on, archived_at) ON public.stead_properties TO stead_auth_app;
+GRANT UPDATE (name, kind, ownership_bps, mortgage_account_id, sold_on, archived_at, address_enc) ON public.stead_properties TO stead_auth_app;
 GRANT UPDATE (value_cents), DELETE ON public.stead_property_valuations TO stead_auth_app;
 GRANT UPDATE (label, unit_millesimi, total_millesimi), DELETE ON public.stead_condo_tables TO stead_auth_app;
 GRANT DELETE ON public.stead_condo_schedules TO stead_auth_app;
+-- Utility bills: editable records; the owner and the property of a bill never change.
+GRANT SELECT, INSERT, DELETE ON public.stead_utility_bills TO stead_auth_app;
+GRANT UPDATE (type, provider, period_start, period_end, due_date, total_cents, raw_material_cents, movement_id)
+  ON public.stead_utility_bills TO stead_auth_app;
+GRANT SELECT, INSERT ON public.stead_utility_contracts TO stead_auth_app;
+GRANT UPDATE (type, provider, unit_price, unit, activation_date, period_start, period_end, duration_months) ON public.stead_utility_contracts TO stead_auth_app;
 REVOKE UPDATE (kind, title_enc, due_date, amount_cents, approved_on, table_id, building_total_cents, voided_at, movement_id)
   ON public.stead_condo_charges FROM stead_auth_app;
 
 
--- Admin (M5). Users are created with a column list that leaves out `role` (Prisma sends `user_id`
--- and `created_at` itself), and `role` is never
+-- Admin (M5). Users are created with a column list that leaves out `role` (Prisma sends `user_id`,
+-- `created_at` and the static defaults `must_change_password` and `exclude_cash` itself), and `role` is never
 -- updatable: promotion to admin only happens through the owner CLI on the admin connection.
-GRANT INSERT (user_id, email, display_name, password_hash, must_change_password, created_at) ON public.stead_users TO stead_auth_app;
+GRANT INSERT (user_id, email, display_name, password_hash, must_change_password, exclude_cash, created_at) ON public.stead_users TO stead_auth_app;
 GRANT UPDATE (disabled_at, must_change_password, last_login_at) ON public.stead_users TO stead_auth_app;
 GRANT SELECT, INSERT, DELETE ON public.stead_event_logs TO stead_auth_app;
 

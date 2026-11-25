@@ -18,15 +18,15 @@ import { euros } from "@/components/euros";
 
 export type PropertyRow = Overview["properties"][number];
 
-const propertyCall = (method: string, path: string, body?: unknown) => call(method, path, body, "/api/property");
-const dateBounds = { min: "2000-01-01", max: "2100-12-31" } as const;
+export const propertyCall = (method: string, path: string, body?: unknown) => call(method, path, body, "/api/property");
+export const dateBounds = { min: "2000-01-01", max: "2100-12-31" } as const;
 
-function usePropertyAction(locale: Locale) {
+export function usePropertyAction(locale: Locale) {
   const copy = propertyCopy[locale];
   return useAction(locale, (failure) => copy.errors[failure.error] ?? errorText(cashFlowCopy[locale], failure));
 }
 
-function Input({ label, hint, dateLocale, ...props }: ComponentProps<"input"> & { label: string; hint?: string; dateLocale?: Locale }) {
+export function Input({ label, hint, dateLocale, ...props }: ComponentProps<"input"> & { label: string; hint?: string; dateLocale?: Locale }) {
   const id = useId();
   return <div className="form-field">
     <div className="label-row"><label htmlFor={id}>{label}</label>{hint && <InfoTip id={`${id}-hint`} text={hint} />}</div>
@@ -36,7 +36,7 @@ function Input({ label, hint, dateLocale, ...props }: ComponentProps<"input"> & 
   </div>;
 }
 type Opt = { value: string; label: string; disabled?: boolean };
-function Choice({ label, hint, options, ...props }: { label: string; hint?: string; options: Opt[]; name?: string; required?: boolean } & (
+export function Choice({ label, hint, options, ...props }: { label: string; hint?: string; options: Opt[]; name?: string; required?: boolean } & (
   { value: string; onChange: (value: string) => void; defaultValue?: never } | { defaultValue?: string; value?: never; onChange?: never }
 )) {
   const id = useId();
@@ -48,7 +48,7 @@ function Choice({ label, hint, options, ...props }: { label: string; hint?: stri
 function accountOptions(rows: AccountDto[], archived: string, currentId?: string): Opt[] {
   return rows.map((row) => ({ value: row.id, label: row.name + (row.archived ? ` · ${archived}` : ""), disabled: row.archived && row.id !== currentId }));
 }
-function SaveButton({ pending, locale, label }: { pending: boolean; locale: Locale; label?: string }) {
+export function SaveButton({ pending, locale, label }: { pending: boolean; locale: Locale; label?: string }) {
   const shared = cashFlowCopy[locale];
   return <button className="button button-solid" type="submit" disabled={pending}>{pending ? shared.saving : label ?? shared.save}</button>;
 }
@@ -70,7 +70,7 @@ export function PropertyForm({ locale, accounts, property }: { locale: Locale; a
     if (ownershipBps === null) { action.setNotice({ kind: "error", text: copy.ownershipError }); return; }
     const body = {
       name: text("name"), kind: text("kind"), ownershipBps,
-      mortgageAccountId: text("mortgage") || null, soldOn: text("soldOn") || null,
+      mortgageAccountId: text("mortgage") || null, soldOn: text("soldOn") || null, address: text("address").trim() || null,
     };
     const saved = await action.run(() => property ? propertyCall("PATCH", `/properties/${property.id}`, body) : propertyCall("POST", "/properties", body), copy.propertySaved);
     if (saved && !property) form.reset();
@@ -79,6 +79,7 @@ export function PropertyForm({ locale, accounts, property }: { locale: Locale; a
   }}>
     <div className="form-grid">
       <Input label={copy.name} name="name" maxLength={80} required defaultValue={property?.name ?? ""} />
+      <Input label={copy.address} name="address" maxLength={200} autoComplete="street-address" hint={copy.addressHint} defaultValue={property?.address ?? ""} />
       <Choice label={copy.kind} name="kind" defaultValue={property?.kind ?? "PRIMARY_RESIDENCE"}
         options={Object.entries(copy.kinds).map(([value, label]) => ({ value, label }))} />
       <Input label={copy.ownership} name="ownership" inputMode="decimal" maxLength={6} required hint={copy.ownershipHint}
