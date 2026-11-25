@@ -58,6 +58,24 @@ function parseRow(row: unknown, fields: Record<string, Field>): Row {
   return Object.fromEntries(Object.entries(fields).map(([name, field]) => [name, readValue(reader, row as Row, name, field)]));
 }
 
+/**
+ * Backups written while custom account types existed still carry them. They are dropped on read: every account keeps
+ * its built-in `type`, which is what all the rules use, and only the user's own label is lost.
+ */
+function withoutCustomTypes(data: Row): Row {
+  const rest = { ...data };
+  delete rest.customAccountTypes;
+  if (Array.isArray(rest.accounts)) {
+    rest.accounts = rest.accounts.map((account: unknown) => {
+      if (!isObject(account)) return account;
+      const copy = { ...account };
+      delete copy.customTypeId;
+      return copy;
+    });
+  }
+  return rest;
+}
+
 /** Checks the file and returns its rows, still keyed by the file's ids. Pure: nothing is read or written. */
 export function parseBackup(input: unknown): BackupRows {
   if (!isObject(input)) invalid("format");
@@ -66,7 +84,7 @@ export function parseBackup(input: unknown): BackupRows {
   if (file.format !== BACKUP_FORMAT) invalid("format", "backup_format");
   if (!BACKUP_VERSIONS.includes(file.version as number)) invalid("version", "backup_version");
   if (!isObject(file.data)) invalid("data");
-  const data = file.data as Row;
+  const data = withoutCustomTypes(file.data as Row);
   for (const key of Object.keys(data)) if (!TABLES.some((table) => table.key === key)) invalid(`data.${key}`);
 
   const rows = {} as BackupRows;
@@ -101,11 +119,6 @@ export function parseBackup(input: unknown): BackupRows {
 /** Rules the app enforces on every write but the database does not. */
 function checkRules(rows: BackupRows, ids: Record<TableKey, Map<string, Row>>) {
   const accountType = (id: unknown) => ids.accounts.get(id as string)?.type;
-  rows.accounts.forEach((account, index) => {
-    if (account.customTypeId !== null && ids.customAccountTypes.get(account.customTypeId as string)?.baseType !== account.type) {
-      invalid(`accounts[${index}].customTypeId`);
-    }
-  });
 
   const legs = new Map<string, Row[]>();
   rows.movements.forEach((movement, index) => {

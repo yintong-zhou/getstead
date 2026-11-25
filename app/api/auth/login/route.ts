@@ -1,6 +1,6 @@
 import { authResponse, challengeCookie, readAuthBody, sameOrigin, sessionCookie, writeAuthCookie } from "@/server/auth/http";
 import { normalizeEmail, validPasswordInput } from "@/server/auth/inputs";
-import { signIn } from "@/server/auth/service";
+import { SESSION_COOKIE_MAX_AGE_S, signIn } from "@/server/auth/service";
 import { recordEvent } from "@/server/admin/logs";
 import { verifyTurnstile } from "@/server/turnstile";
 import { clientAddress } from "@/server/waitlist/service";
@@ -40,7 +40,7 @@ export function POST(request: Request) {
       writeAuthCookie(response, challengeCookie, result.token, 300, secure);
       writeAuthCookie(response, sessionCookie, "", 0, secure);
     } else {
-      writeAuthCookie(response, sessionCookie, result.token, 28_800, secure);
+      writeAuthCookie(response, sessionCookie, result.token, SESSION_COOKIE_MAX_AGE_S, secure);
       writeAuthCookie(response, challengeCookie, "", 0, secure);
     }
     return response;

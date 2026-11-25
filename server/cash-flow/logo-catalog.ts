@@ -174,6 +174,7 @@ export type LogoGroup = LogoProvider["group"];
 /** Catalog groups offered in the picker for each account type; an empty list means upload or link only. */
 export const logoGroupsByType: Record<string, readonly LogoGroup[]> = {
   CHECKING: ["bank"],
+  SAVINGS: ["bank"],
   CARD: ["card", "bank"],
   BROKERAGE: ["broker"],
   CRYPTO: ["crypto"],

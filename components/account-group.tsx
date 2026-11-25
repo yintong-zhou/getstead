@@ -2,6 +2,7 @@
 
 import { useId, useSyncExternalStore, type ReactNode } from "react";
 import { euros } from "@/components/euros";
+import { Icon } from "./icon";
 import type { Locale } from "@/server/locale";
 import { cashFlowCopy } from "./cash-flow/copy";
 
@@ -24,9 +25,12 @@ function writeOpen(key: string, open: boolean) {
   for (const listener of listeners) listener();
 }
 
-/** A collapsed row for the accounts of one institution, with their total; it opens to list each account. */
-export function AccountGroup({ groupKey, name, count, totalCents, locale, children }: {
-  groupKey: string; name: string; count: number; totalCents: number; locale: Locale; children: ReactNode;
+/**
+ * The accounts of one institution. Closed, it reads like a single account: optional logo, name and the total.
+ * Open, it lists each account with its own balance (the list hides logos, which only take room there).
+ */
+export function AccountGroup({ groupKey, name, count, totalCents, locale, logo, children }: {
+  groupKey: string; name: string; count: number; totalCents: number; locale: Locale; logo?: ReactNode; children: ReactNode;
 }) {
   const copy = cashFlowCopy[locale];
   const listId = useId();
@@ -35,13 +39,15 @@ export function AccountGroup({ groupKey, name, count, totalCents, locale, childr
   return (
     <li className="account-group">
       <div className="manage-row account-group-head">
+        {!open && logo}
         <div className="row-text">
           <p>{name}</p>
           <span>{copy.accountsCount(count)}</span>
         </div>
-        <span className={`amount${totalCents < 0 ? " negative" : ""}`}>{euros(totalCents, locale)}</span>
-        <button className="button button-quiet" type="button" aria-expanded={open} aria-controls={listId} onClick={() => writeOpen(groupKey, !open)}>
-          {open ? copy.hideAccounts : copy.showAccounts}
+        {!open && <span className={`amount${totalCents < 0 ? " negative" : ""}`}>{euros(totalCents, locale)}</span>}
+        <button className="account-group-toggle" type="button" aria-expanded={open} aria-controls={listId}
+          aria-label={`${open ? copy.hideAccounts : copy.showAccounts}: ${name}`} onClick={() => writeOpen(groupKey, !open)}>
+          <Icon name="chevron" size={20} />
         </button>
       </div>
       <ul id={listId} className="rows account-group-list" hidden={!open}>{children}</ul>

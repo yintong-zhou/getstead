@@ -1,5 +1,6 @@
 import { verify } from "otplib";
 import type { Prisma, User } from "../../db/generated/client.ts";
+import { recordError } from "../admin/logs.ts";
 import { encryptionKey } from "./config.ts";
 import { decryptSecret, digestToken, newToken, verifyPassword, TOTP_EPOCH_TOLERANCE } from "./crypto.ts";
 import { db } from "./database.ts";
@@ -15,11 +16,21 @@ export async function lockUser(tx: Prisma.TransactionClient, id: string) {
   return user;
 }
 
+const DAY_MS = 86_400_000;
+// A session lives 30 days from its last use (sliding) and never more than 90 days in total. Each device holds its
+// own session; there is no cap on how many can be open at once. The cookie lasts the absolute maximum and the
+// database row decides, so renewal never has to rewrite the cookie (server components cannot).
+export const SESSION_IDLE_MS = 30 * DAY_MS;
+export const SESSION_ABSOLUTE_MS = 90 * DAY_MS;
+export const SESSION_COOKIE_MAX_AGE_S = SESSION_ABSOLUTE_MS / 1000;
+// The expiry is pushed forward at most once a day, so a busy session is not a write per request.
+const SESSION_RENEW_AFTER_MS = DAY_MS;
+
 async function createSession(tx: Prisma.TransactionClient, userId: string) {
   const token = newToken();
   await tx.session.deleteMany({ where: { userId, expiresAt: { lte: new Date() } } });
   await tx.session.create({ data: {
-    tokenDigest: digestToken(token)!, userId, expiresAt: new Date(Date.now() + 28_800_000),
+    tokenDigest: digestToken(token)!, userId, expiresAt: new Date(Date.now() + SESSION_IDLE_MS),
   } });
   await tx.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() }, select: { id: true } });
   return token;
@@ -114,9 +125,20 @@ export async function readSession(token: string | undefined) {
   if (!digest) return null;
   const session = await db().session.findUnique({
     where: { tokenDigest: digest, expiresAt: { gt: new Date() }, user: { disabledAt: null } },
-    select: { userId: true, user: { select: { role: true, mustChangePassword: true, totpSecret: true } } },
+    select: {
+      userId: true, expiresAt: true, createdAt: true,
+      user: { select: { role: true, mustChangePassword: true, totpSecret: true } },
+    },
   });
   if (!session) return null;
+
+  const now = Date.now();
+  const renewed = Math.min(now + SESSION_IDLE_MS, session.createdAt.getTime() + SESSION_ABSOLUTE_MS);
+  if (renewed - session.expiresAt.getTime() >= SESSION_RENEW_AFTER_MS) {
+    // Best effort: a failed renewal must not log the user out of a session that is still valid.
+    await db().session.update({ where: { tokenDigest: digest }, data: { expiresAt: new Date(renewed) }, select: { userId: true } })
+      .catch((error: unknown) => recordError(error, "session:renew"));
+  }
   const { role, mustChangePassword, totpSecret } = session.user;
   return { userId: session.userId, admin: role === "ADMIN", mustChangePassword, hasTotp: totpSecret !== null };
 }

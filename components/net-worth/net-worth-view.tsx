@@ -28,7 +28,7 @@ function AccountLines({ account, locale }: { account: NetWorthData["perAccount"]
     <li className="manage-row worth-account">
       <div className="row-text">
         <p>{account.name}{split && ` · ${shared.cashLine}`}{account.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
-        <span>{account.customTypeName ?? shared.accountTypes[account.type]} ·{account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
+        <span>{shared.accountTypes[account.type]} ·{account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
         {account.archived && account.balanceCents !== 0 && <p className="worth-flag">{copy.archivedBalance}</p>}
       </div>
       <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{euros(account.balanceCents, locale)}</span>

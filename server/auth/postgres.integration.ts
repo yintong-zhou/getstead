@@ -11,7 +11,7 @@ import { digestRateLimitSubject, digestToken, encryptSecret, newToken, totpEnrol
 import { db, disconnectDb } from "./database.ts";
 import { reserveAttempt } from "./limits.ts";
 import { createOwner, resetOwner } from "./owner.ts";
-import { readChallenge, readSession, signIn, signOut, verifyMfa } from "./service.ts";
+import { readChallenge, readSession, SESSION_ABSOLUTE_MS, SESSION_IDLE_MS, signIn, signOut, verifyMfa } from "./service.ts";
 
 /** The admin connection, for owner-CLI operations only (`npm run auth:owner` runs on it too). */
 let owner: PrismaClient;
@@ -35,6 +35,38 @@ test("a new account signs in with its password alone", async () => {
   assert.equal(result.status, "ok");
   assert.ok(await readSession(result.token));
   assert.deepEqual(await readChallenge(result.token), { status: "anonymous" });
+});
+
+test("a session slides forward with use, never past its absolute cap, and each device keeps its own", async () => {
+  const email = `test-${randomUUID()}@example.test`;
+  const password = "synthetic login password";
+  await createOwner(email, password);
+  const desktop = await signIn(email, password);
+  const mobile = await signIn(email, password);
+  assert.equal(desktop.status, "ok");
+  assert.equal(mobile.status, "ok");
+  const digest = digestToken(desktop.token)!;
+  const day = 86_400_000;
+
+  // Used after being idle for 10 days: the expiry slides back to a full 30 days from now.
+  await owner.session.update({ where: { tokenDigest: digest }, data: { expiresAt: new Date(Date.now() + 20 * day) } });
+  assert.ok(await readSession(desktop.token));
+  const slid = await owner.session.findUniqueOrThrow({ where: { tokenDigest: digest } });
+  assert.ok(Math.abs(slid.expiresAt.getTime() - (Date.now() + SESSION_IDLE_MS)) < 60_000);
+
+  // Near the 90-day cap the renewal is clamped to the cap.
+  await owner.session.update({
+    where: { tokenDigest: digest },
+    data: { createdAt: new Date(Date.now() - 89 * day), expiresAt: new Date(Date.now() + 2 * day) },
+  });
+  assert.ok(await readSession(desktop.token));
+  const capped = await owner.session.findUniqueOrThrow({ where: { tokenDigest: digest } });
+  assert.ok(Math.abs(capped.expiresAt.getTime() - (capped.createdAt.getTime() + SESSION_ABSOLUTE_MS)) < 1_000);
+
+  // Signing out one device leaves the other signed in.
+  await signOut(desktop.token, undefined);
+  assert.equal(await readSession(desktop.token), null);
+  assert.ok(await readSession(mobile.token));
 });
 
 test("profile TOTP enrollment controls whether sign-in requires a code", async () => {

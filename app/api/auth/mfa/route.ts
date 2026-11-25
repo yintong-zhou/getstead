@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { authResponse, challengeCookie, readAuthBody, sameOrigin, sessionCookie, writeAuthCookie } from "@/server/auth/http";
 import { validTotpCode } from "@/server/auth/inputs";
-import { verifyMfa } from "@/server/auth/service";
+import { SESSION_COOKIE_MAX_AGE_S, verifyMfa } from "@/server/auth/service";
 import { recordEvent } from "@/server/admin/logs";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export function POST(request: NextRequest) {
 
     const response = authResponse(204);
     writeAuthCookie(response, challengeCookie, "", 0, secure);
-    writeAuthCookie(response, sessionCookie, result.token, 28_800, secure);
+    writeAuthCookie(response, sessionCookie, result.token, SESSION_COOKIE_MAX_AGE_S, secure);
     return response;
   });
 }

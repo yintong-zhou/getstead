@@ -6,6 +6,7 @@ GRANT USAGE ON SCHEMA public TO stead_auth_app;
 GRANT SELECT ON public.stead_users TO stead_auth_app;
 GRANT UPDATE (totp_secret, last_totp_step) ON public.stead_users TO stead_auth_app;
 GRANT SELECT, INSERT, DELETE ON public.stead_login_challenges, public.stead_sessions TO stead_auth_app;
+GRANT UPDATE (expires_at) ON public.stead_sessions TO stead_auth_app; -- sliding renewal; created_at is never updated
 GRANT SELECT, INSERT, UPDATE ON public.stead_auth_limits TO stead_auth_app;
 
 -- Profile (M0 follow-up)
@@ -17,9 +18,7 @@ GRANT UPDATE (email, password_hash, display_name, exclude_cash) ON public.stead_
 -- and UPDATE is limited to the columns the services actually change.
 GRANT SELECT, INSERT ON public.stead_accounts, public.stead_categories, public.stead_movements,
   public.stead_recurring_templates TO stead_auth_app;
-GRANT UPDATE (name, type, custom_type_id, institution, archived_at), DELETE ON public.stead_accounts TO stead_auth_app;
--- Custom account types: the base kind (base_type) is never updatable; a type is deleted only while unused (RESTRICT key).
-GRANT SELECT, INSERT, UPDATE (name, archived_at), DELETE ON public.stead_custom_account_types TO stead_auth_app;
+GRANT UPDATE (name, type, institution, archived_at), DELETE ON public.stead_accounts TO stead_auth_app;
 GRANT SELECT, INSERT, UPDATE (image_enc), DELETE ON public.stead_account_logos TO stead_auth_app;
 GRANT UPDATE (name, archived_at), DELETE ON public.stead_categories TO stead_auth_app;
 GRANT UPDATE (account_id, category_id, booking_date, description_enc, amount_cents, voided_at, transfer_id, transfer_leg)

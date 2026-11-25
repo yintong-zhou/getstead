@@ -13,7 +13,7 @@ const ids = {
 const at = "2026-11-01T10:00:00.000Z";
 
 function file() {
-  const account = (id: string, name: string, type = "CHECKING") => ({ id, name, type, customTypeId: null, archivedAt: null, createdAt: at });
+  const account = (id: string, name: string, type = "CHECKING") => ({ id, name, type, archivedAt: null, createdAt: at });
   const leg = (id: string, accountId: string, amountCents: number, transferLeg: string) => ({
     id, accountId, categoryId: null, bookingDate: "2026-11-02", description: "Synthetic transfer", amountCents,
     voidedAt: null, transferId: ids.transfer, transferLeg, createdAt: at,
@@ -102,4 +102,15 @@ test("version 2 adds an optional encrypted address and utility bills; a version 
   broken((b) => { b.data.utilityBills[0].periodEnd = "2026-08-31"; }, "validation", "utilityBills[0].periodEnd");
   broken((b) => { b.data.utilityBills[0].type = "INTERNET"; }, "validation", "utilityBills[0].rawMaterialCents");
   broken((b) => { b.data.utilityBills[0].movementId = ids.out; }, "backup_bill", "utilityBills[0].movementId");
+});
+
+test("a backup written with custom account types still loads: the label is dropped, the built-in type stays", () => {
+  const backup = file();
+  const fund = "00000000-0000-4000-8000-000000000009";
+  Object.assign(backup.data, { customAccountTypes: [{ id: fund, name: "Synthetic fund", baseType: "CHECKING", archivedAt: null, createdAt: at }] });
+  Object.assign(backup.data.accounts[0], { customTypeId: fund });
+  const rows = parseBackup(backup);
+  assert.equal(rows.accounts[0].type, "CHECKING");
+  assert.equal("customTypeId" in rows.accounts[0], false);
+  assert.equal("customAccountTypes" in rows, false);
 });

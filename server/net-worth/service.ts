@@ -51,15 +51,14 @@ export async function deleteCheck(userId: string, id: string) {
 export type NetWorthData = Awaited<ReturnType<typeof getNetWorth>>;
 export type CheckDto = Awaited<ReturnType<typeof listChecks>>[number];
 
-const accountSelect = { id: true, name: true, type: true, institution: true, archivedAt: true, customType: { select: { name: true } } } as const;
-type AccountRow = { id: string; name: string; type: AccountType; institution: string | null; archivedAt: Date | null; customType: { name: string } | null };
+const accountSelect = { id: true, name: true, type: true, institution: true, archivedAt: true } as const;
+type AccountRow = { id: string; name: string; type: AccountType; institution: string | null; archivedAt: Date | null };
 /**
- * `customTypeName` is the user's label for the account's type; null means the built-in (localized) label applies.
  * `balanceCents` is the account's cash; `holdingsCents` the securities held on it (brokerage accounts only).
  */
 function accountRow(account: AccountRow, balanceCents: number, checks: readonly { accountId: string; asOf: string }[], holdingsCents = 0) {
   return {
-    id: account.id, name: account.name, type: account.type, customTypeName: account.customType?.name ?? null,
+    id: account.id, name: account.name, type: account.type,
     institution: accountInstitution(account), archived: account.archivedAt !== null, balanceCents, holdingsCents,
     lastCheckDate: checks.filter((check) => check.accountId === account.id).map((check) => check.asOf).sort().at(-1) ?? null,
   };

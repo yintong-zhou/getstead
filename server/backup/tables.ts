@@ -44,7 +44,7 @@ const int = (min: number, max: number, extra: { nonZero?: boolean; big?: boolean
 const MAX_INT = 2_147_483_647;
 
 const tableKeys = [
-  "customAccountTypes", "categories", "transfers", "instruments", "accounts", "balanceChecks", "categoryRules",
+  "categories", "transfers", "instruments", "accounts", "balanceChecks", "categoryRules",
   "budgetLimits", "properties", "utilityContracts", "recurringTemplates", "movements", "investmentTransactions", "priceQuotes",
   "marketPriceQuotes", "propertyValuations", "condoTables", "condoSchedules", "recurringOccurrences", "condoCharges", "utilityBills",
 ] as const;
@@ -52,7 +52,6 @@ export type TableKey = (typeof tableKeys)[number];
 
 // Bounds mirror the CHECK constraints in db/migrations, so a bad file fails validation, not an INSERT.
 const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
-  customAccountTypes: ["customAccountType", { id, name: text(80), baseType: oneOf(AccountType), archivedAt: nullableTimestamp, createdAt: timestamp }],
   categories: ["category", { id, name: text(80), kind: oneOf(CategoryKind), archivedAt: nullableTimestamp, createdAt: timestamp }],
   transfers: ["transfer", { id, createdAt: timestamp }],
   instruments: ["instrument", {
@@ -60,7 +59,7 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
     marketSymbol: text(200, true), marketName: text(200, true), marketCurrency: text(10, true), archivedAt: nullableTimestamp,
   }],
   accounts: ["account", {
-    id, name: text(80), type: oneOf(AccountType), customTypeId: ref("customAccountTypes", true), institution: text(80, true),
+    id, name: text(80), type: oneOf(AccountType), institution: text(80, true),
     archivedAt: nullableTimestamp, createdAt: timestamp,
   }],
   balanceChecks: ["balanceCheck", { id, accountId: ref("accounts"), asOf: date, balanceCents: int(-MAX_CENTS, MAX_CENTS), createdAt: timestamp }],
