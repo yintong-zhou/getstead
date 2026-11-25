@@ -89,6 +89,7 @@
 .backup-confirm { margin-top: 12px; overflow-wrap: anywhere; }
 .cash-reporting-hint { margin-top: 8px; }
 .profile-card .cash-reporting-toggle { margin-top: 16px; max-width: 100%; white-space: normal; text-align: start; }
+.cash-reporting-label { min-width: 0; overflow-wrap: anywhere; }
 .profile-totp-qr { width: min(224px, 100%); height: auto; background: #fff; border-radius: 12px; }
 .profile-email { margin-top: 8px; overflow-wrap: anywhere; color: var(--muted); }
 .profile-languages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
