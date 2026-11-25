@@ -200,13 +200,14 @@ test("the asset split adds up to gross assets and leaves overdrawn accounts to l
   const totals = netWorthAt(accounts, checks, [], "2026-11-20");
   const types = new Map(accounts.map(({ id, type }) => [id, type]));
   const split = assetSplit(totals.perAccount.map((row) => ({ type: types.get(row.accountId)!, balanceCents: row.balanceCents })), 4_000, 50_000);
-  assert.deepEqual(split, { liquidityCents: 1_200, investmentsCents: 4_000, pensionCents: 3_000, propertyCents: 50_000 });
-  assert.equal(split.liquidityCents + split.investmentsCents + split.pensionCents + split.propertyCents, totals.assetsCents + 4_000 + 50_000);
+  assert.deepEqual(split, { liquidityCents: 1_200, savingsCents: 0, investmentsCents: 4_000, pensionCents: 3_000, propertyCents: 50_000 });
+  assert.equal(split.liquidityCents + split.savingsCents + split.investmentsCents + split.pensionCents + split.propertyCents, totals.assetsCents + 4_000 + 50_000);
   assert.equal(totals.liabilitiesCents, 9_500);
 });
 
-test("a savings account counts as liquidity, and an overdrawn one is not an asset", () => {
-  const split = assetSplit([{ type: "SAVINGS", balanceCents: 1_000_000 }, { type: "SAVINGS", balanceCents: -500 }], 0, 0);
-  assert.equal(split.liquidityCents, 1_000_000);
+test("a savings account is its own group, not pure cash, and an overdrawn one is not an asset", () => {
+  const split = assetSplit([{ type: "SAVINGS", balanceCents: 1_000_000 }, { type: "SAVINGS", balanceCents: -500 }, { type: "CHECKING", balanceCents: 200 }], 0, 0);
+  assert.equal(split.savingsCents, 1_000_000);
+  assert.equal(split.liquidityCents, 200);
   assert.equal(split.investmentsCents + split.pensionCents, 0);
 });

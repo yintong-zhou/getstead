@@ -356,6 +356,11 @@ test("changing an account type keeps balances and history, and only the owner ca
   assert.equal(after.balanceCents, before.balanceCents);
   assert.equal(after.lastCheckDate, before.lastCheckDate);
   assert.equal(await db().movement.count({ where: { userId: owner, accountId: checking.id } }), 1);
+
+  // Names are unique per user whatever the type, and the error says so.
+  await createAccount(owner, { name: "Synthetic twin", type: "BROKERAGE" });
+  await rejectsApi(createAccount(owner, { name: "Synthetic twin", type: "CHECKING" }), 409, "name_taken");
+  await rejectsApi(updateAccount(owner, checking.id, { name: "Synthetic twin" }), 409, "name_taken");
 });
 
 test("pension accounts are tracked by balance checks and listed with their balance and last check", async () => {
