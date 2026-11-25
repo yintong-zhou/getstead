@@ -7,7 +7,6 @@ import { PropertyView } from "@/components/property/property-view";
 import { readPageUser } from "@/server/auth/page-access";
 import { listAccounts } from "@/server/cash-flow/catalog";
 import { isLocale } from "@/server/locale";
-import { getBills } from "@/server/property/bills";
 import { getCosts, getOverview, parseCostQuery } from "@/server/property/service";
 
 export const runtime = "nodejs";
@@ -35,11 +34,10 @@ export default async function PropertyPage({ params, searchParams }: Props) {
     // An invalid ?year= falls back to the current year instead of failing the page.
     let costQuery;
     try { costQuery = parseCostQuery(query); } catch { costQuery = parseCostQuery(new URLSearchParams()); }
-    // One year selector drives condominium costs and utility bills together.
-    const [data, accounts, costs, bills] = await Promise.all([
-      getOverview(user.userId), listAccounts(user.userId, true), getCosts(user.userId, costQuery), getBills(user.userId, costQuery),
+    const [data, accounts, costs] = await Promise.all([
+      getOverview(user.userId), listAccounts(user.userId, true), getCosts(user.userId, costQuery),
     ]);
-    loaded = { data, accounts, costs, bills };
+    loaded = { data, accounts, costs };
   } catch {
     return <UnavailableNotice locale={locale} path="/property" />;
   }

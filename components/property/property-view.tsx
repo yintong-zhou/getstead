@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import type { AccountDto } from "@/server/cash-flow/catalog";
+import type { Contracts } from "@/server/property/contracts";
 import type { Bills } from "@/server/property/bills";
 import type { Costs, Overview } from "@/server/property/service";
 import { type Locale } from "@/server/locale";
 import { propertyCopy } from "./copy";
-import { BillFigures, PropertyBills } from "./bills";
+import { PropertyContracts } from "./contracts";
+import { LegacyBills } from "./bills";
 import { PropertyForm, Schedules, Tables, Valuations, type PropertyRow } from "./forms";
 import { ownershipText } from "./numbers";
 import { euros } from "@/components/euros";
@@ -13,7 +16,7 @@ import { Icon } from "@/components/icon";
 import { InfoTip } from "@/components/info-tip";
 import "./property.css";
 
-type ViewProps = { locale: Locale; data: Overview; accounts: AccountDto[]; costs: Costs; bills: Bills };
+type ViewProps = { locale: Locale; data: Overview; accounts: AccountDto[]; costs: Costs };
 type CostRow = Costs["total"];
 
 function CostFigures({ locale, row }: { locale: Locale; row: CostRow }) {
@@ -28,13 +31,12 @@ function CostFigures({ locale, row }: { locale: Locale; row: CostRow }) {
   </dl>;
 }
 
-// `pair` puts cards two per row on wide screens; a single property spans the row like the other cards.
-function PropertyCard({ locale, property, accounts, today, costs, bills, pair }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string; costs?: CostRow; bills: Bills; pair: boolean }) {
+function PropertyCard({ locale, property, accounts, today, costs, contracts, bills }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string; costs?: CostRow; contracts: Contracts; bills: Bills["bills"] }) {
   const copy = propertyCopy[locale];
   const separator = locale === "it" ? "," : ".";
   const mortgage = accounts.find((account) => account.id === property.mortgageAccountId);
   const sold = property.soldOn !== null && property.soldOn <= today;
-  return <section className={pair ? "card property-card stack-half" : "card property-card"} aria-labelledby={`property-${property.id}`}>
+  return <section className="card property-card" aria-labelledby={`property-${property.id}`}>
     <div className="property-head">
       <h2 id={`property-${property.id}`}>{property.name}</h2>
       <span className="badge badge-blue">{copy.kinds[property.kind]}</span>
@@ -54,9 +56,8 @@ function PropertyCard({ locale, property, accounts, today, costs, bills, pair }:
       <div className="label-row"><h4>{copy.costsTitle}</h4><InfoTip text={copy.costsHint} /></div>
       <CostFigures locale={locale} row={costs} />
     </div>}
-    <PropertyBills locale={locale} property={property} accounts={accounts} today={today} year={bills.year}
-      bills={bills.bills.filter((bill) => bill.propertyId === property.id)}
-      totals={bills.properties.find((row) => row.propertyId === property.id) ?? { paidCents: 0, dueCents: 0, overdueCents: 0 }} />
+    <PropertyContracts locale={locale} property={property} contracts={contracts} />
+    <LegacyBills locale={locale} bills={bills} />
     <details className="property-details">
       <summary>{copy.condoTitle}<Icon name="chevron" size={18} /></summary>
       <Tables locale={locale} property={property} />
@@ -69,12 +70,31 @@ function PropertyCard({ locale, property, accounts, today, costs, bills, pair }:
   </section>;
 }
 
-export function PropertyView({ locale, data, accounts, costs, bills }: ViewProps) {
+function YearSelector({ locale, year, path }: { locale: Locale; year: number; path: string }) {
+  const copy = propertyCopy[locale];
+  const yearLink = (value: number) => `${path}?year=${value}`;
+  return <nav className="property-actions property-year" aria-label={copy.costsYear}>
+    {year > 2000 ? <Link className="button button-quiet" href={yearLink(year - 1)} aria-label={copy.costsPrevious} rel="nofollow"><Icon name="chevronLeft" size={20} /></Link> : <span aria-hidden="true" className="year-gap" />}
+    <strong className="amount">{year}</strong>
+    {year < 2100 ? <Link className="button button-quiet" href={yearLink(year + 1)} aria-label={copy.costsNext} rel="nofollow"><Icon name="chevronRight" size={20} /></Link> : <span aria-hidden="true" className="year-gap" />}
+  </nav>;
+}
+
+function PropertyList({ locale, properties, year, today }: { locale: Locale; properties: PropertyRow[]; year: number; today: string }) {
+  const copy = propertyCopy[locale];
+  return <ul className="property-list">{properties.map((property) => <li key={property.id}>
+    <Link className="property-list-link" href={`/${locale}/property/${property.id}?year=${year}`}>
+      <span className="property-list-main"><strong>{property.name}</strong><span className="property-list-meta">{copy.kinds[property.kind]}{property.soldOn && property.soldOn <= today ? ` · ${copy.sold}` : ""}</span></span>
+      <span className="property-list-value"><span>{copy.yourShare}</span><strong className="amount">{euros(property.shareValueCents, locale)}</strong></span>
+      <Icon name="chevronRight" size={20} />
+    </Link>
+  </li>)}</ul>;
+}
+
+export function PropertyView({ locale, data, accounts, costs }: ViewProps) {
   const copy = propertyCopy[locale];
   const active = data.properties.filter((property) => !property.archived);
   const archived = data.properties.filter((property) => property.archived);
-  const costsOf = (id: string) => costs.properties.find((row) => row.propertyId === id);
-  const yearLink = (year: number) => `/${locale}/property?year=${year}`;
   return <div className="stack stack-fluid property-view">
     <section className="card hero" aria-labelledby="property-total-title">
       <div className="label-row">
@@ -88,32 +108,33 @@ export function PropertyView({ locale, data, accounts, costs, bills }: ViewProps
         <div className="label-row property-costs-heading">
           <h2 id="property-costs-title">{copy.costsAll}</h2>
         </div>
-        <nav className="property-actions property-year" aria-label={copy.costsYear}>
-          {costs.year > 2000 ? <a className="button button-quiet" href={yearLink(costs.year - 1)} aria-label={copy.costsPrevious} rel="nofollow"><Icon name="chevronLeft" size={20} /></a> : <span aria-hidden="true" className="year-gap" />}
-          <strong className="amount">{costs.year}</strong>
-          {costs.year < 2100 ? <a className="button button-quiet" href={yearLink(costs.year + 1)} aria-label={copy.costsNext} rel="nofollow"><Icon name="chevronRight" size={20} /></a> : <span aria-hidden="true" className="year-gap" />}
-        </nav>
+        <YearSelector locale={locale} year={costs.year} path={`/${locale}/property`} />
       </div>
       <div className="property-block">
         <div className="label-row"><h3>{copy.costsTitle}</h3><InfoTip text={<>{copy.costsHint}<br /><br />{copy.incomeHint}</>} /></div>
         <CostFigures locale={locale} row={costs.total} />
       </div>
-      <div className="property-block">
-        <div className="label-row"><h3>{copy.billsTitle}</h3><InfoTip text={copy.billsHint} /></div>
-        <BillFigures locale={locale} totals={bills.total} />
-      </div>
     </section>}
     {data.properties.length === 0 ? <p className="card empty-inline">{copy.noProperties}</p>
-      : active.map((property) => <PropertyCard key={property.id} pair={active.length > 1} locale={locale} property={property} accounts={accounts} today={data.today} costs={costsOf(property.id)} bills={bills} />)}
+      : active.length > 0 && <section className="card"><h2>{copy.propertiesList}</h2><PropertyList locale={locale} properties={active} year={costs.year} today={data.today} /></section>}
     {archived.length > 0 && <details className="card property-archived">
       <summary>{copy.archivedSection} ({archived.length})<Icon name="chevron" size={18} /></summary>
-      <div className="stack">
-        {archived.map((property) => <PropertyCard key={property.id} pair={false} locale={locale} property={property} accounts={accounts} today={data.today} costs={costsOf(property.id)} bills={bills} />)}
-      </div>
+      <PropertyList locale={locale} properties={archived} year={costs.year} today={data.today} />
     </details>}
     <section className="card" aria-labelledby="property-add-title">
       <h2 id="property-add-title">{copy.addProperty}</h2>
       <PropertyForm locale={locale} accounts={accounts} />
     </section>
+  </div>;
+}
+
+export function PropertyDetail({ locale, property, accounts, today, year, cost, contracts, bills }: { locale: Locale; property: PropertyRow; accounts: AccountDto[]; today: string; year: number; cost?: CostRow; contracts: Contracts; bills: Bills["bills"] }) {
+  const copy = propertyCopy[locale];
+  return <div className="stack stack-fluid property-view">
+    <div className="property-head">
+      <Link className="button button-quiet" href={`/${locale}/property?year=${year}`}><Icon name="chevronLeft" size={18} />{copy.backToProperties}</Link>
+      <YearSelector locale={locale} year={year} path={`/${locale}/property/${property.id}`} />
+    </div>
+    <PropertyCard locale={locale} property={property} accounts={accounts} today={today} costs={cost} contracts={contracts} bills={bills} />
   </div>;
 }

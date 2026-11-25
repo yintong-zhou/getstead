@@ -45,10 +45,11 @@ function fullBackup() {
   const backup = v1Backup();
   const { id } = backup;
   return {
-    format: backup.format, version: 2, exportedAt: backup.exportedAt,
+    format: backup.format, version: 3, exportedAt: backup.exportedAt,
     data: {
       ...backup.data,
       properties: [{ ...backup.data.properties[0], address: "Via Sintetica 1, 20100 Milano" }],
+      utilityContracts: [{ id: id.contract, propertyId: id.flat, type: "ELECTRICITY", provider: "Synthetic Power", unitPrice: "0.123456", unit: "kWh", activationDate: "2026-01-01", periodStart: "2026-01-01", periodEnd: "2026-12-31", durationMonths: 12, createdAt: backup.exportedAt }],
       movements: [...backup.data.movements, {
         id: id.power, accountId: id.checking, categoryId: null, bookingDate: "2026-11-18", description: "Synthetic power",
         amountCents: -8_420, voidedAt: null, transferId: null, transferLeg: null, createdAt: backup.exportedAt,
@@ -159,7 +160,7 @@ test("a backup restores every table into a new account and exports back identica
   assert.equal(restored.bills[0].status, "PAID");
   assert.equal((await db().movement.findUniqueOrThrow({ where: { id: restored.bills[0].payment!.movementId } })).userId, target);
   assert.equal((await getOverview(target, now)).properties[0].address, "Via Sintetica 1, 20100 Milano");
-  assert.equal(first.version, 2);
+  assert.equal(first.version, 3);
 });
 
 test("a version 1 backup (no address, no bills) still restores", async () => {

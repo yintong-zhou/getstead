@@ -114,3 +114,7 @@ export function billTotals(bills: readonly { totalCents: number; status: BillSta
   for (const bill of bills) sums[bill.status] += BigInt(bill.totalCents);
   return { paidCents: toSafeCents(sums.PAID), dueCents: toSafeCents(sums.DUE), overdueCents: toSafeCents(sums.OVERDUE) };
 }
+/** Prices use decimal strings to preserve fractions of a cent per unit. */
+export function validUtilityPrice(value: string): boolean {
+  return /^\d{1,6}(?:\.\d{1,6})?$/.test(value) && /[1-9]/.test(value);
+}

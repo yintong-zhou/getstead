@@ -46,6 +46,7 @@ model User {
   condoSchedules CondoSchedule[]
   condoCharges CondoCharge[]
   utilityBills UtilityBill[]
+  utilityContracts UtilityContract[]
   customAccountTypes CustomAccountType[]
 
   @@map("stead_users")
@@ -528,6 +529,7 @@ model Property {
   schedules CondoSchedule[]
   charges CondoCharge[]
   bills UtilityBill[]
+  contracts UtilityContract[]
 
   @@unique([userId, id])
   @@unique([userId, name])
@@ -643,4 +645,26 @@ model UtilityBill {
   @@index([userId, propertyId, dueDate])
   @@index([userId, dueDate])
   @@map("stead_utility_bills")
+}
+
+/// One manually recorded term of a utility supply contract.
+model UtilityContract {
+  id String @id @default(uuid()) @map("contract_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  propertyId String @map("property_id") @db.Uuid
+  type UtilityBillType
+  provider String @db.VarChar(80)
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 6)
+  unit String @db.VarChar(30)
+  activationDate DateTime @map("activation_date") @db.Date
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd DateTime @map("period_end") @db.Date
+  durationMonths Int @map("duration_months")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  property Property @relation(fields: [userId, propertyId], references: [userId, id], onDelete: Restrict)
+
+  @@unique([userId, id])
+  @@index([userId, propertyId, periodEnd])
+  @@map("stead_utility_contracts")
 }

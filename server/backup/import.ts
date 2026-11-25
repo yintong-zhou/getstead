@@ -127,6 +127,9 @@ function checkRules(rows: BackupRows, ids: Record<TableKey, Map<string, Row>>) {
   rows.properties.forEach((property, index) => {
     if (property.mortgageAccountId !== null && accountType(property.mortgageAccountId) !== "DEBT") invalid(`properties[${index}].mortgageAccountId`);
   });
+  rows.utilityContracts.forEach((contract, index) => {
+    if ((contract.periodStart as string) > (contract.periodEnd as string)) invalid(`utilityContracts[${index}].periodEnd`);
+  });
   rows.condoCharges.forEach((charge, index) => {
     const table = ids.condoTables.get(charge.tableId as string);
     if (table && table.propertyId !== charge.propertyId) invalid(`condoCharges[${index}].tableId`);
@@ -148,7 +151,7 @@ function checkRules(rows: BackupRows, ids: Record<TableKey, Map<string, Row>>) {
   const caps: [TableKey, number, string][] = [
     ["instruments", MAX_INSTRUMENTS, "instrument_limit"], ["investmentTransactions", MAX_TRANSACTIONS, "transaction_limit"],
     ["properties", MAX_PROPERTIES, "property_limit"], ["propertyValuations", MAX_VALUATIONS, "valuation_limit"],
-    ["condoCharges", MAX_ARCHIVED_CHARGES, "charge_limit"], ["utilityBills", MAX_BILLS, "bill_limit"],
+    ["condoCharges", MAX_ARCHIVED_CHARGES, "charge_limit"], ["utilityBills", MAX_BILLS, "bill_limit"], ["utilityContracts", 5000, "validation"],
   ];
   for (const [key, cap, code] of caps) if (rows[key].length > cap) invalid(key, code);
 }

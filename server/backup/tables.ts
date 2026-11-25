@@ -10,9 +10,9 @@ import { MAX_CENTS } from "../cash-flow/money.ts";
 import { addressContext, chargeContext, movementContext, templateContext } from "../cash-flow/text-crypto.ts";
 
 export const BACKUP_FORMAT = "getstead-backup";
-/** Version 2 added property addresses and utility bills; a version 1 file still restores (both are optional). */
-export const BACKUP_VERSION = 2;
-export const BACKUP_VERSIONS: readonly number[] = [1, 2];
+/** Version 3 adds contract terms; versions 1 and 2 remain readable. */
+export const BACKUP_VERSION = 3;
+export const BACKUP_VERSIONS: readonly number[] = [1, 2, 3];
 
 type Nullable = { nullable?: boolean };
 export type Field =
@@ -45,7 +45,7 @@ const MAX_INT = 2_147_483_647;
 
 const tableKeys = [
   "customAccountTypes", "categories", "transfers", "instruments", "accounts", "balanceChecks", "categoryRules",
-  "budgetLimits", "properties", "recurringTemplates", "movements", "investmentTransactions", "priceQuotes",
+  "budgetLimits", "properties", "utilityContracts", "recurringTemplates", "movements", "investmentTransactions", "priceQuotes",
   "marketPriceQuotes", "propertyValuations", "condoTables", "condoSchedules", "recurringOccurrences", "condoCharges", "utilityBills",
 ] as const;
 export type TableKey = (typeof tableKeys)[number];
@@ -71,6 +71,10 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
   properties: ["property", {
     id, name: text(80), kind: oneOf(PropertyKind), ownershipBps: int(1, 10_000), mortgageAccountId: ref("accounts", true),
     soldOn: nullableDate, archivedAt: nullableTimestamp, address: { kind: "secret", max: 200, context: addressContext, nullable: true },
+  }],
+  utilityContracts: ["utilityContract", {
+    id, propertyId: ref("properties"), type: oneOf(UtilityBillType), provider: text(80), unitPrice: { kind: "decimal", digits: 6, scale: 6 },
+    unit: text(30), activationDate: date, periodStart: date, periodEnd: date, durationMonths: int(1, 1200), createdAt: timestamp,
   }],
   recurringTemplates: ["recurringTemplate", {
     id, accountId: ref("accounts"), categoryId: ref("categories", true),

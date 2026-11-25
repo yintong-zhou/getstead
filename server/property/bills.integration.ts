@@ -13,6 +13,9 @@ import { createAccount, createCategory } from "../cash-flow/catalog.ts";
 import { createMovement, getMovement, pairMovements, transferCandidates, updateMovement } from "../cash-flow/movements.ts";
 import { createTemplate, resolveOccurrence } from "../cash-flow/recurring.ts";
 import { billCandidates, createBill, deleteBill, getBills, linkBill, unlinkBill, updateBill } from "./bills.ts";
+import { createContract, getContracts, updateContract } from "./contracts.ts";
+import { exportBackup } from "../backup/export.ts";
+import { importBackup } from "../backup/import.ts";
 import { createProperty, getOverview, updateProperty } from "./service.ts";
 
 let admin: PrismaClient;
@@ -42,6 +45,28 @@ const expense = (f: Fixture, amountCents: number, bookingDate = "2026-11-19", ac
 const rejects = (promise: Promise<unknown>, status: number, code?: string, field?: string) => assert.rejects(promise, (error: unknown) => {
   const failure = error as { status?: number; code?: string; field?: string };
   return failure.status === status && (!code || failure.code === code) && (!field || failure.field === field);
+});
+
+test("utility contract terms preserve precise prices, history, user isolation and backups", async () => {
+  const f = await fixture();
+  const other = await fixture();
+  const term = { type: "GAS", provider: "Synthetic supply", unitPrice: "0.123456", unit: "Smc", activationDate: "2026-01-01", periodStart: "2026-01-01", periodEnd: "2026-12-31", durationMonths: 12 };
+  await createContract(f.userId, { propertyId: f.property.id, ...term });
+  const first = (await getContracts(f.userId))[0];
+  assert.equal(first.unitPrice, "0.123456");
+  await updateContract(f.userId, first.id, { ...term, periodStart: "2025-12-01" });
+  assert.equal((await getContracts(f.userId))[0].activationDate, "2026-01-01");
+  assert.equal((await getContracts(f.userId))[0].periodStart, "2025-12-01");
+  await createContract(f.userId, { propertyId: f.property.id, ...term, unitPrice: "0.2", periodStart: "2027-01-01", periodEnd: "2027-12-31" });
+  assert.equal((await getContracts(f.userId)).length, 2);
+  assert.equal((await getContracts(other.userId)).length, 0);
+  await rejects(updateContract(other.userId, first.id, term), 404);
+  await rejects(createContract(f.userId, { propertyId: other.property.id, ...term }), 404);
+  await rejects(createContract(f.userId, { propertyId: f.property.id, ...term, unitPrice: "0.1234567" }), 422);
+  const target = await admin.user.create({ data: { email: `contract-restore-${randomUUID()}@example.test`, passwordHash: "synthetic" } });
+  const backup = await exportBackup(f.userId);
+  await importBackup(target.id, backup);
+  assert.deepEqual((await getContracts(target.id)).map((row) => row.unitPrice), ["0.2", "0.123456"]);
 });
 
 test("runtime role: bills cannot change owner or property, addresses are writable, and both are sealed", async () => {

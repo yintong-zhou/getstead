@@ -21,6 +21,19 @@ import { MAX_PAYABLE_CENTS, parseEurosUpTo } from "./numbers";
 
 type Totals = Bills["total"];
 
+/** Retain access to old records and their existing payment links after moving to contracts. */
+export function LegacyBills({ locale, bills }: { locale: Locale; bills: BillDto[] }) {
+  const action = usePropertyAction(locale);
+  const copy = propertyCopy[locale];
+  if (!bills.length) return null;
+  return <details className="property-details"><summary>{locale === "it" ? "Registrazioni precedenti" : "Previous records"}<Icon name="chevron" size={18} /></summary>
+    <ul className="rows">{bills.map((bill) => <li key={bill.id} className="property-charge">
+      <div className="property-line"><span>{bill.provider} · {copy.billTypes[bill.type]} · {formatDate(bill.dueDate, locale)}</span><span>{euros(bill.totalCents, locale)}</span></div>
+      {bill.payment && <button className="button button-quiet" type="button" disabled={action.pending} onClick={() => action.run(() => propertyCall("DELETE", `/bills/${bill.id}/payment`), copy.billUnlinked)}>{copy.unlinkPayment}</button>}
+    </li>)}</ul><NoticeLine notice={action.notice} />
+  </details>;
+}
+
 /** Paid, due and overdue amounts for the bills due in the selected year. */
 export function BillFigures({ locale, totals }: { locale: Locale; totals: Totals }) {
   const copy = propertyCopy[locale];

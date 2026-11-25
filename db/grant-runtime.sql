@@ -60,6 +60,8 @@ GRANT DELETE ON public.stead_condo_schedules TO stead_auth_app;
 GRANT SELECT, INSERT, DELETE ON public.stead_utility_bills TO stead_auth_app;
 GRANT UPDATE (type, provider, period_start, period_end, due_date, total_cents, raw_material_cents, movement_id)
   ON public.stead_utility_bills TO stead_auth_app;
+GRANT SELECT, INSERT ON public.stead_utility_contracts TO stead_auth_app;
+GRANT UPDATE (type, provider, unit_price, unit, activation_date, period_start, period_end, duration_months) ON public.stead_utility_contracts TO stead_auth_app;
 REVOKE UPDATE (kind, title_enc, due_date, amount_cents, approved_on, table_id, building_total_cents, voided_at, movement_id)
   ON public.stead_condo_charges FROM stead_auth_app;
 
