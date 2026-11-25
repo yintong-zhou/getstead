@@ -10,13 +10,14 @@ import { ApiError, conflict, notFound } from "./errors.ts";
 export const accountTypes = ["CHECKING", "CARD", "BROKERAGE", "CRYPTO", "CASH", "DEBT", "PENSION"] as const;
 export const categoryKinds = ["EXPENSE", "INCOME"] as const;
 
-export type AccountDto = { id: string; name: string; type: Account["type"]; customTypeId: string | null; archived: boolean; hasLogo: boolean };
+/** `institution` is the value the user set; null means it is recognised from the name (see accountInstitution). */
+export type AccountDto = { id: string; name: string; type: Account["type"]; customTypeId: string | null; institution: string | null; archived: boolean; hasLogo: boolean };
 export type CategoryDto = { id: string; name: string; kind: Category["kind"]; archived: boolean };
 export type AccountTypeDto = { id: string; name: string; baseType: CustomAccountType["baseType"]; archived: boolean };
 
 const logoPresence = { logo: { select: { accountId: true } } } as const;
 const accountDto = (row: Account & { logo?: { accountId: string } | null }): AccountDto => ({
-  id: row.id, name: row.name, type: row.type, customTypeId: row.customTypeId, archived: row.archivedAt !== null,
+  id: row.id, name: row.name, type: row.type, customTypeId: row.customTypeId, institution: row.institution, archived: row.archivedAt !== null,
   hasLogo: Boolean(row.logo),
 });
 const categoryDto = (row: Category): CategoryDto => ({ id: row.id, name: row.name, kind: row.kind, archived: row.archivedAt !== null });
@@ -62,11 +63,12 @@ export async function createAccount(userId: string, input: Record<string, unknow
   const reader = new Reader(input);
   const name = reader.text("name", 80);
   const typeInput = readType(reader, true);
+  const institution = reader.nullableText("institution", 80) ?? null;
   const openingBalanceCents = reader.optionalSignedCents("openingBalanceCents");
   reader.done();
   return db().$transaction(async (client) => {
     const { type, customTypeId } = await resolveType(client, userId, typeInput);
-    const row = await client.account.create({ data: { userId, name, type: type!, customTypeId } });
+    const row = await client.account.create({ data: { userId, name, type: type!, customTypeId, institution } });
     if (openingBalanceCents !== undefined) {
       await client.balanceCheck.create({
         data: { userId, accountId: row.id, asOf: toDate(addDays(romeToday(now), -1)), balanceCents: openingBalanceCents },
@@ -81,6 +83,7 @@ export async function updateAccount(userId: string, id: string, input: Record<st
   const reader = new Reader(input);
   const name = reader.optionalText("name", 80);
   const typeInput = readType(reader, false);
+  const institution = reader.nullableText("institution", 80);
   const archived = reader.optionalBool("archived");
   reader.done();
   const row = await db().$transaction(async (client) => {
@@ -95,7 +98,7 @@ export async function updateAccount(userId: string, id: string, input: Record<st
     return client.account.update({
       where: { userId_id: { userId, id } },
       include: logoPresence,
-      data: { name, type, customTypeId, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
+      data: { name, type, customTypeId, institution, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
     });
   });
   return accountDto(row);

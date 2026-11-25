@@ -323,3 +323,26 @@ export function closeChange(instruments: readonly Instrument[], transactions: re
   if (!asOf) return null;
   return { asOf, changeCents: toSafeCents(change), rate: base > 0n ? Number(change) / Number(base) : null };
 }
+
+/**
+ * Holdings value per account, replaying each account's own trades. An account whose trades cannot stand alone (a sale of
+ * units bought on another account) is left out, so callers show the rest of the total as unassigned holdings.
+ */
+export function holdingsByAccount(instruments: readonly Instrument[], transactions: readonly Transaction[], quotes: readonly Quote[], asOf: string) {
+  const byAccount = new Map<string, Transaction[]>();
+  for (const row of transactions) {
+    const rows = byAccount.get(row.accountId);
+    if (rows) rows.push(row);
+    else byAccount.set(row.accountId, [row]);
+  }
+  const result = new Map<string, number>();
+  for (const [accountId, rows] of byAccount) {
+    try {
+      const cents = holdingsValue(instruments, rows, quotes, asOf).reduce((sum, row) => sum + BigInt(row.valueCents), 0n);
+      if (cents !== 0n) result.set(accountId, toSafeCents(cents));
+    } catch (error) {
+      if (!(error instanceof ApiError && error.code === "negative_position")) throw error;
+    }
+  }
+  return result;
+}

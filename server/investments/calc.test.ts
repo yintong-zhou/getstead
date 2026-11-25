@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { Decimal } from "@prisma/client/runtime/client";
 import { ApiError } from "../cash-flow/errors.ts";
 import {
-  allocation, cashEffects, closeChange, decimalInput, holdingsValue, income, indicativeTax, portfolioTrend, position,
+  allocation, cashEffects, closeChange, decimalInput, holdingsByAccount, holdingsValue, income, indicativeTax, portfolioTrend, position,
   toSafeCents, validateHistory, valueInCents, type Instrument, type Transaction,
 } from "./calc.ts";
 
@@ -298,4 +298,13 @@ test("close change lets each holding use its own last session and skips sold ins
   // 2 EU units gain 2 € and the US unit gains 2 €, against 20 € + 10 € at the previous closes.
   const result = closeChange([stock, us, sold], trades, quotes, "2026-11-28");
   assert.deepEqual(result, { asOf: "2026-11-24", changeCents: 400, rate: 400 / 3000 });
+});
+
+test("holdings split by account, leaving out an account whose sale depends on another account", () => {
+  const quote = { instrumentId: stock.id, asOf, unitPrice: "20" };
+  const trades = [
+    trade({ id: "a", accountId: "broker-a" }), trade({ id: "b", accountId: "broker-b", quantity: "1", amountCents: 1000n }),
+    trade({ id: "c", accountId: "broker-c", type: "SELL", quantity: "1", amountCents: 2000n, ordinal: 2 }),
+  ];
+  assert.deepEqual([...holdingsByAccount([stock], trades, [quote], asOf)], [["broker-a", 4000], ["broker-b", 2000]]);
 });

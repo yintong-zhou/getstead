@@ -183,3 +183,8 @@ export const logoGroupsByType: Record<string, readonly LogoGroup[]> = {
 };
 
 export const catalogLogoPath = (id: string) => `/account-logos/${id}.webp`;
+
+/** The institution an account belongs to: the one set by the user, else the catalog provider its name mentions. */
+export function accountInstitution(account: { name: string; institution: string | null }) {
+  return account.institution ?? findCatalogLogo(account.name)?.name ?? null;
+}

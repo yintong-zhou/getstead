@@ -7,7 +7,8 @@ import type { AccountType } from "../../db/generated/client.ts";
 import { balanceAt, monthlySeries, netWorthAt, netWorthTrend, seriesAt } from "./calc.ts";
 import { buildTrend } from "../trend.ts";
 import { marketQuoteInput, quoteInput, transactionInput } from "../investments/service.ts";
-import { toSafeCents } from "../investments/calc.ts";
+import { holdingsByAccount, toSafeCents } from "../investments/calc.ts";
+import { accountInstitution } from "../cash-flow/logo-catalog.ts";
 
 const checkSelect = { id: true, accountId: true, asOf: true, balanceCents: true } as const;
 const RECENT_CHECK_LIMIT = 100;
@@ -50,13 +51,16 @@ export async function deleteCheck(userId: string, id: string) {
 export type NetWorthData = Awaited<ReturnType<typeof getNetWorth>>;
 export type CheckDto = Awaited<ReturnType<typeof listChecks>>[number];
 
-const accountSelect = { id: true, name: true, type: true, archivedAt: true, customType: { select: { name: true } } } as const;
-type AccountRow = { id: string; name: string; type: AccountType; archivedAt: Date | null; customType: { name: string } | null };
-/** `customTypeName` is the user's label for the account's type; null means the built-in (localized) label applies. */
-function accountRow(account: AccountRow, balanceCents: number, checks: readonly { accountId: string; asOf: string }[]) {
+const accountSelect = { id: true, name: true, type: true, institution: true, archivedAt: true, customType: { select: { name: true } } } as const;
+type AccountRow = { id: string; name: string; type: AccountType; institution: string | null; archivedAt: Date | null; customType: { name: string } | null };
+/**
+ * `customTypeName` is the user's label for the account's type; null means the built-in (localized) label applies.
+ * `balanceCents` is the account's cash; `holdingsCents` the securities held on it (brokerage accounts only).
+ */
+function accountRow(account: AccountRow, balanceCents: number, checks: readonly { accountId: string; asOf: string }[], holdingsCents = 0) {
   return {
     id: account.id, name: account.name, type: account.type, customTypeName: account.customType?.name ?? null,
-    archived: account.archivedAt !== null, balanceCents,
+    institution: accountInstitution(account), archived: account.archivedAt !== null, balanceCents, holdingsCents,
     lastCheckDate: checks.filter((check) => check.accountId === account.id).map((check) => check.asOf).sort().at(-1) ?? null,
   };
 }
@@ -116,13 +120,17 @@ export async function getNetWorth(userId: string, now = new Date(), { trend = fa
   const totals = netWorthAt(accounts, datedChecks, movements, today, investments, realEstate);
   const series = monthlySeries(accounts, datedChecks, movements, today, investments, realEstate);
   const balances = new Map(totals.perAccount.map((row) => [row.accountId, row.balanceCents]));
+  const holdings = holdingsByAccount(investments.instruments, investments.transactions, investments.quotes, today);
+  const assignedCents = [...holdings.values()].reduce((sum, cents) => sum + BigInt(cents), 0n);
   return {
     today,
     assetsCents: totals.assetsCents, liabilitiesCents: totals.liabilitiesCents, netCents: totals.netCents,
     holdingsCents: totals.holdingsCents,
+    /** Holdings no single account explains (see holdingsByAccount); usually zero. */
+    unassignedHoldingsCents: toSafeCents(BigInt(totals.holdingsCents) - assignedCents),
     propertiesCents: totals.propertiesCents,
     changeCents: toSafeCents(BigInt(totals.netCents) - BigInt(series.at(-2)!.netCents)),
-    perAccount: accounts.map((account) => accountRow(account, balances.get(account.id)!, datedChecks)),
+    perAccount: accounts.map((account) => accountRow(account, balances.get(account.id)!, datedChecks, holdings.get(account.id))),
     series,
     // ponytail: recomputes every range on each page load; cache per user if large histories make it slow.
     trend: trend ? buildTrend(today, earliestDate(datedChecks.map((row) => row.asOf), movements.map((row) => row.bookingDate),

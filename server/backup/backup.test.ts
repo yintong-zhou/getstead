@@ -62,7 +62,7 @@ test("a retired charge can keep the ID of a deleted millesimal table", () => {
 
 test("a backup is rejected before anything is written when the file is wrong", () => {
   rejects((b) => { b.format = "other"; }, "backup_format", "format");
-  rejects((b) => { b.version = 4; }, "backup_version", "version");
+  rejects((b) => { b.version = 5; }, "backup_version", "version");
   rejects((b) => { (b.data.accounts[0] as Record<string, unknown>).extra = 1; }, "validation", "accounts[0].extra");
   rejects((b) => { b.data.movements[0].amountCents = 0; }, "validation", "movements[0].amountCents");
   rejects((b) => { b.data.investmentTransactions[0].quantity = "1e3"; }, "validation", "investmentTransactions[0].quantity");

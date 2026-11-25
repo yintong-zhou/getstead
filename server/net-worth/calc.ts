@@ -37,10 +37,11 @@ export function netWorthAt(accounts: readonly Account[], checks: readonly Check[
   return { holdingsCents: toSafeCents(holdings), propertiesCents: toSafeCents(properties), assetsCents: toSafeCents(assets), liabilitiesCents: toSafeCents(liabilities), netCents: toSafeCents(assets - liabilities), perAccount };
 }
 
-const investmentAccounts = new Set(["BROKERAGE", "CRYPTO"]);
+const investmentAccounts = new Set(["CRYPTO"]);
 /**
  * Gross assets in four groups, by the same rule as netWorthAt: an account with a positive balance is an asset,
- * a negative one a liability, so the groups always add up to assetsCents.
+ * a negative one a liability, so the groups always add up to assetsCents. Uninvested cash on a brokerage account
+ * counts as cash, so the investments group matches the holdings shown on the investments card.
  */
 export function assetSplit(perAccount: readonly { type: string; balanceCents: number }[], holdingsCents: number, propertiesCents: number) {
   let liquidity = 0n, investments = BigInt(holdingsCents), pension = 0n;

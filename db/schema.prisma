@@ -187,6 +187,8 @@ model Account {
   name       String              @db.VarChar(80)
   type       AccountType
   customTypeId String?           @map("custom_type_id") @db.Uuid
+  /// Bank or broker the account belongs to; accounts of one institution are grouped. Null: recognised from the name.
+  institution String?            @db.VarChar(80)
   customType CustomAccountType?  @relation(fields: [userId, customTypeId, type], references: [userId, id, baseType], onDelete: Restrict, onUpdate: Restrict)
   archivedAt DateTime?           @map("archived_at") @db.Timestamptz(3)
   createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)

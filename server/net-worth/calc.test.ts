@@ -200,7 +200,7 @@ test("the asset split adds up to gross assets and leaves overdrawn accounts to l
   const totals = netWorthAt(accounts, checks, [], "2026-11-20");
   const types = new Map(accounts.map(({ id, type }) => [id, type]));
   const split = assetSplit(totals.perAccount.map((row) => ({ type: types.get(row.accountId)!, balanceCents: row.balanceCents })), 4_000, 50_000);
-  assert.deepEqual(split, { liquidityCents: 1_000, investmentsCents: 4_200, pensionCents: 3_000, propertyCents: 50_000 });
+  assert.deepEqual(split, { liquidityCents: 1_200, investmentsCents: 4_000, pensionCents: 3_000, propertyCents: 50_000 });
   assert.equal(split.liquidityCents + split.investmentsCents + split.pensionCents + split.propertyCents, totals.assetsCents + 4_000 + 50_000);
   assert.equal(totals.liabilitiesCents, 9_500);
 });
