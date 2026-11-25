@@ -15,7 +15,35 @@ import { Select } from "../select";
 import { netWorthCopy } from "./copy";
 import { euros } from "@/components/euros";
 import { TrendCard } from "@/components/trend-card";
+import { AccountGroup } from "@/components/account-group";
+import { groupByInstitution } from "@/components/account-groups";
 import "./net-worth.css";
+
+/** An account's balance; a brokerage account holding securities shows its cash and its securities on two lines. */
+function AccountLines({ account, locale }: { account: NetWorthData["perAccount"][number]; locale: Locale }) {
+  const copy = netWorthCopy[locale];
+  const shared = cashFlowCopy[locale];
+  const split = account.holdingsCents !== 0;
+  return <>
+    <li className="manage-row worth-account">
+      <div className="row-text">
+        <p>{account.name}{split && ` · ${shared.cashLine}`}{account.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
+        <span>{account.customTypeName ?? shared.accountTypes[account.type]} ·{account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
+        {account.archived && account.balanceCents !== 0 && <p className="worth-flag">{copy.archivedBalance}</p>}
+      </div>
+      <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{euros(account.balanceCents, locale)}</span>
+    </li>
+    {split && (
+      <li className="manage-row worth-account">
+        <div className="row-text">
+          <p>{account.name} · {shared.securitiesLine}</p>
+          <Link className="text-link" href={`/${locale}/investments`}>{copy.holdingsLink}</Link>
+        </div>
+        <span className="amount">{euros(account.holdingsCents, locale)}</span>
+      </li>
+    )}
+  </>;
+}
 
 export function NetWorthView({ locale, data, checks }: { locale: Locale; data: NetWorthData; checks: CheckDto[] }) {
   const copy = netWorthCopy[locale];
@@ -43,22 +71,20 @@ export function NetWorthView({ locale, data, checks }: { locale: Locale; data: N
         <p className="hint">{copy.closingHint}</p>
         {data.perAccount.length === 0 && data.holdingsCents === 0 && data.propertiesCents === 0 ? (
           <div className="empty-inline"><p>{shared.noAccountsBody}</p><Link className="text-link" href={`/${locale}/accounts`}>{shared.goToAccounts}</Link></div>
-        ) : <ul className="rows">{data.perAccount.map((account) => (
-          <li className="manage-row worth-account" key={account.id}>
-            <div className="row-text">
-              <p>{account.name}{account.archived && <span className="badge">{shared.archivedSuffix}</span>}</p>
-              <span>{account.customTypeName ?? shared.accountTypes[account.type]} ·{account.lastCheckDate ? `${copy.lastCheck}: ${account.lastCheckDate}` : copy.noCheck}</span>
-              {account.archived && account.balanceCents !== 0 && <p className="worth-flag">{copy.archivedBalance}</p>}
-            </div>
-            <span className={`amount${account.balanceCents < 0 ? " negative" : ""}`}>{euros(account.balanceCents, locale)}</span>
-          </li>
-        ))}{data.holdingsCents > 0 && (
+        ) : <ul className="rows">{groupByInstitution(data.perAccount, (account) => account.institution).map((item) => item.kind === "account"
+          ? <AccountLines key={item.account.id} account={item.account} locale={locale} />
+          : (
+            <AccountGroup key={item.key} groupKey={item.key} name={item.name} count={item.accounts.length} locale={locale}
+              totalCents={item.accounts.reduce((sum, account) => sum + account.balanceCents + account.holdingsCents, 0)}>
+              {item.accounts.map((account) => <AccountLines key={account.id} account={account} locale={locale} />)}
+            </AccountGroup>
+          ))}{data.unassignedHoldingsCents !== 0 && (
           <li className="manage-row worth-account">
             <div className="row-text">
               <p>{copy.holdings}</p>
               <Link className="text-link" href={`/${locale}/investments`}>{copy.holdingsLink}</Link>
             </div>
-            <span className="amount">{euros(data.holdingsCents, locale)}</span>
+            <span className="amount">{euros(data.unassignedHoldingsCents, locale)}</span>
           </li>
         )}{data.propertiesCents > 0 && (
           <li className="manage-row worth-account">

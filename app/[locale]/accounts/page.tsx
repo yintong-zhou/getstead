@@ -7,6 +7,7 @@ import { cashFlowCopy } from "@/components/cash-flow/copy";
 import { readPageUser } from "@/server/auth/page-access";
 import { listAccountTypes, listAccounts, listCategories } from "@/server/cash-flow/catalog";
 import { listRules } from "@/server/cash-flow/rules";
+import { getNetWorth } from "@/server/net-worth/service";
 import { isLocale } from "@/server/locale";
 
 export const runtime = "nodejs";
@@ -29,13 +30,15 @@ export default async function AccountsPage({ params }: Props) {
 
   let data;
   try {
-    const [accounts, accountTypes, categories, rules] = await Promise.all([
+    const [accounts, accountTypes, categories, rules, netWorth] = await Promise.all([
       listAccounts(user.userId, true),
       listAccountTypes(user.userId),
       listCategories(user.userId, true),
       listRules(user.userId),
+      getNetWorth(user.userId),
     ]);
-    data = { accounts, accountTypes, categories, rules };
+    const balances = Object.fromEntries(netWorth.perAccount.map(({ id, balanceCents, holdingsCents }) => [id, { balanceCents, holdingsCents }]));
+    data = { accounts, accountTypes, categories, rules, balances };
   } catch {
     return <UnavailableNotice locale={locale} path="/accounts" />;
   }

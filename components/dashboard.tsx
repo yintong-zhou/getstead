@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { DashboardData } from "@/server/cash-flow/dashboard";
 import type { Profile } from "@/server/profile/service";
-import { formatEuros, type Locale } from "@/server/locale";
+import { formatEuros, localeTags, type Locale } from "@/server/locale";
+import { AssetDonut } from "./asset-donut";
+import { MarketRefresh } from "./market-refresh";
 import { AppShell } from "./app-shell";
 import { dashboardCopy, type DashboardCopy } from "./dashboard-copy";
 import { formatDay, formatMonth } from "./format";
@@ -63,6 +65,103 @@ function ActivityRow({ item, locale, today, copy }: {
   );
 }
 
+const groupColors = { liquidity: "var(--chart-1)", investments: "var(--chart-2)", pension: "var(--chart-4)", property: "var(--chart-3)" } as const;
+
+function Worth({ data, locale, copy }: { data: DashboardData; locale: Locale; copy: DashboardCopy }) {
+  const percent = new Intl.NumberFormat(localeTags[locale], { style: "percent", maximumFractionDigits: 1 });
+  const { liquidityCents, investmentsCents, pensionCents, propertyCents } = data.assets;
+  const groups = ([["liquidity", liquidityCents], ["investments", investmentsCents], ["pension", pensionCents], ["property", propertyCents]] as const)
+    .filter(([, cents]) => cents > 0);
+  const total = groups.reduce((sum, [, cents]) => sum + cents, 0);
+  const share = (cents: number) => percent.format(cents / total);
+  const slices = groups.map(([key, cents]) => ({ label: copy.assetGroups[key], value: cents, color: groupColors[key] }));
+  return (
+    <section className="card dashboard-worth" aria-labelledby="worth-title">
+      <header className="card-head">
+        <h2 id="worth-title">{copy.netWorth}</h2>
+        <Link className="text-link" href={`/${locale}/net-worth`}>{copy.details}</Link>
+      </header>
+      {total > 0 && <AssetDonut slices={slices} netWorthCents={data.netWorthCents} centerLabel={copy.netWorth} locale={locale}
+        summary={`${copy.assetShare}: ${slices.map(({ label, value }) => `${label} ${share(value)}`).join(", ")}`} />}
+      <ul className="rows asset-legend">
+        {groups.map(([key, cents]) => (
+          <li className="data-row" key={key}>
+            <span className="row-text"><i aria-hidden="true" style={{ background: groupColors[key] }} />{copy.assetGroups[key]} <span>· {share(cents)}</span></span>
+            <span className="row-amount amount">{euros(cents, locale)}</span>
+          </li>
+        ))}
+        {data.liabilitiesCents > 0 && (
+          <li className="data-row">
+            <span className="row-text">{copy.debts}</span>
+            <span className="row-amount amount">{euros(-data.liabilitiesCents, locale)}</span>
+          </li>
+        )}
+      </ul>
+      {total === 0 && <p className="amount worth-total">{euros(data.netWorthCents, locale)}</p>}
+    </section>
+  );
+}
+
+function Change({ rate, locale }: { rate: number | null; locale: Locale }) {
+  if (rate === null) return <span className="muted">—</span>;
+  const text = new Intl.NumberFormat(localeTags[locale], { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" }).format(rate);
+  return <span className={`amount${rate > 0 ? " positive" : rate < 0 ? " negative" : ""}`}>{text}</span>;
+}
+
+function Investments({ summary, benchmarks, locale, copy }: {
+  summary: NonNullable<DashboardData["investments"]>; benchmarks: DashboardData["benchmarks"]; locale: Locale; copy: DashboardCopy;
+}) {
+  const points = new Intl.NumberFormat(localeTags[locale], { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const signedPoints = new Intl.NumberFormat(localeTags[locale], { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "exceptZero" });
+  const ratio = (to: string, from: string | null) => from ? Number(to) / Number(from) - 1 : null;
+  const { sp500, vix } = benchmarks ?? { sp500: null, vix: null };
+  const dates = [...new Set([summary.lastClose?.asOf, sp500?.asOf, vix?.asOf].filter((date) => date !== undefined))].sort()
+    .map((date) => formatDay(date, locale));
+  return (
+    <section className="card dashboard-narrow dashboard-investments" aria-labelledby="investments-title">
+      <header className="card-head">
+        <h2 id="investments-title">{copy.nav.investments}</h2>
+        <Link className="text-link" href={`/${locale}/investments`}>{copy.details}</Link>
+      </header>
+      <p className="investments-value amount">{euros(summary.valueCents, locale)}</p>
+      <p className="investments-gain">
+        {copy.unrealised}{" "}
+        <span className={`amount${summary.gainCents > 0 ? " positive" : summary.gainCents < 0 ? " negative" : ""}`}>
+          {euros(summary.gainCents, locale, { showPlus: true })}
+        </span>{" "}
+        {summary.gainRate !== null && <>(<Change rate={summary.gainRate} locale={locale} />)</>}
+      </p>
+      <table className="market-table">
+        <thead>
+          <tr><td /><th scope="col">{copy.lastClose}</th><th scope="col">{copy.yearToDate}</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">{copy.portfolio}</th>
+            <td><Change rate={summary.lastClose?.rate ?? null} locale={locale} /></td>
+            <td><Change rate={summary.ytd.rate} locale={locale} /></td>
+          </tr>
+          {sp500 && (
+            <tr>
+              <th scope="row">{copy.sp500}</th>
+              <td><Change rate={ratio(sp500.close, sp500.previousClose)} locale={locale} /></td>
+              <td><Change rate={ratio(sp500.close, sp500.yearStartClose)} locale={locale} /></td>
+            </tr>
+          )}
+          {vix && (
+            <tr>
+              <th scope="row">{copy.vix}</th>
+              <td className="amount">{points.format(Number(vix.close))} ({signedPoints.format(Number(vix.close) - Number(vix.previousClose))})</td>
+              <td><span className="muted">—</span></td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {dates.length > 0 && <p className="hint">{copy.closesOf(dates.join(" · "))}</p>}
+    </section>
+  );
+}
+
 export function Dashboard({ locale, data, profile }: { locale: Locale; data: DashboardData; profile: Profile }) {
   const copy = dashboardCopy[locale];
   const summary = [
@@ -101,13 +200,11 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
           )}
 
           <div className="dashboard-grid">
-            <section className="card hero" aria-labelledby="hero-title">
-              <h2 id="hero-title" className="hero-label">{copy.monthlyNet}</h2>
-              <p className="hero-amount amount">{euros(data.monthlyNetCents, locale, { showPlus: true })}</p>
-              <p className="hero-note">{copy.netNote}</p>
-            </section>
+            {data.showNetWorth && <Worth data={data} locale={locale} copy={copy} />}
+            {data.investments && <Investments summary={data.investments} benchmarks={data.benchmarks} locale={locale} copy={copy} />}
+            {data.investments && data.marketEnabled && <MarketRefresh />}
 
-            <section className="card monthly" aria-labelledby="monthly-title">
+            <section className="card monthly dashboard-narrow" aria-labelledby="monthly-title">
               <h2 id="monthly-title">{copy.thisMonth}</h2>
               <ul className="rows summary-rows">
                 {summary.map(({ name, cents, icon, tone }) => (
@@ -119,13 +216,19 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
                     </span>
                   </li>
                 ))}
+                <li className="data-row monthly-net">
+                  <span className="row-text">{copy.balance}</span>
+                  <span className={`row-amount amount${data.monthlyNetCents > 0 ? " positive" : ""}`}>
+                    {euros(data.monthlyNetCents, locale, { showPlus: true })}
+                  </span>
+                </li>
               </ul>
               {refundsExceed && <p className="hint refund-note">{copy.refundsExceed}</p>}
             </section>
 
             <CashFlow values={data.trend} locale={locale} copy={copy} />
 
-            <section className="card budget" aria-labelledby="budget-title">
+            <section className="card budget dashboard-narrow" aria-labelledby="budget-title">
               <header className="card-head">
                 <h2 id="budget-title">{copy.monthlyBudget}</h2>
                 <Link className="text-link" href={`/${locale}/budget`}>{copy.seeAll}</Link>
@@ -169,7 +272,7 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
             )}
 
             {data.dueCount > 0 && (
-              <section className="card" aria-labelledby="due-title">
+              <section className="card dashboard-narrow" aria-labelledby="due-title">
                 <header className="card-head">
                   <h2 id="due-title">{copy.recurringTitle}</h2>
                   <Link className="text-link" href={`/${locale}/recurring`}>{copy.recurringAction}</Link>

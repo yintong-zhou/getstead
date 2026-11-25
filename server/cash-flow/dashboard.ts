@@ -2,6 +2,9 @@
 
 import { db } from "../auth/database.ts";
 import { getNetWorth } from "../net-worth/service.ts";
+import { assetSplit } from "../net-worth/calc.ts";
+import { getPortfolioSummary } from "../investments/service.ts";
+import { marketDataEnabled, readBenchmarks } from "../investments/market-data.ts";
 import { getBudget } from "./budget.ts";
 import { listAccounts, listCategories } from "./catalog.ts";
 import { monthOf, romeToday, type IsoDate, type Month } from "./dates.ts";
@@ -15,7 +18,7 @@ export async function getDashboard(userId: string, now = new Date()) {
   const today = romeToday(now);
   const month: Month = monthOf(today);
 
-  const [accounts, categories, rows, months, budget, recurring, netWorth] = await Promise.all([
+  const [accounts, categories, rows, months, budget, recurring, netWorth, investments, benchmarks] = await Promise.all([
     listAccounts(userId, true),
     listCategories(userId, true),
     db().movement.findMany({
@@ -29,6 +32,9 @@ export async function getDashboard(userId: string, now = new Date()) {
     getBudget(userId, month),
     listRecurring(userId, new URLSearchParams(), now),
     getNetWorth(userId, now),
+    getPortfolioSummary(userId, now),
+    // Market context is optional: a cache read failure leaves the rest of the page intact.
+    readBenchmarks().catch(() => null),
   ]);
 
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
@@ -46,6 +52,11 @@ export async function getDashboard(userId: string, now = new Date()) {
     expenseCents: current.expenseCents,
     monthlyNetCents: current.incomeCents - current.expenseCents,
     netWorthCents: netWorth.netCents,
+    assets: assetSplit(netWorth.perAccount, netWorth.holdingsCents, netWorth.propertiesCents),
+    liabilitiesCents: netWorth.liabilitiesCents,
+    investments,
+    benchmarks,
+    marketEnabled: marketDataEnabled(),
     trend: months,
     latest: rows.map((row) => {
       const movement = toMovementDto(userId, row);

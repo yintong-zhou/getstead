@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { Decimal } from "@prisma/client/runtime/client";
 import { ApiError } from "../cash-flow/errors.ts";
 import {
-  allocation, cashEffects, decimalInput, holdingsValue, income, indicativeTax, portfolioTrend, position,
+  allocation, cashEffects, closeChange, decimalInput, holdingsByAccount, holdingsValue, income, indicativeTax, portfolioTrend, position,
   toSafeCents, validateHistory, valueInCents, type Instrument, type Transaction,
 } from "./calc.ts";
 
@@ -268,4 +268,43 @@ test("portfolio performance ignores buys and sells and only moves with prices", 
   assert.deepEqual(points.map(({ baseCents }) => baseCents), [2500, 2500, 5500, 5500]);
   const share = (index: number) => (points[index].gainCents - points[0].gainCents) / points[index].baseCents;
   assert.equal(share(3), share(2), "a sale leaves the percentage unchanged");
+});
+
+test("close change compares the two latest market closes and ignores a buy between them", () => {
+  const close = (date: string, unitPrice: string) => ({ instrumentId: stock.id, asOf: date, unitPrice, source: "MARKET" as const });
+  const buys = [trade({ tradeDate: "2026-11-18" }), trade({ id: "buy-2", tradeDate: "2026-11-23", amountCents: 2400n })];
+  // Friday close 10, Monday close 12: the first 2 units gain 4 €, the 2 bought on Monday at 12 € gain nothing.
+  const quotes = [close("2026-11-17", "9"), close("2026-11-20", "10"), close("2026-11-23", "12")];
+  assert.deepEqual(closeChange([stock], buys, quotes, "2026-11-24"), { asOf: "2026-11-23", changeCents: 400, rate: 0.2 });
+  assert.equal(closeChange([stock], buys, [close("2026-11-23", "12")], "2026-11-24"), null, "one close is not enough");
+  assert.equal(closeChange([stock], buys, [close("2026-11-10", "9"), close("2026-11-23", "12")], "2026-11-24"), null, "a gap is not a daily change");
+});
+
+test("close change lets each holding use its own last session and skips sold instruments", () => {
+  const us: Instrument = { id: "us", name: "Example US stock", kind: "STOCK" };
+  const sold: Instrument = { id: "sold", name: "Example sold fund", kind: "FUND" };
+  const close = (instrumentId: string, date: string, unitPrice: string) => ({ instrumentId, asOf: date, unitPrice, source: "MARKET" as const });
+  const trades = [
+    trade({ tradeDate: "2026-11-02" }), trade({ id: "us-buy", instrumentId: us.id, tradeDate: "2026-11-02", amountCents: 1000n, quantity: "1" }),
+    trade({ id: "sold-buy", instrumentId: sold.id, tradeDate: "2026-11-02", quantity: "1", amountCents: 100n }),
+    trade({ id: "sold-sell", instrumentId: sold.id, type: "SELL", tradeDate: "2026-11-25", quantity: "1", amountCents: 100n }),
+  ];
+  const quotes = [
+    // EU session of the 24th is closed; the US one still reports the 21st as its latest.
+    close(stock.id, "2026-11-23", "10"), close(stock.id, "2026-11-24", "11"),
+    close(us.id, "2026-11-20", "10"), close(us.id, "2026-11-21", "12"),
+    close(sold.id, "2026-11-26", "1"), close(sold.id, "2026-11-27", "9"),
+  ];
+  // 2 EU units gain 2 € and the US unit gains 2 €, against 20 € + 10 € at the previous closes.
+  const result = closeChange([stock, us, sold], trades, quotes, "2026-11-28");
+  assert.deepEqual(result, { asOf: "2026-11-24", changeCents: 400, rate: 400 / 3000 });
+});
+
+test("holdings split by account, leaving out an account whose sale depends on another account", () => {
+  const quote = { instrumentId: stock.id, asOf, unitPrice: "20" };
+  const trades = [
+    trade({ id: "a", accountId: "broker-a" }), trade({ id: "b", accountId: "broker-b", quantity: "1", amountCents: 1000n }),
+    trade({ id: "c", accountId: "broker-c", type: "SELL", quantity: "1", amountCents: 2000n, ordinal: 2 }),
+  ];
+  assert.deepEqual([...holdingsByAccount([stock], trades, [quote], asOf)], [["broker-a", 4000], ["broker-b", 2000]]);
 });

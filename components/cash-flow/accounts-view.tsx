@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { AccountDto, AccountTypeDto, CategoryDto } from "@/server/cash-flow/catalog";
-import { logoGroupsByType } from "@/server/cash-flow/logo-catalog";
+import { accountInstitution, findCatalogLogo, logoGroupsByType } from "@/server/cash-flow/logo-catalog";
 import type { RuleDto } from "@/server/cash-flow/rules";
-import type { Locale } from "@/server/locale";
+import { formatEuros, type Locale } from "@/server/locale";
 import { categoryIcon } from "../category-icon";
 import { Icon } from "../icon";
 import { amountInputProps } from "../amount-input";
@@ -17,11 +17,19 @@ import { cashFlowCopy } from "./copy";
 import { MoreActions } from "./more-actions";
 import { useConfirm } from "../confirm-dialog";
 import { NoticeLine, useAction } from "./use-action";
+import { euros } from "../euros";
+import { AccountGroup } from "../account-group";
+import { groupByInstitution } from "../account-groups";
 
 const accountTypes = ["CHECKING", "CARD", "CASH", "BROKERAGE", "CRYPTO", "PENSION", "DEBT"] as const;
 type BaseType = AccountDto["type"];
 
-type Props = { locale: Locale; accounts: AccountDto[]; accountTypes: AccountTypeDto[]; categories: CategoryDto[]; rules: RuleDto[] };
+type Balance = { balanceCents: number; holdingsCents: number };
+type Props = {
+  locale: Locale; accounts: AccountDto[]; accountTypes: AccountTypeDto[]; categories: CategoryDto[]; rules: RuleDto[];
+  /** Cash and securities per account id. */
+  balances: Record<string, Balance>;
+};
 
 // A type choice is a built-in type ("CHECKING") or one of the user's types ("custom:<id>"); the server derives the base kind.
 const CUSTOM = "custom:";
@@ -49,9 +57,9 @@ function formData(event: FormEvent<HTMLFormElement>) {
   return new FormData(event.currentTarget);
 }
 
-function Row({ locale, name, meta, archived, logo, menuItems, confirmDelete, metaTone, onRename, onArchive, onDelete }: {
+function Row({ locale, name, meta, archived, logo, menuItems, amount, confirmDelete, metaTone, onRename, onArchive, onDelete }: {
   locale: Locale; name: string; meta: string; archived: boolean; confirmDelete: string; metaTone?: "positive" | "negative";
-  logo?: ReactNode; menuItems?: ReactNode;
+  logo?: ReactNode; menuItems?: ReactNode; amount?: ReactNode;
   onRename: (name: string) => void; onArchive: () => void; onDelete?: () => void;
 }) {
   const copy = cashFlowCopy[locale];
@@ -86,6 +94,7 @@ function Row({ locale, name, meta, archived, logo, menuItems, confirmDelete, met
             <p>{name}</p>
             <span>{metaTone ? <strong className={`meta-${metaTone}`}>{meta}</strong> : meta}{archived ? ` · ${copy.archivedSuffix}` : ""}</span>
           </div>
+          {amount}
           <MoreActions label={copy.moreActionsFor(name)} title={copy.actions} triggerRef={trigger}>
             <button className="button button-quiet" type="button" onClick={() => setEditing(true)}>{copy.edit}</button>
             {menuItems}
@@ -125,26 +134,61 @@ function TypeForm({ locale, account, types, action, onDone }: {
   );
 }
 
-function AccountRow({ locale, account, types, lookup, action }: {
-  locale: Locale; account: AccountDto; types: AccountTypeDto[]; lookup?: "pending" | "failed"; action: ReturnType<typeof useAction>;
+/** Sets the account's bank or broker; an empty value goes back to recognising it from the name. */
+function InstitutionForm({ locale, account, action, onDone }: {
+  locale: Locale; account: AccountDto; action: ReturnType<typeof useAction>; onDone: () => void;
+}) {
+  const copy = cashFlowCopy[locale];
+  const id = useId();
+  return (
+    <form
+      className="inline-form"
+      aria-label={`${copy.changeInstitution}: ${account.name}`}
+      onSubmit={async (event) => {
+        const value = String(formData(event).get("institution") ?? "").trim();
+        if (value === (account.institution ?? "")) return onDone();
+        if (await action.run(() => call("PATCH", `/accounts/${account.id}`, { institution: value || null }), copy.institutionSaved)) onDone();
+      }}
+    >
+      <label className="visually-hidden" htmlFor={id}>{copy.institution}</label>
+      <input id={id} name="institution" className="field" maxLength={80} defaultValue={account.institution ?? ""}
+        placeholder={findCatalogLogo(account.name)?.name ?? ""} autoFocus />
+      <button className="button" type="submit" disabled={action.pending}>{copy.save}</button>
+      <button className="button button-quiet" type="button" onClick={onDone}>{copy.cancel}</button>
+    </form>
+  );
+}
+
+function AccountRow({ locale, account, types, lookup, action, balance }: {
+  locale: Locale; account: AccountDto; types: AccountTypeDto[]; lookup?: "pending" | "failed"; action: ReturnType<typeof useAction>; balance?: Balance;
 }) {
   const copy = cashFlowCopy[locale];
   const [logoOpen, setLogoOpen] = useState<boolean>();
   const [typeOpen, setTypeOpen] = useState(false);
+  const [institutionOpen, setInstitutionOpen] = useState(false);
+  const holdings = balance?.holdingsCents ?? 0;
+  const meta = accountTypeLabel(locale, account, types) + (balance && holdings
+    ? ` · ${copy.cashLine} ${formatEuros(balance.balanceCents, locale)} · ${copy.securitiesLine} ${formatEuros(holdings, locale)}`
+    : "");
   const showLogo = logoOpen ?? lookup === "failed";
   const path = `/accounts/${account.id}`;
 
   return (
     <Row
-      locale={locale} name={account.name} archived={account.archived} meta={accountTypeLabel(locale, account, types)}
+      locale={locale} name={account.name} archived={account.archived} meta={meta}
+      amount={balance && <span className={`amount${balance.balanceCents + holdings < 0 ? " negative" : ""}`}>{euros(balance.balanceCents + holdings, locale)}</span>}
       confirmDelete={copy.confirmDeleteAccount(account.name)}
       logo={<>
         {typeOpen && <TypeForm locale={locale} account={account} types={types} action={action} onDone={() => setTypeOpen(false)} />}
+        {institutionOpen && <InstitutionForm locale={locale} account={account} action={action} onDone={() => setInstitutionOpen(false)} />}
         <AccountLogoControls account={account} locale={locale} lookup={lookup} open={showLogo} onDone={() => setLogoOpen(false)} />
       </>}
       menuItems={(<>
         <button className="button button-quiet" type="button" aria-expanded={typeOpen} onClick={() => setTypeOpen(!typeOpen)}>
           {copy.changeType}
+        </button>
+        <button className="button button-quiet" type="button" aria-expanded={institutionOpen} onClick={() => setInstitutionOpen(!institutionOpen)}>
+          {copy.changeInstitution}
         </button>
         <button className="button button-quiet" type="button" aria-expanded={showLogo} onClick={() => setLogoOpen(!showLogo)}>
           {accountLogoLabel(locale)}
@@ -157,7 +201,7 @@ function AccountRow({ locale, account, types, lookup, action }: {
   );
 }
 
-export function AccountsView({ locale, accounts, accountTypes: types, categories, rules }: Props) {
+export function AccountsView({ locale, accounts, accountTypes: types, categories, rules, balances }: Props) {
   const copy = cashFlowCopy[locale];
   const router = useRouter();
   const accountsAction = useAction(locale);
@@ -166,6 +210,7 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
   const rulesAction = useAction(locale);
   const [showArchived, setShowArchived] = useState(false);
   const [lookups, setLookups] = useState(() => new Map<string, "pending" | "failed">());
+  const [suggestedInstitution, setSuggestedInstitution] = useState("");
   const categoryName = new Map(categories.map((category) => [category.id, category.name]));
   const visibleAccounts = accounts.filter((account) => showArchived || !account.archived);
   const visibleCategories = categories.filter((category) => showArchived || !category.archived);
@@ -194,9 +239,19 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
         </header>
         {visibleAccounts.length === 0 ? <p className="empty-inline">{copy.accountsEmpty}</p> : (
           <ul className="rows">
-            {visibleAccounts.map((account) => (
-              <AccountRow key={account.id} locale={locale} account={account} types={types} lookup={lookups.get(account.id)} action={accountsAction} />
-            ))}
+            {groupByInstitution(visibleAccounts, accountInstitution).map((item) => {
+              const row = (account: AccountDto) => (
+                <AccountRow key={account.id} locale={locale} account={account} types={types} lookup={lookups.get(account.id)}
+                  action={accountsAction} balance={balances[account.id]} />
+              );
+              if (item.kind === "account") return row(item.account);
+              const totalCents = item.accounts.reduce((sum, { id }) => sum + (balances[id]?.balanceCents ?? 0) + (balances[id]?.holdingsCents ?? 0), 0);
+              return (
+                <AccountGroup key={item.key} groupKey={item.key} name={item.name} count={item.accounts.length} totalCents={totalCents} locale={locale}>
+                  {item.accounts.map(row)}
+                </AccountGroup>
+              );
+            })}
           </ul>
         )}
         <form
@@ -208,6 +263,7 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
             const typeChoice = String(data.get("type"));
             const accountType = baseOf(typeChoice, types);
             const balanceText = String(data.get("balance") ?? "").trim();
+            const institution = String(data.get("institution") ?? "").trim();
             const cents = balanceText ? parseLimit(balanceText) : undefined;
             if (cents === null) {
               accountsAction.setNotice({ kind: "error", text: copy.openingBalanceError });
@@ -216,11 +272,15 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
             // Cards and debts hold what you owe: the amount typed is stored as negative.
             const openingBalanceCents = cents === undefined ? undefined : accountType === "CARD" || accountType === "DEBT" ? -cents : cents;
             const result = await accountsAction.run(
-              () => call<AccountDto>("POST", "/accounts", { name: String(data.get("name") ?? ""), ...typeBody(typeChoice), ...(cents === undefined ? {} : { openingBalanceCents }) }),
+              () => call<AccountDto>("POST", "/accounts", {
+                name: String(data.get("name") ?? ""), ...typeBody(typeChoice), ...(cents === undefined ? {} : { openingBalanceCents }),
+                ...(institution ? { institution } : {}),
+              }),
               copy.accountAdded,
             );
             if (!result) return;
             form.reset();
+            setSuggestedInstitution("");
             const { id, type } = result.data;
             if (!logoGroupsByType[type]?.length) return; // cash has no catalog to match against
             setLookups((current) => new Map(current).set(id, "pending"));
@@ -236,7 +296,14 @@ export function AccountsView({ locale, accounts, accountTypes: types, categories
         >
           <div className="form-field">
             <label htmlFor="account-name">{copy.name}</label>
-            <input id="account-name" name="name" className="field" maxLength={80} required />
+            <input id="account-name" name="name" className="field" maxLength={80} required
+              onChange={(event) => setSuggestedInstitution(findCatalogLogo(event.target.value)?.name ?? "")} />
+          </div>
+          <div className="form-field">
+            <label htmlFor="account-institution">{copy.institution}</label>
+            <input id="account-institution" name="institution" className="field" maxLength={80} placeholder={suggestedInstitution}
+              aria-describedby="account-institution-hint" />
+            <p className="hint" id="account-institution-hint">{copy.institutionHint}</p>
           </div>
           <div className="form-field">
             <label htmlFor="account-type">{copy.accountType}</label>

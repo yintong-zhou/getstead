@@ -390,6 +390,24 @@ h1 {
   gap: 16px;
 }
 
+/* Donut shared by the dashboard and the investments allocation. */
+.allocation-donut { display: grid; justify-items: center; margin-block: 16px 12px; }
+.allocation-center { display: grid; gap: 4px; text-align: center; font-variant-numeric: tabular-nums; }
+.allocation-center small { color: var(--muted); font-size: 12px; }
+
+.asset-legend .row-text i { display: inline-block; width: 8px; height: 8px; margin-inline-end: 8px; border-radius: 50%; }
+.asset-legend .data-row, .monthly-net { min-height: 44px; }
+.summary-rows .data-row.monthly-net { border-top-width: 2px; }
+.worth-total { margin-top: 8px; font-size: 24px; font-weight: 800; }
+.investments-value { margin-top: 8px; font-size: 24px; font-weight: 800; line-height: 32px; }
+.investments-gain { margin-top: 4px; color: var(--muted); font-size: 14px; }
+.market-table { width: 100%; margin-block: 16px 8px; border-collapse: collapse; font-size: 14px; }
+.market-table th, .market-table td { padding-block: 8px; text-align: end; }
+.market-table th[scope="row"] { text-align: start; font-weight: 700; }
+.market-table thead th { color: var(--muted); font-size: 12px; font-weight: 500; }
+.market-table tbody tr { border-top: 1px solid var(--glass-hairline); }
+.market-table .muted { color: var(--muted); }
+
 .card {
   min-width: 0;
   padding: 16px;
@@ -704,7 +722,8 @@ progress::-moz-progress-bar { border-radius: 999px; background: var(--budget-col
   .utility-bar { display: none; }
   .primary-link { padding-inline: 16px; font-size: 14px; }
   .month-label { font-size: 14px; }
-  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 20px; }
+  .dashboard-narrow { grid-column: 2; }
 }
 
 @media (min-width: 1280px) {

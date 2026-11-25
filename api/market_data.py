@@ -41,13 +41,36 @@ def currency_and_multiplier(metadata):
     return None, Decimal(1)
 
 
-def history(symbol, period):
+def history(symbol, period=None, start=None):
     ticker = yf.Ticker(symbol)
     frame = ticker.history(
-        period=period, interval="1d", auto_adjust=False, actions=False,
+        period=period, start=start, interval="1d", auto_adjust=False, actions=False,
         timeout=TIMEOUT, raise_errors=True,
     )
     return frame, ticker.get_history_metadata()
+
+
+def closes(frame, metadata, now):
+    """Finished daily closes, latest first; a session still open today is left out."""
+    venue_name = metadata.get("exchangeTimezoneName")
+    if not isinstance(venue_name, str):
+        return []
+    venue = ZoneInfo(venue_name)
+    today = now.astimezone(venue).date()
+    end = (metadata.get("currentTradingPeriod") or {}).get("regular", {}).get("end")
+    if isinstance(end, (int, float)):
+        end = datetime.fromtimestamp(end, venue)
+    session_ended = (
+        isinstance(end, datetime) and end.tzinfo is not None and
+        end.astimezone(venue).date() == today and end <= now
+    )
+    rows = []
+    for timestamp, value in reversed(list(frame["Close"].items())):
+        date = timestamp.date()
+        price = positive(value)
+        if price is not None and (date < today or (date == today and session_ended)):
+            rows.append((date, price))
+    return rows
 
 
 def search(query):
@@ -82,26 +105,33 @@ def quote(symbol, now):
     currency, multiplier = currency_and_multiplier(metadata)
     if not currency or metadata.get("instrumentType") not in TYPES:
         return None
-    venue_name = metadata.get("exchangeTimezoneName")
-    if not isinstance(venue_name, str):
+    rows = closes(frame, metadata, now)
+    if not rows:
         return None
-    venue = ZoneInfo(venue_name)
-    today = now.astimezone(venue).date()
-    end = (metadata.get("currentTradingPeriod") or {}).get("regular", {}).get("end")
-    if isinstance(end, (int, float)):
-        end = datetime.fromtimestamp(end, venue)
-    session_ended = (
-        isinstance(end, datetime) and end.tzinfo is not None and
-        end.astimezone(venue).date() == today and end <= now
-    )
+    result = dict(asOf=rows[0][0].isoformat(), price=format(rows[0][1] * multiplier, "f"), currency=currency)
+    if len(rows) > 1:
+        result.update(previousAsOf=rows[1][0].isoformat(), previousPrice=format(rows[1][1] * multiplier, "f"))
+    return result
 
-    for timestamp, value in reversed(list(frame["Close"].items())):
-        date = timestamp.date()
-        if date < today or (date == today and session_ended):
-            price = positive(value)
-            if price is not None:
-                return dict(asOf=date.isoformat(), price=format(price * multiplier, "f"), currency=currency)
-    return None
+
+# Fixed market context for the dashboard; never a user-supplied symbol.
+BENCHMARKS = {"sp500": "^GSPC", "vix": "^VIX"}
+
+
+def benchmarks(now):
+    """Latest, previous and previous-year-end close of each benchmark, in index points."""
+    result = {}
+    for key, symbol in BENCHMARKS.items():
+        frame, metadata = history(symbol, start=f"{now.year - 1}-12-15")
+        rows = closes(frame, metadata, now)
+        if len(rows) < 2:
+            continue
+        year_end = next((price for date, price in rows if date.year < rows[0][0].year), None)
+        result[key] = dict(
+            asOf=rows[0][0].isoformat(), close=format(rows[0][1], "f"), previousClose=format(rows[1][1], "f"),
+            yearStartClose=format(year_end, "f") if year_end is not None else None,
+        )
+    return result
 
 
 def fx(currency, now):
@@ -130,6 +160,8 @@ def run(request):
         return quote(value, now)
     if operation == "fx" and re.fullmatch(r"[A-Z]{3}", value) and value != "EUR":
         return fx(value, now)
+    if operation == "benchmarks" and value == "":
+        return benchmarks(now)
     raise ValueError("Invalid request")
 
 

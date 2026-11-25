@@ -10,9 +10,9 @@ import { MAX_CENTS } from "../cash-flow/money.ts";
 import { addressContext, chargeContext, movementContext, templateContext } from "../cash-flow/text-crypto.ts";
 
 export const BACKUP_FORMAT = "getstead-backup";
-/** Version 3 adds contract terms; versions 1 and 2 remain readable. */
-export const BACKUP_VERSION = 3;
-export const BACKUP_VERSIONS: readonly number[] = [1, 2, 3];
+/** Version 4 adds the account institution; versions 1 to 3 remain readable. */
+export const BACKUP_VERSION = 4;
+export const BACKUP_VERSIONS: readonly number[] = [1, 2, 3, 4];
 
 type Nullable = { nullable?: boolean };
 export type Field =
@@ -60,7 +60,7 @@ const fields: Record<TableKey, [model: string, Record<string, Field>]> = {
     marketSymbol: text(200, true), marketName: text(200, true), marketCurrency: text(10, true), archivedAt: nullableTimestamp,
   }],
   accounts: ["account", {
-    id, name: text(80), type: oneOf(AccountType), customTypeId: ref("customAccountTypes", true),
+    id, name: text(80), type: oneOf(AccountType), customTypeId: ref("customAccountTypes", true), institution: text(80, true),
     archivedAt: nullableTimestamp, createdAt: timestamp,
   }],
   balanceChecks: ["balanceCheck", { id, accountId: ref("accounts"), asOf: date, balanceCents: int(-MAX_CENTS, MAX_CENTS), createdAt: timestamp }],

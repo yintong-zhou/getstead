@@ -13,9 +13,6 @@
   --allocation-etf: var(--chart-2); --allocation-fund: var(--chart-4); --allocation-it-gov-bond: var(--warning);
   --allocation-bond: var(--brand-ink); --allocation-crypto: var(--chart-5); --allocation-other: var(--muted);
 }
-.allocation-donut { display: grid; justify-items: center; margin-block: 16px 12px; }
-.allocation-center { display: grid; gap: 4px; text-align: center; font-variant-numeric: tabular-nums; }
-.allocation-center small { color: var(--muted); font-size: 12px; }
 .investment-allocation i { display: inline-block; width: 8px; height: 8px; margin-inline-end: 8px; border-radius: 50%; }
 
 .investment-holdings { width: 100%; margin-top: 12px; }

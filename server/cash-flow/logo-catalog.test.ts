@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import sharp from "sharp";
 import { accountTypes } from "./catalog.ts";
-import { findCatalogLogo, logoCatalog, logoGroupsByType } from "./logo-catalog.ts";
+import { accountInstitution, findCatalogLogo, logoCatalog, logoGroupsByType } from "./logo-catalog.ts";
 
 test("the catalog resolves bank and broker aliases without guessing ambiguous names", () => {
   for (const [name, id] of [
@@ -37,4 +37,11 @@ test("every catalog entry ships a sourced, unique WebP thumbnail", async () => {
     assert.equal(format, "webp", id);
     assert.ok(width <= 128 && height <= 128, id);
   }
+});
+
+test("an account's institution is the one set, else the provider its name mentions", () => {
+  assert.equal(accountInstitution({ name: "Revolut Titoli", institution: null }), "Revolut");
+  assert.equal(accountInstitution({ name: "Conto Revolut", institution: null }), "Revolut");
+  assert.equal(accountInstitution({ name: "Shared expenses", institution: null }), null);
+  assert.equal(accountInstitution({ name: "Revolut Titoli", institution: "Example Bank" }), "Example Bank");
 });

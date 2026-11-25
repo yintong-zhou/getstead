@@ -50,7 +50,7 @@ function market(request: Parameters<typeof createMarketData>[0]["request"], enab
 test("retains the saved Paris listing while querying its Yahoo ticker", async () => {
   const { api, calls } = market(async () => close);
   assert.deepEqual(await api.marketQuote({ ...listing, symbol: "TEST.PAR" }, now), {
-    asOf: "2026-11-23", unitPrice: "10.12345679", currency: "EUR", fxRate: null, fxAsOf: null,
+    asOf: "2026-11-23", unitPrice: "10.12345679", currency: "EUR", fxRate: null, fxAsOf: null, previous: null,
   });
   assert.deepEqual(calls, [["quote", "TEST.PA"]]);
 });
@@ -65,10 +65,27 @@ test("stock closes convert with the last completed shared FX close", async () =>
     ? { ...close, price: "100", currency: "USD" }
     : [["2026-11-22", "0.9"], ["2026-11-23", "0.8"]]);
   assert.deepEqual(await api.marketQuote({ ...listing, symbol: "TEST", currency: "USD" }, now), {
-    asOf: "2026-11-23", unitPrice: "90", currency: "USD", fxRate: "0.9", fxAsOf: "2026-11-22",
+    asOf: "2026-11-23", unitPrice: "90", currency: "USD", fxRate: "0.9", fxAsOf: "2026-11-22", previous: null,
   });
   await api.marketQuote({ ...listing, symbol: "OTHER", currency: "USD" }, now);
   assert.deepEqual(calls, [["quote", "TEST"], ["fx", "USD"], ["quote", "OTHER"]]);
+});
+
+test("the previous close converts with the FX close of its own date", async () => {
+  const { api } = market(async (operation) => operation === "quote"
+    ? { ...close, price: "100", currency: "USD", previousAsOf: "2026-11-20", previousPrice: "50" }
+    : [["2026-11-22", "0.9"], ["2026-11-20", "0.8"]]);
+  const quote = await api.marketQuote({ ...listing, symbol: "TEST", currency: "USD" }, now);
+  assert.deepEqual(quote?.previous, { asOf: "2026-11-20", unitPrice: "40", currency: "USD", fxRate: "0.8", fxAsOf: "2026-11-20" });
+});
+
+test("benchmarks share one cache key and ignore malformed entries", async () => {
+  const sp500 = { asOf: "2026-11-23", close: "5100", previousClose: "5000", yearStartClose: "4800" };
+  const { api, calls } = market(async () => ({ sp500, vix: { asOf: "bad" } }));
+  assert.deepEqual(await api.refreshBenchmarks(now), { sp500, vix: null });
+  await api.refreshBenchmarks(new Date(now.getTime() + hour));
+  assert.deepEqual(calls, [["benchmarks", ""]]);
+  assert.equal(await market(async () => ({ sp500 }), false).api.refreshBenchmarks(now), null, "disabled market data makes no request");
 });
 
 test("searches are cached for twelve hours and concurrent requests reserve only once", async () => {

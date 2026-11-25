@@ -1,8 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { AccountDto } from "@/server/cash-flow/catalog";
 import type { PensionDto } from "@/server/net-worth/service";
 import { netWorthCopy } from "../net-worth/copy";
@@ -16,6 +15,7 @@ import { NoticeLine } from "../cash-flow/use-action";
 import { euros } from "@/components/euros";
 import { Icon } from "@/components/icon";
 import { TrendCard } from "@/components/trend-card";
+import { MarketRefresh } from "@/components/market-refresh";
 import { PieCenter } from "@/components/charts/pie-center";
 import { PieChart } from "@/components/charts/pie-chart";
 import { PieSlice } from "@/components/charts/pie-slice";
@@ -191,17 +191,9 @@ function Pensions({ locale, pensions }: { locale: Locale; pensions: PensionDto[]
 
 export function InvestmentsView({ locale, data, accounts, instruments, transactions, quotes, pensions, marketEnabled }: ViewProps) {
   const copy = investmentsCopy[locale];
-  const router = useRouter();
   const open = new Set(data.holdings.map(({ instrumentId }) => instrumentId));
   const marketTargets = instruments.filter(({ id, archived, market }) => open.has(id) && !archived && market)
     .map(({ id, market }) => [id, market?.symbol, market?.currency].join(":")).sort().join(",");
-  // The automatic refresh below stays silent; the Sync button reports what happened.
-  useEffect(() => {
-    if (!marketEnabled || !marketTargets) return;
-    void investmentCall<{ changed: boolean }>("POST", "/quotes/refresh").then((result) => {
-      if (result.ok && result.data.changed) router.refresh();
-    });
-  }, [marketEnabled, marketTargets, router]);
   // The notice stays visible after the instrument row unmounts.
   const action = useInvestmentAction(locale);
   const counts: DeletePositionProps["counts"] = new Map();
@@ -211,6 +203,8 @@ export function InvestmentsView({ locale, data, accounts, instruments, transacti
     onDelete: (id: string) => { void action.run(() => investmentCall("DELETE", `/instruments/${id}`), copy.positionDeleted); } };
 
   return <div className="stack stack-fluid investment-view">
+    {/* The automatic refresh stays silent and reruns when the linked listings change; the Sync button reports what happened. */}
+    {marketEnabled && marketTargets && <MarketRefresh key={marketTargets} />}
     <NoticeLine notice={action.notice} />
     {data.trend && <TrendCard locale={locale} title={copy.value} note={copy.trendNote} today={data.today} trend={data.trend}
       action={marketEnabled && marketTargets ? <button type="button" className="button button-quiet" aria-label={copy.syncPrices} title={copy.syncPrices} disabled={action.pending} aria-busy={action.pending}

@@ -37,6 +37,23 @@ export function netWorthAt(accounts: readonly Account[], checks: readonly Check[
   return { holdingsCents: toSafeCents(holdings), propertiesCents: toSafeCents(properties), assetsCents: toSafeCents(assets), liabilitiesCents: toSafeCents(liabilities), netCents: toSafeCents(assets - liabilities), perAccount };
 }
 
+const investmentAccounts = new Set(["CRYPTO"]);
+/**
+ * Gross assets in four groups, by the same rule as netWorthAt: an account with a positive balance is an asset,
+ * a negative one a liability, so the groups always add up to assetsCents. Uninvested cash on a brokerage account
+ * counts as cash, so the investments group matches the holdings shown on the investments card.
+ */
+export function assetSplit(perAccount: readonly { type: string; balanceCents: number }[], holdingsCents: number, propertiesCents: number) {
+  let liquidity = 0n, investments = BigInt(holdingsCents), pension = 0n;
+  for (const { type, balanceCents } of perAccount) {
+    if (balanceCents <= 0) continue;
+    if (type === "PENSION") pension += BigInt(balanceCents);
+    else if (investmentAccounts.has(type)) investments += BigInt(balanceCents);
+    else liquidity += BigInt(balanceCents);
+  }
+  return { liquidityCents: toSafeCents(liquidity), investmentsCents: toSafeCents(investments), pensionCents: toSafeCents(pension), propertyCents: propertiesCents };
+}
+
 /** Totals at each date in one forward pass over checks and movements. `dates` must be ascending. */
 export function seriesAt(accounts: readonly Account[], checks: readonly Check[], movements: readonly Movement[], dates: readonly IsoDate[], investments: Investments = emptyInvestments, realEstate: Properties = emptyProperties) {
   const grouped = new Map(accounts.map(({ id }) => [id, {

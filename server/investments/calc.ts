@@ -294,3 +294,55 @@ export function portfolioTrend(instruments: readonly Instrument[], transactions:
     return { date, valueCents: toSafeCents(value), gainCents: toSafeCents(gain), baseCents: toSafeCents(base) };
   });
 }
+
+/** Change between two points of a performance series, as gain and as a share of `base` (null when there is no base). */
+export function periodChange(first: { gainCents: number }, last: { gainCents: number }, base: number) {
+  const changeCents = toSafeCents(BigInt(last.gainCents) - BigInt(first.gainCents));
+  return { changeCents, rate: base > 0 ? changeCents / base : null };
+}
+
+/**
+ * Performance over each open holding's own two latest market closes, so a buy or sale between them never counts as a gain
+ * and markets that close on different days each contribute their last session. The rate is measured against the value
+ * of those holdings at their previous close. Holdings without two closes at most 5 days apart are left out; null if none remain.
+ */
+export function closeChange(instruments: readonly Instrument[], transactions: readonly Transaction[], quotes: readonly Quote[], today: string) {
+  let change = 0n, base = 0n, asOf: string | null = null;
+  for (const { instrumentId } of holdingsValue(instruments, transactions, quotes, today)) {
+    const instrument = instruments.find(({ id }) => id === instrumentId)!;
+    const ownQuotes = quotes.filter((quote) => quote.instrumentId === instrumentId);
+    const dates = [...new Set(ownQuotes.filter((quote) => quote.source === "MARKET" && quote.asOf <= today).map((quote) => quote.asOf))].sort();
+    const last = dates.at(-1), previous = dates.at(-2);
+    if (!last || !previous || Date.parse(last) - Date.parse(previous) > 5 * 86_400_000) continue;
+    const ownTransactions = transactions.filter((row) => row.instrumentId === instrumentId);
+    const [before, after] = portfolioTrend([instrument], ownTransactions, ownQuotes, [previous, last]);
+    change += BigInt(after.gainCents) - BigInt(before.gainCents);
+    base += BigInt(before.valueCents);
+    if (!asOf || last > asOf) asOf = last;
+  }
+  if (!asOf) return null;
+  return { asOf, changeCents: toSafeCents(change), rate: base > 0n ? Number(change) / Number(base) : null };
+}
+
+/**
+ * Holdings value per account, replaying each account's own trades. An account whose trades cannot stand alone (a sale of
+ * units bought on another account) is left out, so callers show the rest of the total as unassigned holdings.
+ */
+export function holdingsByAccount(instruments: readonly Instrument[], transactions: readonly Transaction[], quotes: readonly Quote[], asOf: string) {
+  const byAccount = new Map<string, Transaction[]>();
+  for (const row of transactions) {
+    const rows = byAccount.get(row.accountId);
+    if (rows) rows.push(row);
+    else byAccount.set(row.accountId, [row]);
+  }
+  const result = new Map<string, number>();
+  for (const [accountId, rows] of byAccount) {
+    try {
+      const cents = holdingsValue(instruments, rows, quotes, asOf).reduce((sum, row) => sum + BigInt(row.valueCents), 0n);
+      if (cents !== 0n) result.set(accountId, toSafeCents(cents));
+    } catch (error) {
+      if (!(error instanceof ApiError && error.code === "negative_position")) throw error;
+    }
+  }
+  return result;
+}

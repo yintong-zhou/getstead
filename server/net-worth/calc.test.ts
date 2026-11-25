@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { balanceAt, monthlySeries, netWorthAt } from "./calc.ts";
+import { assetSplit, balanceAt, monthlySeries, netWorthAt } from "./calc.ts";
 import { Reader } from "../cash-flow/validate.ts";
 import { addDays, addMonths, monthOf, monthStart } from "../cash-flow/dates.ts";
 import type { Transaction } from "../investments/calc.ts";
@@ -186,4 +186,21 @@ test("a pension account counts once as an asset, next to holdings, and never ins
   assert.equal(total.perAccount.find(({ accountId }) => accountId === "pension")?.balanceCents, 1_620_000, "latest dated check");
   assert.equal(total.assetsCents, withoutPension.assetsCents + 1_620_000, "the pension adds exactly its balance, once");
   assert.equal(monthlySeries(accounts, [...brokerChecks, ...pensionChecks], [], today, investments).at(-1)?.netCents, total.netCents);
+});
+
+test("the asset split adds up to gross assets and leaves overdrawn accounts to liabilities", () => {
+  const accounts = [
+    { id: "c", type: "CHECKING" }, { id: "b", type: "BROKERAGE" }, { id: "p", type: "PENSION" }, { id: "o", type: "CHECKING" }, { id: "d", type: "DEBT" },
+  ];
+  const checks = [
+    { accountId: "c", asOf: "2026-11-01", balanceCents: 1_000 }, { accountId: "b", asOf: "2026-11-01", balanceCents: 200 },
+    { accountId: "p", asOf: "2026-11-01", balanceCents: 3_000 }, { accountId: "o", asOf: "2026-11-01", balanceCents: -500 },
+    { accountId: "d", asOf: "2026-11-01", balanceCents: -9_000 },
+  ];
+  const totals = netWorthAt(accounts, checks, [], "2026-11-20");
+  const types = new Map(accounts.map(({ id, type }) => [id, type]));
+  const split = assetSplit(totals.perAccount.map((row) => ({ type: types.get(row.accountId)!, balanceCents: row.balanceCents })), 4_000, 50_000);
+  assert.deepEqual(split, { liquidityCents: 1_200, investmentsCents: 4_000, pensionCents: 3_000, propertyCents: 50_000 });
+  assert.equal(split.liquidityCents + split.investmentsCents + split.pensionCents + split.propertyCents, totals.assetsCents + 4_000 + 50_000);
+  assert.equal(totals.liabilitiesCents, 9_500);
 });
