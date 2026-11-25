@@ -221,7 +221,13 @@
 .mock-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--glass-hairline); color: var(--muted); font-size: 12px; font-weight: 700; }
 .mock-bar .brand-mark { width: 22px; height: 22px; }
 .mock-body { padding: 16px; }
-.mock-grid, .mock-stack { display: grid; gap: 16px; }
+.mock-body { container-type: inline-size; }
+.mock-grid, .mock-stack, .mock-dash { display: grid; gap: 16px; }
+.mock-chart-card { display: none; }
+@container (min-width: 440px) {
+  .mock-dash { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .mock-chart-card { display: block; }
+}
 .mock-frame .card { padding: 16px; }
 .mock-title { font-size: 17px; font-weight: 700; line-height: 24px; letter-spacing: -.2px; }
 .mock-label { margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; line-height: 16px; }
@@ -231,8 +237,25 @@
 .mock-frame .budget-list { margin-top: 16px; }
 .mock-frame .row-amount small { font-size: 12px; font-weight: 700; }
 .mock-frame .row-amount { text-align: end; }
-.mock-worth { min-height: 260px; }
-.mock-frame .net-worth-plot { height: 120px; }
+.mock-sub { margin-top: 4px; color: var(--muted); font-size: 14px; }
+.mock-frame .market-table { margin-block: 16px 0; }
+.mock-frame .asset-legend .data-row { min-height: 36px; }
+.mock-frame .allocation-donut { margin-block: 8px 4px; }
+.mock-donut { position: relative; width: 176px; height: 176px; }
+.mock-donut svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.mock-donut-center { position: absolute; inset: 0; align-content: center; }
+.mock-range { display: inline-grid; place-items: center; min-width: 40px; min-height: 36px; padding-inline: 8px; border-radius: 10px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.mock-range[aria-current] { background: var(--brand-soft); color: var(--brand); }
+.mock-trend-plot svg { display: block; width: 100%; height: 130px; }
+.mock-trend-months { display: flex; justify-content: space-between; margin-top: 8px; color: var(--muted); font-size: 12px; }
+.mock-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.mock-totals dt { color: var(--muted); font-size: 12px; }
+.mock-totals dd { margin: 4px 0 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.mock-frame .mock-totals .card { padding: 12px 16px; }
+.mock-status { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.mock-status-paid { background: var(--positive-soft); color: var(--positive-ink); }
+.mock-status-due { background: var(--warning-soft); color: var(--warning-ink); }
+.mock-status-overdue { background: var(--negative-soft); color: var(--negative-ink); }
 .mock-frame progress { accent-color: var(--budget-color); }
 
 /* ---- Wider screens ---- */
@@ -263,18 +286,17 @@
   [data-enter] { animation: landing-enter 600ms cubic-bezier(.2, .7, .2, 1) both; }
   .landing-visual[data-enter] { animation-delay: 120ms; }
 
-  /* The one moment: the twelve-month line draws itself as its section scrolls in. */
+  /* The one moment: the net worth chart wipes in from the left as its section scrolls in. */
   @supports (animation-timeline: view()) {
-    .worth-line {
-      stroke-dasharray: 1;
-      animation: worth-draw linear both;
+    #net-worth .mock-trend-plot {
+      animation: worth-wipe linear both;
       animation-timeline: view();
       animation-range: entry 20% cover 40%;
     }
   }
 }
 @keyframes landing-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes worth-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes worth-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 
 /* ---- Privacy notice ---- */
 .landing-prose h2 { margin-top: 32px; font-size: 22px; letter-spacing: -.3px; }

@@ -88,7 +88,12 @@ export function Landing({ locale, jsonLd }: Props) {
           <InvestmentsMock locale={locale} />
         </Feature>
 
-        <Feature id="property" title={copy.property.title} body={copy.property.body}>
+        <Feature
+          id="property"
+          title={copy.property.title}
+          body={copy.property.body}
+          extra={<ul className="landing-points">{copy.property.points.map((point) => <li key={point}>{point}</li>)}</ul>}
+        >
           <PropertyMock locale={locale} />
         </Feature>
 
