@@ -13,6 +13,16 @@ export const categoryKinds = ["EXPENSE", "INCOME"] as const;
 export type AccountDto = { id: string; name: string; type: Account["type"]; institution: string | null; archived: boolean; hasLogo: boolean };
 export type CategoryDto = { id: string; name: string; kind: Category["kind"]; archived: boolean };
 
+/** Names are unique per user, archived ones included; say so instead of the generic conflict message. */
+async function uniqueName<T>(write: () => Promise<T>) {
+  try {
+    return await write();
+  } catch (error) {
+    if ((error as { code?: string })?.code === "P2002") throw conflict("name_taken");
+    throw error;
+  }
+}
+
 const logoPresence = { logo: { select: { accountId: true } } } as const;
 const accountDto = (row: Account & { logo?: { accountId: string } | null }): AccountDto => ({
   id: row.id, name: row.name, type: row.type, institution: row.institution, archived: row.archivedAt !== null,
@@ -40,7 +50,7 @@ export async function createAccount(userId: string, input: Record<string, unknow
   const institution = reader.nullableText("institution", 80) ?? null;
   const openingBalanceCents = reader.optionalSignedCents("openingBalanceCents");
   reader.done();
-  return db().$transaction(async (client) => {
+  return uniqueName(() => db().$transaction(async (client) => {
     const row = await client.account.create({ data: { userId, name, type, institution } });
     if (openingBalanceCents !== undefined) {
       await client.balanceCheck.create({
@@ -48,7 +58,7 @@ export async function createAccount(userId: string, input: Record<string, unknow
       });
     }
     return accountDto(row);
-  });
+  }));
 }
 
 /** Changing the type keeps every movement and balance check. */
@@ -59,7 +69,7 @@ export async function updateAccount(userId: string, id: string, input: Record<st
   const institution = reader.nullableText("institution", 80);
   const archived = reader.optionalBool("archived");
   reader.done();
-  const row = await db().$transaction(async (client) => {
+  const row = await uniqueName(() => db().$transaction(async (client) => {
     const locked = await client.$queryRaw<{ id: string }[]>`SELECT account_id AS id FROM stead_accounts WHERE user_id = ${userId}::uuid AND account_id = ${id}::uuid FOR UPDATE`;
     if (!locked.length) throw notFound();
     if (type && !["BROKERAGE", "CRYPTO"].includes(type) && await client.investmentTransaction.count({ where: { userId, accountId: id } })) {
@@ -72,7 +82,7 @@ export async function updateAccount(userId: string, id: string, input: Record<st
       include: logoPresence,
       data: { name, type, institution, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
     });
-  });
+  }));
   return accountDto(row);
 }
 
@@ -117,7 +127,7 @@ export async function createCategory(userId: string, input: Record<string, unkno
   const reader = new Reader(input);
   const data = { name: reader.text("name", 80), kind: reader.oneOf("kind", categoryKinds) };
   reader.done();
-  return categoryDto(await db().category.create({ data: { userId, ...data } }));
+  return categoryDto(await uniqueName(() => db().category.create({ data: { userId, ...data } })));
 }
 
 /** The kind is fixed: changing it would silently move every past movement between income and spending. */
@@ -126,10 +136,10 @@ export async function updateCategory(userId: string, id: string, input: Record<s
   const name = reader.optionalText("name", 80);
   const archived = reader.optionalBool("archived");
   reader.done();
-  const row = await db().category.update({
+  const row = await uniqueName(() => db().category.update({
     where: { userId_id: { userId, id } },
     data: { name, ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }) },
-  });
+  }));
   return categoryDto(row);
 }
 

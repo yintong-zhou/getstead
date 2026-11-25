@@ -423,10 +423,10 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .account-group-list { margin: 0 0 8px; padding-inline-start: 16px; border-inline-start: 2px solid var(--glass-hairline); }
 .account-group-list[hidden] { display: none; }
 .account-group-list .account-logo-thumbnail { display: none; }
-.account-group-toggle { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: var(--muted); }
+/* Same 44px slot as the row "⋯" menu, so every amount in the list ends on the same edge. */
+.account-group-toggle { display: grid; flex: 0 0 auto; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: var(--muted); }
 .account-group-toggle:hover { background: var(--brand-soft); color: var(--ink); }
 .account-group-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 .account-group-toggle svg { transition: transform 150ms var(--ease); }
 .account-group-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
-@media (pointer: coarse) { .account-group-toggle { width: 44px; height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .account-group-toggle svg { transition: none; } }

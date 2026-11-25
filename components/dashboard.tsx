@@ -65,12 +65,12 @@ function ActivityRow({ item, locale, today, copy }: {
   );
 }
 
-const groupColors = { liquidity: "var(--chart-1)", investments: "var(--chart-2)", pension: "var(--chart-4)", property: "var(--chart-3)" } as const;
+const groupColors = { liquidity: "var(--chart-1)", savings: "var(--chart-5)", investments: "var(--chart-2)", pension: "var(--chart-4)", property: "var(--chart-3)" } as const;
 
 function Worth({ data, locale, copy }: { data: DashboardData; locale: Locale; copy: DashboardCopy }) {
   const percent = new Intl.NumberFormat(localeTags[locale], { style: "percent", maximumFractionDigits: 1 });
-  const { liquidityCents, investmentsCents, pensionCents, propertyCents } = data.assets;
-  const groups = ([["liquidity", liquidityCents], ["investments", investmentsCents], ["pension", pensionCents], ["property", propertyCents]] as const)
+  const { liquidityCents, savingsCents, investmentsCents, pensionCents, propertyCents } = data.assets;
+  const groups = ([["liquidity", liquidityCents], ["savings", savingsCents], ["investments", investmentsCents], ["pension", pensionCents], ["property", propertyCents]] as const)
     .filter(([, cents]) => cents > 0);
   const total = groups.reduce((sum, [, cents]) => sum + cents, 0);
   const share = (cents: number) => percent.format(cents / total);
