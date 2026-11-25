@@ -1,5 +1,5 @@
 import { api } from "@/server/cash-flow/http";
-import { refreshMarketQuotes } from "@/server/investments/service";
+import { refreshMarket } from "@/server/investments/service";
 
 export const runtime = "nodejs";
-export const POST = api(({ userId }) => refreshMarketQuotes(userId));
+export const POST = api(({ userId }) => refreshMarket(userId));

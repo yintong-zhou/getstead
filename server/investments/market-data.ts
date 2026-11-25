@@ -41,7 +41,7 @@ export type MarketStore = {
   save(key: string, token: Date, payload: unknown): Promise<void>;
   throttle(requestId: string): Promise<void>;
 };
-type Operation = "search" | "quote" | "fx";
+type Operation = "search" | "quote" | "fx" | "benchmarks";
 type Deps = { store: MarketStore; enabled: () => boolean; request: (operation: Operation, value: string) => Promise<unknown> };
 
 type Reservation =
@@ -84,12 +84,31 @@ function checkListings(payload: unknown): MarketListing[] | null {
     .map(({ symbol, name, market, currency }) => ({ symbol, name: name.slice(0, 120), market: market.slice(0, 60), currency }));
 }
 
-type Close = { asOf: string; price: string; currency: string };
+type Close = { asOf: string; price: string; currency: string; previous?: { asOf: string; price: string } };
 function checkClose(payload: unknown, now: Date): Close | null {
   if (!isRecord(payload) || typeof payload.currency !== "string" || !CURRENCY.test(payload.currency)) return null;
   const asOf = day(payload.asOf), price = positive(payload.price);
-  return asOf && asOf <= latestPossibleDay(now) && price ? { asOf, price, currency: payload.currency } : null;
+  if (!asOf || asOf > latestPossibleDay(now) || !price) return null;
+  // Payloads cached before the adapter sent the previous close have none.
+  const previousAsOf = day(payload.previousAsOf), previousPrice = positive(payload.previousPrice);
+  const previous = previousAsOf && previousAsOf < asOf && previousPrice ? { asOf: previousAsOf, price: previousPrice } : undefined;
+  return { asOf, price, currency: payload.currency, previous };
 }
+
+/** Index points of a benchmark: latest close, the close before it, and the last close of the previous year. */
+export type Benchmark = { asOf: string; close: string; previousClose: string; yearStartClose: string | null };
+export type Benchmarks = { sp500: Benchmark | null; vix: Benchmark | null };
+function checkBenchmark(payload: unknown): Benchmark | null {
+  if (!isRecord(payload)) return null;
+  const asOf = day(payload.asOf), close = positive(payload.close), previousClose = positive(payload.previousClose);
+  return asOf && close && previousClose ? { asOf, close, previousClose, yearStartClose: positive(payload.yearStartClose) } : null;
+}
+function checkBenchmarks(payload: unknown): Benchmarks | null {
+  if (!isRecord(payload)) return null;
+  const result = { sp500: checkBenchmark(payload.sp500), vix: checkBenchmark(payload.vix) };
+  return result.sp500 || result.vix ? result : null;
+}
+const BENCHMARKS_KEY = "yahoo:benchmarks:";
 
 type FxRow = [date: string, rate: string];
 function checkFx(payload: unknown): FxRow[] | null {
@@ -157,19 +176,33 @@ export function createMarketData(deps: Deps) {
     return cached("search", text.replace(/ +/g, " "), now, checkListings);
   }
 
-  async function marketQuote(listing: MarketListing, now = new Date()): Promise<MarketQuote | null> {
+  /** The latest close in EUR, with the close before it when the adapter has one (for the daily change). */
+  async function marketQuote(listing: MarketListing, now = new Date()): Promise<(MarketQuote & { previous?: MarketQuote | null }) | null> {
     const symbol = marketTicker(listing.symbol);
     if (!marketDataEnabled() || !SYMBOL.test(symbol) || !CURRENCY.test(listing.currency)) return null;
     const close = await cached("quote", symbol, now, (payload) => checkClose(payload, now));
     if (!close || close.currency !== listing.currency) return null;
-    if (listing.currency === "EUR") return convert(close, "EUR", null);
+    const closes = [close, close.previous && { ...close.previous, currency: close.currency }];
+    if (listing.currency === "EUR") {
+      const [latest, previous] = closes.map((row) => row ? convert(row, "EUR", null) : null);
+      return latest && { ...latest, previous };
+    }
     const series = await cached("fx", listing.currency, now, checkFx);
-    const oldest = addDays(close.asOf, -MAX_FX_GAP_DAYS);
-    const rate = series?.find(([date]) => date <= close.asOf && date < today(now) && date >= oldest);
-    return rate ? convert(close, listing.currency, rate) : null;
+    const [latest, previous] = closes.map((row) => {
+      if (!row) return null;
+      const oldest = addDays(row.asOf, -MAX_FX_GAP_DAYS);
+      const rate = series?.find(([date]) => date <= row.asOf && date < today(now) && date >= oldest);
+      return rate ? convert(row, listing.currency, rate) : null;
+    });
+    return latest && { ...latest, previous };
   }
 
-  return { marketDataEnabled, searchMarket, marketQuote };
+  /** Fetches the benchmarks when the shared cache is older than its TTL; at most one request per TTL for all users. */
+  async function refreshBenchmarks(now = new Date()): Promise<Benchmarks | null> {
+    return marketDataEnabled() ? cached("benchmarks", "", now, checkBenchmarks) : null;
+  }
+
+  return { marketDataEnabled, searchMarket, marketQuote, refreshBenchmarks };
 }
 
 // Postgres store ----------------------------------------------------------------------------------
@@ -270,4 +303,10 @@ const defaults = createMarketData({
     Boolean(process.env.MARKET_DATA_BRIDGE_SECRET && (process.env.MARKET_DATA_BRIDGE_ORIGIN || process.env.VERCEL_URL)),
   request: requestMarket,
 });
-export const { marketDataEnabled, searchMarket, marketQuote } = defaults;
+export const { marketDataEnabled, searchMarket, marketQuote, refreshBenchmarks } = defaults;
+
+/** The cached benchmarks of any age, without a network call, so a page render never waits on Yahoo. */
+export async function readBenchmarks(): Promise<Benchmarks | null> {
+  const rows = await db().$queryRaw<{ payload: unknown }[]>`SELECT payload FROM stead_market_cache WHERE cache_key = ${BENCHMARKS_KEY}`;
+  return checkBenchmarks(rows[0]?.payload);
+}

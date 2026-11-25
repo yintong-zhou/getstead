@@ -5,9 +5,9 @@ import { db } from "../auth/database.ts";
 import { addDays, addMonths, fromDate, monthOf, monthStart, romeToday, toDate } from "../cash-flow/dates.ts";
 import { ApiError, conflict, notFound } from "../cash-flow/errors.ts";
 import { Reader } from "../cash-flow/validate.ts";
-import { allocation, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, portfolioTrend, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
-import { buildTrend } from "../trend.ts";
-import { marketDataEnabled, marketQuote, marketTicker, searchMarket, type MarketListing } from "./market-data.ts";
+import { allocation, closeChange, decimalInput, holdingsValue, income, indicativeTax, instrumentKinds, periodChange, portfolioTrend, position, toSafeCents, transactionTypes, validateHistory } from "./calc.ts";
+import { buildTrend, rangeStart, sampleDates } from "../trend.ts";
+import { marketDataEnabled, marketQuote, marketTicker, readBenchmarks, refreshBenchmarks, searchMarket, type MarketListing } from "./market-data.ts";
 import type { TransactionQuery } from "./transaction-query.ts";
 
 type Client = Prisma.TransactionClient;
@@ -383,10 +383,11 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
           if (!current || current.marketSymbol !== instrument.marketSymbol || current.marketCurrency !== quote.currency || !supportsMarket(current.kind)) return false;
           const trades = await client.investmentTransaction.findMany({ where: { userId, instrumentId, voidedAt: null } });
           if (position(trades.map(transactionInput), today).quantity === "0") return false;
-          const saved = await client.marketPriceQuote.createMany({ skipDuplicates: true, data: {
-            userId, instrumentId, asOf: toDate(quote.asOf), unitPrice: quote.unitPrice, currency: quote.currency,
-            fxRate: quote.fxRate, fxAsOf: quote.fxAsOf ? toDate(quote.fxAsOf) : null,
-          } });
+          // The previous close is saved too, so the dashboard's daily change never spans a missed day.
+          const saved = await client.marketPriceQuote.createMany({ skipDuplicates: true, data: [quote, quote.previous].filter((row) => row !== null && row !== undefined).map((row) => ({
+            userId, instrumentId, asOf: toDate(row.asOf), unitPrice: row.unitPrice, currency: row.currency,
+            fxRate: row.fxRate, fxAsOf: row.fxAsOf ? toDate(row.fxAsOf) : null,
+          })) });
           if (saved.count) await audit(client, userId, [instrumentId]);
           return saved.count > 0;
         });
@@ -401,14 +402,18 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
 }
 
 /** `trend` adds the period chart; only the investments page asks for it. */
-export async function getPortfolio(userId: string, now = new Date(), { trend = false } = {}) {
-  const today = romeToday(now);
+async function loadPortfolio(userId: string) {
   const [instruments, rows, prices, market] = await db().$transaction([
     db().instrument.findMany({ where: { userId }, orderBy: [{ name: "asc" }, { id: "asc" }] }),
     db().investmentTransaction.findMany({ where: { userId } }), db().priceQuote.findMany({ where: { userId } }),
     db().marketPriceQuote.findMany({ where: { userId } }),
   ], { isolationLevel: "RepeatableRead" });
-  const transactions = rows.map(transactionInput), quotes = [...prices.map(quoteInput), ...market.map(marketQuoteInput)];
+  return { instruments, transactions: rows.map(transactionInput), quotes: [...prices.map(quoteInput), ...market.map(marketQuoteInput)] };
+}
+
+export async function getPortfolio(userId: string, now = new Date(), { trend = false } = {}) {
+  const today = romeToday(now);
+  const { instruments, transactions, quotes } = await loadPortfolio(userId);
   const holdings = holdingsValue(instruments, transactions, quotes, today);
   const realised = instruments.flatMap((instrument) => position(transactions.filter((row) => row.instrumentId === instrument.id), today).realised);
   const byYear = new Map<number, bigint>();
@@ -429,3 +434,31 @@ export async function getPortfolio(userId: string, now = new Date(), { trend = f
   };
 }
 export type PortfolioData = Awaited<ReturnType<typeof getPortfolio>>;
+
+/**
+ * The dashboard's investment figures; null without an open position. Year-to-date uses the same samples and formula
+ * as the YTD range of the investments page, so both pages show one number.
+ */
+export async function getPortfolioSummary(userId: string, now = new Date()) {
+  const today = romeToday(now);
+  const { instruments, transactions, quotes } = await loadPortfolio(userId);
+  const holdings = holdingsValue(instruments, transactions, quotes, today);
+  if (holdings.length === 0) return null;
+  const value = holdings.reduce((sum, row) => sum + BigInt(row.valueCents), 0n);
+  const cost = holdings.reduce((sum, row) => sum + BigInt(row.costCents), 0n);
+  const ytd = portfolioTrend(instruments, transactions, quotes, sampleDates(rangeStart("YTD", today, null), today));
+  return {
+    valueCents: toSafeCents(value), gainCents: toSafeCents(value - cost),
+    gainRate: cost > 0n ? Number(value - cost) / Number(cost) : null,
+    ytd: periodChange(ytd[0], ytd.at(-1)!, ytd.at(-1)!.baseCents),
+    lastClose: closeChange(instruments, transactions, quotes, today),
+  };
+}
+export type PortfolioSummary = NonNullable<Awaited<ReturnType<typeof getPortfolioSummary>>>;
+
+/** Quote refresh plus the shared benchmarks. `changed` reports new prices only; `benchmarksChanged` new index closes. */
+export async function refreshMarket(userId: string, now = new Date()) {
+  const before = JSON.stringify(await readBenchmarks().catch(() => null));
+  const [quotes, benchmarks] = await Promise.all([refreshMarketQuotes(userId, now), refreshBenchmarks(now)]);
+  return { ...quotes, benchmarksChanged: benchmarks !== null && JSON.stringify(benchmarks) !== before };
+}
