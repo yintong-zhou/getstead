@@ -101,7 +101,7 @@ def search(query):
 
 
 def quote(symbol, now):
-    frame, metadata = history(symbol, "5d")
+    frame, metadata = history(symbol, "max")
     currency, multiplier = currency_and_multiplier(metadata)
     if not currency or metadata.get("instrumentType") not in TYPES:
         return None
@@ -109,6 +109,7 @@ def quote(symbol, now):
     if not rows:
         return None
     result = dict(asOf=rows[0][0].isoformat(), price=format(rows[0][1] * multiplier, "f"), currency=currency)
+    result["history"] = [[date.isoformat(), format(price * multiplier, "f")] for date, price in reversed(rows)]
     if len(rows) > 1:
         result.update(previousAsOf=rows[1][0].isoformat(), previousPrice=format(rows[1][1] * multiplier, "f"))
     return result
@@ -135,7 +136,7 @@ def benchmarks(now):
 
 
 def fx(currency, now):
-    frame, _ = history(f"{currency}EUR=X", "1mo")
+    frame, _ = history(f"{currency}EUR=X", "max")
     today = now.date()
     result = []
     for timestamp, value in frame["Close"].items():

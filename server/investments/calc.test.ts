@@ -308,3 +308,32 @@ test("holdings split by account, leaving out an account whose sale depends on an
   ];
   assert.deepEqual([...holdingsByAccount([stock], trades, [quote], asOf)], [["broker-a", 4000], ["broker-b", 2000]]);
 });
+
+test("period performance uses the portfolio value at the start as its base", () => {
+  const rows = [trade({ tradeDate: "2025-01-01", amountCents: 2000n })];
+  const prices = [
+    { instrumentId: stock.id, asOf: "2025-12-31", unitPrice: "20" },
+    { instrumentId: stock.id, asOf: "2026-11-20", unitPrice: "22" },
+  ];
+  const [start, end] = portfolioTrend([stock], rows, prices, ["2025-12-31", "2026-11-20"]);
+  assert.equal(end.gainCents - start.gainCents, 400);
+  assert.equal(end.baseCents, 4000);
+  assert.equal((end.gainCents - start.gainCents) / end.baseCents, 0.1);
+});
+
+test("period gains use the actual price at each selected start date", () => {
+  const rows = [trade({ tradeDate: "2025-01-01", amountCents: 2000n })];
+  const prices = [
+    { instrumentId: stock.id, asOf: "2025-12-31", unitPrice: "15" },
+    { instrumentId: stock.id, asOf: "2026-08-20", unitPrice: "17" },
+    { instrumentId: stock.id, asOf: "2026-10-20", unitPrice: "19" },
+    { instrumentId: stock.id, asOf: "2026-11-20", unitPrice: "20" },
+  ];
+  const change = (start: string) => {
+    const [first, last] = portfolioTrend([stock], rows, prices, [start, "2026-11-20"]);
+    return { cents: last.gainCents - first.gainCents, rate: (last.gainCents - first.gainCents) / last.baseCents };
+  };
+  assert.deepEqual(change("2026-10-20"), { cents: 200, rate: 200 / 3800 });
+  assert.deepEqual(change("2026-08-20"), { cents: 600, rate: 600 / 3400 });
+  assert.deepEqual(change("2025-12-31"), { cents: 1000, rate: 1000 / 3000 });
+});

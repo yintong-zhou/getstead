@@ -1,5 +1,6 @@
 "use client";
 
+import { PrivateAmount } from "./amount-visibility";
 import { euros } from "@/components/euros";
 import { PieCenter } from "@/components/charts/pie-center";
 import { PieChart } from "@/components/charts/pie-chart";
@@ -17,7 +18,7 @@ export function AssetDonut({ slices, netWorthCents, centerLabel, summary, locale
         <PieCenter defaultLabel={centerLabel}>
           {({ value, label, isHovered }) => (
             <span className="allocation-center">
-              <strong className="amount">{euros(isHovered ? value : netWorthCents, locale, { wholeEuros: true })}</strong>
+              <strong className="amount"><PrivateAmount>{euros(isHovered ? value : netWorthCents, locale, { wholeEuros: true })}</PrivateAmount></strong>
               <small>{label}</small>
             </span>
           )}

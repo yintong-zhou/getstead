@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ type?: string; month?: string; accountId?: string; categoryId?: string; page?: string }>;
+  searchParams: Promise<{ type?: string; month?: string; accountId?: string; categoryId?: string; page?: string; pageSize?: string }>;
 };
 
 const PATH = "/cash-flow/history";

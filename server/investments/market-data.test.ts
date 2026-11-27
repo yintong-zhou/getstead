@@ -148,3 +148,28 @@ test("the shared budget counts every attempt in the rolling window, including fa
   await api.searchMarket("Another", new Date(now.getTime() + 24 * hour));
   assert.equal(calls.length, 26);
 });
+
+test("historical market closes retain their dated EUR conversions", async () => {
+  const { api } = market(async (operation) => operation === "quote" ? {
+    ...close, price: "100", currency: "USD",
+    history: [["2026-01-02", "50"], ["2026-11-20", "90"]],
+  } : [["2026-01-02", "0.8"], ["2026-11-20", "0.9"], ["2026-11-22", "0.9"]]);
+  const result = await api.marketQuote({ ...listing, symbol: "TEST", currency: "USD" }, now);
+  assert.deepEqual(result?.history, [
+    { asOf: "2026-01-02", unitPrice: "40", currency: "USD", fxRate: "0.8", fxAsOf: "2026-01-02" },
+    { asOf: "2026-11-20", unitPrice: "81", currency: "USD", fxRate: "0.9", fxAsOf: "2026-11-20" },
+  ]);
+});
+
+test("market prices and benchmarks refresh after four hours while searches keep their cache", async () => {
+  const { api, calls } = market(async (operation) => operation === "quote" ? close : operation === "benchmarks" ? { sp500: { asOf: close.asOf, close: "10", previousClose: "9" } } : [listing]);
+  for (const offset of [0, 4 * hour - 1, 4 * hour]) {
+    const at = new Date(now.getTime() + offset);
+    await api.marketQuote(listing, at);
+    await api.refreshBenchmarks(at);
+    await api.searchMarket("Example", at);
+  }
+  assert.equal(calls.filter(([op]) => op === "quote").length, 2);
+  assert.equal(calls.filter(([op]) => op === "benchmarks").length, 2);
+  assert.equal(calls.filter(([op]) => op === "search").length, 1);
+});

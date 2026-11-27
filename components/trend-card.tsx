@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { trendRanges, type Trend, type TrendPoint, type TrendRange } from "@/server/trend";
 import { Area } from "@/components/charts/area";
@@ -10,41 +10,23 @@ import { ChartTooltip } from "@/components/charts/tooltip";
 import { XAxis } from "@/components/charts/x-axis";
 import { Icon } from "./icon";
 import { euros, signedText } from "./euros";
+import { AmountVisibilityToggle, useAmountsHidden } from "./amount-visibility";
+import { privateAmount } from "./money";
 
 const copy = {
   en: {
-    hide: "Hide amounts", period: "Period", asOf: "As of",
+    period: "Period", asOf: "As of",
     ranges: { "1M": "1M", "3M": "3M", YTD: "YTD", "1Y": "1Y", MAX: "Max" },
     rangeNames: { "1M": "last month", "3M": "last 3 months", YTD: "year to date", "1Y": "last year", MAX: "all time" },
     hiddenChart: "Chart of the selected period; amounts are hidden",
   },
   it: {
-    hide: "Nascondi importi", period: "Periodo", asOf: "Al",
+    period: "Periodo", asOf: "Al",
     ranges: { "1M": "1M", "3M": "3M", YTD: "YTD", "1Y": "1A", MAX: "Max" },
     rangeNames: { "1M": "ultimo mese", "3M": "ultimi 3 mesi", YTD: "da inizio anno", "1Y": "ultimo anno", MAX: "dall'inizio" },
     hiddenChart: "Grafico del periodo selezionato; importi nascosti",
   },
 };
-
-// One key for both pages: hiding amounts on net worth also hides them on investments.
-const HIDE_KEY = "getstead.hideAmounts";
-const MASK = "••••••";
-// Fallback for this visit when storage is blocked (private mode, disabled site data).
-let hiddenInMemory = false;
-const hideListeners = new Set<() => void>();
-function readHidden() {
-  try { const stored = localStorage.getItem(HIDE_KEY); return stored === null ? hiddenInMemory : stored === "1"; } catch { return hiddenInMemory; }
-}
-function writeHidden(hidden: boolean) {
-  hiddenInMemory = hidden;
-  try { localStorage.setItem(HIDE_KEY, hidden ? "1" : "0"); } catch { /* memory fallback above */ }
-  hideListeners.forEach((listener) => listener());
-}
-function subscribeHidden(listener: () => void) {
-  hideListeners.add(listener);
-  window.addEventListener("storage", listener);
-  return () => { hideListeners.delete(listener); window.removeEventListener("storage", listener); };
-}
 
 /** Performance since the first point, measured against each point's base; null when there is nothing to measure against. */
 const percentAt = (point: TrendPoint, first: TrendPoint) =>
@@ -57,9 +39,7 @@ export function TrendCard({ locale, title, note, today, trend, action }: {
   const labels = copy[locale];
   const ids = useId();
   const [range, setRange] = useState<TrendRange>("1Y");
-  // The server renders amounts visible; the client then applies the stored choice.
-  const hidden = useSyncExternalStore(subscribeHidden, readHidden, () => false);
-  const toggleHidden = () => writeHidden(!hidden);
+  const hidden = useAmountsHidden();
 
   const points = trend[range];
   const first = points[0], last = points.at(-1)!;
@@ -69,7 +49,7 @@ export function TrendCard({ locale, title, note, today, trend, action }: {
   const percentText = (value: number | null) => value === null ? "—" : new Intl.NumberFormat(localeTags[locale], {
     style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero",
   }).format(value);
-  const money = (cents: number, showPlus = false) => hidden ? MASK : formatEuros(cents, locale, { showPlus });
+  const money = (cents: number, showPlus = false) => privateAmount(formatEuros(cents, locale, { showPlus }), hidden);
   const value = money(last.valueCents);
   const long = range === "1Y" || range === "MAX";
   const day = (date: string) => new Intl.DateTimeFormat(localeTags[locale], long
@@ -86,9 +66,7 @@ export function TrendCard({ locale, title, note, today, trend, action }: {
   return (
     <section className="card trend-card" data-tone={tone || undefined} aria-labelledby={`${ids}title`}>
       <div className="trend-toolbar">
-        <button type="button" className="button button-quiet" aria-label={labels.hide} title={labels.hide} aria-pressed={hidden} onClick={toggleHidden}>
-          <Icon name={hidden ? "eyeOff" : "eye"} size={18} />
-        </button>
+        <AmountVisibilityToggle locale={locale} />
         {action}
       </div>
       <div className="trend-head">
@@ -99,7 +77,7 @@ export function TrendCard({ locale, title, note, today, trend, action }: {
           </p>
           <p className="trend-change amount">
             {changeCents !== 0 && <span className="trend-arrow"><Icon name="arrowUp" size={14} /></span>}
-            <span>{signedText(percentText(share))} ({hidden ? MASK : euros(changeCents, locale, { showPlus: true })})</span>
+            <span>{signedText(percentText(share))} ({hidden ? privateAmount("", true) : euros(changeCents, locale, { showPlus: true })})</span>
             <span className="trend-period"> · {labels.rangeNames[range]}</span>
           </p>
         </div>

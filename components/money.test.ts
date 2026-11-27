@@ -45,3 +45,11 @@ test("editable euros use the locale separator", () => {
   assert.equal(editableEuros(-1_250, "en"), "12.50");
   assert.equal(editableEuros(5, "it"), "0,05");
 });
+
+test("hidden amounts use a fixed asterisk mask without exposing the original value", async () => {
+  const money = await import("./money.ts");
+  assert.equal(typeof money.privateAmount, "function");
+  assert.equal(money.privateAmount("€1,234.56", true), "******");
+  assert.equal(money.privateAmount("-€3.00", true), "******");
+  assert.equal(money.privateAmount("€1,234.56", false), "€1,234.56");
+});

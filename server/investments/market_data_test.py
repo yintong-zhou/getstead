@@ -24,9 +24,10 @@ class MarketDataTest(TestCase):
         with patch.object(market_data, "history", return_value=(frame, metadata)):
             before_close = market_data.quote("TEST.L", datetime(2026, 11, 23, 15, tzinfo=timezone.utc))
             after_close = market_data.quote("TEST.L", datetime(2026, 11, 23, 17, tzinfo=timezone.utc))
-        self.assertEqual(before_close, {"asOf": "2026-11-20", "price": "11.00", "currency": "GBP"})
+        self.assertEqual(before_close, {"asOf": "2026-11-20", "price": "11.00", "currency": "GBP", "history": [["2026-11-20", "11.00"]]})
         self.assertEqual(after_close, {
             "asOf": "2026-11-23", "price": "12.50", "currency": "GBP", "previousAsOf": "2026-11-20", "previousPrice": "11.00",
+            "history": [["2026-11-20", "11.00"], ["2026-11-23", "12.50"]],
         })
 
     def test_benchmarks_report_latest_previous_and_year_end_closes(self):
@@ -52,5 +53,12 @@ class MarketDataTest(TestCase):
         )
         with patch.object(market_data, "history", return_value=(frame, {})) as history:
             rates = market_data.fx("USD", datetime(2026, 11, 23, 22, tzinfo=timezone.utc))
-        history.assert_called_once_with("USDEUR=X", "1mo")
+        history.assert_called_once_with("USDEUR=X", "max")
         self.assertEqual(rates, [["2026-11-20", "0.91"]])
+    def test_quote_contains_historical_closes_for_period_returns(self):
+        frame = pd.DataFrame({"Close": [10, 12, 15]}, index=pd.to_datetime(["2025-12-31", "2026-10-23", "2026-11-20"]))
+        metadata = {"currency": "EUR", "instrumentType": "ETF", "exchangeTimezoneName": "Europe/Paris", "currentTradingPeriod": {}}
+        with patch.object(market_data, "history", return_value=(frame, metadata)) as fetch:
+            result = market_data.quote("TEST.PA", datetime(2026, 11, 23, tzinfo=timezone.utc))
+        fetch.assert_called_once_with("TEST.PA", "max")
+        self.assertEqual(result["history"], [["2025-12-31", "10"], ["2026-10-23", "12"], ["2026-11-20", "15"]])

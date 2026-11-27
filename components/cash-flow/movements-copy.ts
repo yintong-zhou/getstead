@@ -31,6 +31,8 @@ const en = {
   allPeriods: "All periods",
   byMonth: "Pick a month",
   period: "Period",
+  historyTotal: "Net total",
+  historyPageSize: "Movements per page",
   historyEmpty: "No movements match these filters.",
   resetFilters: "Reset filters",
 };
@@ -69,6 +71,8 @@ export const movementsCopy: Record<Locale, MovementsCopy> = {
     allPeriods: "Tutti i periodi",
     byMonth: "Scegli un mese",
     period: "Periodo",
+    historyTotal: "Totale netto",
+    historyPageSize: "Movimenti per pagina",
     historyEmpty: "Nessun movimento corrisponde a questi filtri.",
     resetFilters: "Azzera i filtri",
   },

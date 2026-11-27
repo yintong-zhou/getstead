@@ -269,7 +269,7 @@ export function indicativeTax(realised: readonly RealisedGain[], instruments: re
 
 /**
  * Portfolio value and performance at each date. Performance is unrealised plus realised gains plus net
- * dividends and coupons, so buying or selling never moves it by itself; it is measured against the highest open cost so far.
+ * dividends and coupons, so buying or selling never moves it by itself; the base starts at the period value.
  */
 export function portfolioTrend(instruments: readonly Instrument[], transactions: readonly Transaction[], quotes: readonly Quote[], dates: readonly string[]) {
   const byInstrument = new Map<string, Transaction[]>();
@@ -279,7 +279,7 @@ export function portfolioTrend(instruments: readonly Instrument[], transactions:
     else byInstrument.set(row.instrumentId, [row]);
   }
   // The base only grows: a sale shrinks the open cost, which would otherwise inflate the percentage.
-  let base = 0n;
+  let base = 0n, initialCost: bigint | null = null, initialValue = 0n;
   // ponytail: replays every position at each date (~350 dates per page load); walk dates incrementally if histories get large.
   return dates.map((date) => {
     let value = 0n, cost = 0n;
@@ -290,7 +290,9 @@ export function portfolioTrend(instruments: readonly Instrument[], transactions:
     let realised = 0n;
     for (const rows of byInstrument.values()) for (const gain of position(rows, date).realised) realised += gain.gainCents;
     const gain = value - cost + realised + BigInt(income(transactions, { from: "0000-01-01", to: date }).netCents);
-    if (cost > base) base = cost;
+    if (initialCost === null) { initialCost = cost; initialValue = value; }
+    const investedBase = initialValue + (cost > initialCost ? cost - initialCost : 0n);
+    if (investedBase > base) base = investedBase;
     return { date, valueCents: toSafeCents(value), gainCents: toSafeCents(gain), baseCents: toSafeCents(base) };
   });
 }

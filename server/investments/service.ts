@@ -375,7 +375,7 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
       if (!listing) return false;
       const quote = await readQuote(listing, now);
       if (!quote) unavailable++;
-      if (!quote || quote.asOf > today || (latest.get(instrument.id) ?? 0) >= toDate(quote.asOf).getTime()) return false;
+      if (!quote || quote.asOf > today) return false;
       try {
         return await write(userId, async (client) => {
           const instrumentId = instrument.id;
@@ -383,13 +383,24 @@ export async function refreshMarketQuotes(userId: string, now = new Date(),
           if (!current || current.marketSymbol !== instrument.marketSymbol || current.marketCurrency !== quote.currency || !supportsMarket(current.kind)) return false;
           const trades = await client.investmentTransaction.findMany({ where: { userId, instrumentId, voidedAt: null } });
           if (position(trades.map(transactionInput), today).quantity === "0") return false;
-          // The previous close is saved too, so the dashboard's daily change never spans a missed day.
-          const saved = await client.marketPriceQuote.createMany({ skipDuplicates: true, data: [quote, quote.previous].filter((row) => row !== null && row !== undefined).map((row) => ({
-            userId, instrumentId, asOf: toDate(row.asOf), unitPrice: row.unitPrice, currency: row.currency,
-            fxRate: row.fxRate, fxAsOf: row.fxAsOf ? toDate(row.fxAsOf) : null,
-          })) });
-          if (saved.count) await audit(client, userId, [instrumentId]);
-          return saved.count > 0;
+          // Retain prices since the first trade plus the closest prior close, in bounded batches.
+          const firstTrade = trades.reduce((first, row) => row.tradeDate < first ? row.tradeDate : first, trades[0].tradeDate);
+          const firstDay = fromDate(firstTrade);
+          const allCloses = [quote, ...(quote.previous ? [quote.previous] : []), ...(quote.history ?? [])]
+            .filter((row) => row.asOf <= today);
+          const before = allCloses.filter((row) => row.asOf < firstDay).sort((a, b) => b.asOf.localeCompare(a.asOf))[0];
+          const relevant = allCloses.filter((row) => row.asOf >= firstDay);
+          if (before) relevant.push(before);
+          let saved = 0;
+          for (let offset = 0; offset < relevant.length; offset += 500) {
+            const batch = relevant.slice(offset, offset + 500).map((row) => ({
+              userId, instrumentId, asOf: toDate(row.asOf), unitPrice: row.unitPrice, currency: row.currency,
+              fxRate: row.fxRate, fxAsOf: row.fxAsOf ? toDate(row.fxAsOf) : null,
+            }));
+            saved += (await client.marketPriceQuote.createMany({ skipDuplicates: true, data: batch })).count;
+          }
+          if (saved) await audit(client, userId, [instrumentId]);
+          return saved > 0;
         });
       } catch (error) {
         if (error instanceof ApiError && error.code === "value_out_of_range") return false;

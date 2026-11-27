@@ -8,6 +8,8 @@ import { dashboardCopy } from "./dashboard-copy";
 import { BrandMark } from "./brand-mark";
 import { Icon } from "./icon";
 import { PageEnter } from "./page-enter";
+import { MarketRefresh } from "./market-refresh";
+import { marketDataEnabled } from "@/server/investments/market-data";
 import "./cash-flow/cash-flow.css";
 
 export type Section = "overview" | "cash-flow" | "budget" | "recurring" | "accounts" | "net-worth" | "investments" | "property" | "profile" | "admin" | "admin-logs";
@@ -84,6 +86,7 @@ export function AppShell({ locale, current, title, subtitle, action, query = "",
 
   return (
     <div className="workspace">
+      {!admin && !profile.mustChangePassword && current !== "investments" && marketDataEnabled() && <MarketRefresh />}
       <a className="skip-link" href="#main">{copy.skip}</a>
       <aside className="sidebar">
         <div className="wordmark"><BrandMark /><span>getstead</span></div>
