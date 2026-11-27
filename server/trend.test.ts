@@ -27,3 +27,8 @@ test("samples are ascending, end today, start at the range start and stay bounde
   assert.ok(decade.every((date, index) => index === 0 || decade[index - 1] < date));
   assert.deepEqual(sampleDates("2026-11-22", "2026-11-22"), ["2026-11-22"]);
 });
+
+test("the one-week range starts seven days ago, including across year boundaries", () => {
+  assert.equal(rangeStart("1W", "2026-01-03", null), "2025-12-27");
+  assert.equal(sampleDates(rangeStart("1W", "2026-01-03", null), "2026-01-03").length, 8);
+});

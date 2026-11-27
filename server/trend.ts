@@ -1,7 +1,7 @@
 import { addDays, addMonthsToDate, toDate, type IsoDate } from "./cash-flow/dates.ts";
 
 /** Period chart shared by net worth and investments: sampled dates per range, values computed by each service. */
-export const trendRanges = ["1M", "3M", "YTD", "1Y", "MAX"] as const;
+export const trendRanges = ["1W", "1M", "3M", "YTD", "1Y", "MAX"] as const;
 export type TrendRange = (typeof trendRanges)[number];
 /**
  * `gainCents` is what counts as performance at that date and `baseCents` what it is measured against;
@@ -14,6 +14,7 @@ const MAX_POINTS = 120;
 
 export function rangeStart(range: TrendRange, today: IsoDate, earliest: IsoDate | null): IsoDate {
   switch (range) {
+    case "1W": return addDays(today, -7);
     case "1M": return addMonthsToDate(today, -1);
     case "3M": return addMonthsToDate(today, -3);
     // The baseline is the last day of the previous year, like the month-end points of the monthly series.

@@ -79,8 +79,10 @@ function Worth({ data, locale, copy }: { data: DashboardData; locale: Locale; co
     <section className="card dashboard-worth" aria-labelledby="worth-title">
       <header className="card-head">
         <h2 id="worth-title">{copy.netWorth}</h2>
-        <AmountVisibilityToggle locale={locale} />
-        <Link className="text-link" href={`/${locale}/net-worth`}>{copy.details}</Link>
+        <div className="card-head-actions">
+          <AmountVisibilityToggle locale={locale} />
+          <Link className="text-link" href={`/${locale}/net-worth`}>{copy.details}</Link>
+        </div>
       </header>
       {total > 0 && <AssetDonut slices={slices} netWorthCents={data.netWorthCents} centerLabel={copy.netWorth} locale={locale}
         summary={`${copy.assetShare}: ${slices.map(({ label, value }) => `${label} ${share(value)}`).join(", ")}`} />}
@@ -122,8 +124,10 @@ function Investments({ summary, benchmarks, locale, copy }: {
     <section className="card dashboard-narrow dashboard-investments" aria-labelledby="investments-title">
       <header className="card-head">
         <h2 id="investments-title">{copy.nav.investments}</h2>
-        <AmountVisibilityToggle locale={locale} />
-        <Link className="text-link" href={`/${locale}/investments`}>{copy.details}</Link>
+        <div className="card-head-actions">
+          <AmountVisibilityToggle locale={locale} />
+          <Link className="text-link" href={`/${locale}/investments`}>{copy.details}</Link>
+        </div>
       </header>
       <p className="investments-value amount"><PrivateAmount>{euros(summary.valueCents, locale)}</PrivateAmount></p>
       <p className="investments-gain">

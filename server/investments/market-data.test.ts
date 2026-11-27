@@ -173,3 +173,13 @@ test("market prices and benchmarks refresh after four hours while searches keep 
   assert.equal(calls.filter(([op]) => op === "benchmarks").length, 2);
   assert.equal(calls.filter(([op]) => op === "search").length, 1);
 });
+
+test("cached market quotes preserve previous and historical prices for other users", async () => {
+  const { api, calls } = market(async () => ({ ...close, previousAsOf: "2026-11-20", previousPrice: "9", history: [["2026-01-02", "8"], ["2026-11-20", "9"]] }));
+  const first = await api.marketQuote(listing, now);
+  const cached = await api.marketQuote(listing, new Date(now.getTime() + hour));
+  assert.deepEqual(cached, first);
+  assert.equal(cached?.history?.length, 2);
+  assert.equal(cached?.previous?.asOf, "2026-11-20");
+  assert.equal(calls.length, 1);
+});
