@@ -14,9 +14,10 @@ export type HistoryQuery = {
   accountId?: string;
   categoryId?: string;
   page: number;
+  pageSize: 10 | 20 | 30;
 };
 
-type Raw = Partial<Record<"type" | "month" | "accountId" | "categoryId" | "page", string>>;
+type Raw = Partial<Record<"type" | "month" | "accountId" | "categoryId" | "page" | "pageSize", string>>;
 
 /** Preview length on the cash-flow page: 3 rows, or 5 with `show=5`. */
 export const previewSize = (raw?: string): 3 | 5 => (raw === "5" ? 5 : 3);
@@ -27,7 +28,8 @@ export function parseHistoryQuery(raw: Raw, today: string): HistoryQuery {
   const accountId = isUuid(raw.accountId) ? raw.accountId.toLowerCase() : undefined;
   const categoryId = raw.categoryId === "none" ? "none" : isUuid(raw.categoryId) ? raw.categoryId.toLowerCase() : undefined;
   const page = /^\d{1,6}$/.test(raw.page ?? "") && Number(raw.page) >= 1 && Number(raw.page) <= 100_000 ? Number(raw.page) : 1;
-  return { type, month, accountId, categoryId, page };
+  const pageSize = raw.pageSize === "20" ? 20 : raw.pageSize === "30" ? 30 : 10;
+  return { type, month, accountId, categoryId, page, pageSize };
 }
 
 /** Parameters for the existing register (`listMovementsPage`). "All periods" simply omits the month. */
@@ -38,6 +40,7 @@ export function registerParams(query: HistoryQuery) {
   if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.type !== "all") params.set("direction", query.type);
   params.set("page", String(query.page));
+  params.set("pageSize", String(query.pageSize));
   return params;
 }
 
@@ -48,5 +51,6 @@ export function historyHref(locale: string, query: Partial<HistoryQuery> & Pick<
   if (query.accountId) params.set("accountId", query.accountId);
   if (query.categoryId) params.set("categoryId", query.categoryId);
   if (query.page && query.page > 1) params.set("page", String(query.page));
+  if (query.pageSize && query.pageSize !== 10) params.set("pageSize", String(query.pageSize));
   return `/${locale}/cash-flow/history?${params}`;
 }

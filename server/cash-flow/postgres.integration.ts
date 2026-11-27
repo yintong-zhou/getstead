@@ -1423,3 +1423,24 @@ test("an archived template can still be reopened, freeing its linked movement wi
   const other = await newUser();
   await rejectsMissing(resolveOccurrence(other, { action: "reopen", templateId: active.id, dueDate: "2026-11-06" }, now));
 });
+
+test("register page size and total cover all matching active rows, not just the visible page", async () => {
+  const user = await newUser();
+  const other = await newUser();
+  const checking = await account(user);
+  const otherAccount = await account(other);
+  for (let index = 0; index < 21; index++) await movement(user, checking.id, "2026-10-01", -100);
+  await movement(user, checking.id, "2026-10-02", 500);
+  const voided = await movement(user, checking.id, "2026-10-03", -900);
+  await updateMovement(user, voided.id, { voided: true });
+  await movement(other, otherAccount.id, "2026-10-01", -10000);
+  const first = await listMovementsPage(user, new URLSearchParams({ month: "2026-10", page: "1", pageSize: "10" }));
+  const second = await listMovementsPage(user, new URLSearchParams({ month: "2026-10", page: "2", pageSize: "20" }));
+  assert.equal(first.movements.length, 10);
+  assert.equal(second.movements.length, 3);
+  assert.equal(first.totalCents, -1600);
+  assert.equal(second.totalCents, -1600);
+  const expenses = await listMovementsPage(user, new URLSearchParams({ month: "2026-10", direction: "out", pageSize: "30" }));
+  assert.equal(expenses.totalCents, -2100);
+  await rejectsApi(listMovementsPage(user, new URLSearchParams({ pageSize: "15" })), 422, "validation");
+});

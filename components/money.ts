@@ -48,3 +48,8 @@ export function editableEuros(cents: number, locale: Locale) {
   const value = Math.abs(cents);
   return `${Math.floor(value / 100)}${locale === "it" ? "," : "."}${String(value % 100).padStart(2, "0")}`;
 }
+
+/** A fixed mask does not disclose the number of digits in an amount. */
+export function privateAmount(value: string, hidden: boolean) {
+  return hidden ? "******" : value;
+}

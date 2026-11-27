@@ -128,18 +128,22 @@ export async function listMovements(userId: string, params: URLSearchParams) {
   return rows.map((row) => toMovementDto(userId, row));
 }
 
-/** One fixed-size register page (1-based `page`) and whether another follows. */
+/** A register page and the signed total of all matching, non-voided movements. */
 export async function listMovementsPage(userId: string, params: URLSearchParams) {
   const where = registerWhere(userId, params);
   const page = integerParam(params, "page", 1, 1, 100_000);
-  const rows = await db().movement.findMany({
-    where, select, orderBy: registerOrder, take: REGISTER_PAGE_SIZE + 1, skip: (page - 1) * REGISTER_PAGE_SIZE,
-  });
+  const pageSize = integerParam(params, "pageSize", REGISTER_PAGE_SIZE, 1, REGISTER_PAGE_SIZE);
+  if (![10, 20, 30, REGISTER_PAGE_SIZE].includes(pageSize)) throw new ApiError(422, "validation", "pageSize");
+  const [rows, aggregate] = await Promise.all([
+    db().movement.findMany({ where, select, orderBy: registerOrder, take: pageSize + 1, skip: (page - 1) * pageSize }),
+    db().movement.aggregate({ where: { AND: [where, { voidedAt: null }] }, _sum: { amountCents: true } }),
+  ]);
+  const totalCents = aggregate._sum.amountCents ?? 0;
+  if (!Number.isSafeInteger(totalCents)) throw new RangeError("Movement total exceeds safe integer range");
   return {
-    page,
-    pageSize: REGISTER_PAGE_SIZE,
-    hasMore: rows.length > REGISTER_PAGE_SIZE,
-    movements: rows.slice(0, REGISTER_PAGE_SIZE).map((row) => toMovementDto(userId, row)),
+    page, pageSize, totalCents,
+    hasMore: rows.length > pageSize,
+    movements: rows.slice(0, pageSize).map((row) => toMovementDto(userId, row)),
   };
 }
 

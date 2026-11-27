@@ -4,7 +4,7 @@ import type { DashboardData } from "@/server/cash-flow/dashboard";
 import type { Profile } from "@/server/profile/service";
 import { formatEuros, localeTags, type Locale } from "@/server/locale";
 import { AssetDonut } from "./asset-donut";
-import { MarketRefresh } from "./market-refresh";
+import { AmountVisibilityToggle, PrivateAmount } from "./amount-visibility";
 import { AppShell } from "./app-shell";
 import { dashboardCopy, type DashboardCopy } from "./dashboard-copy";
 import { formatDay, formatMonth } from "./format";
@@ -79,6 +79,7 @@ function Worth({ data, locale, copy }: { data: DashboardData; locale: Locale; co
     <section className="card dashboard-worth" aria-labelledby="worth-title">
       <header className="card-head">
         <h2 id="worth-title">{copy.netWorth}</h2>
+        <AmountVisibilityToggle locale={locale} />
         <Link className="text-link" href={`/${locale}/net-worth`}>{copy.details}</Link>
       </header>
       {total > 0 && <AssetDonut slices={slices} netWorthCents={data.netWorthCents} centerLabel={copy.netWorth} locale={locale}
@@ -87,17 +88,17 @@ function Worth({ data, locale, copy }: { data: DashboardData; locale: Locale; co
         {groups.map(([key, cents]) => (
           <li className="data-row" key={key}>
             <span className="row-text"><i aria-hidden="true" style={{ background: groupColors[key] }} />{copy.assetGroups[key]} <span>· {share(cents)}</span></span>
-            <span className="row-amount amount">{euros(cents, locale)}</span>
+            <span className="row-amount amount"><PrivateAmount>{euros(cents, locale)}</PrivateAmount></span>
           </li>
         ))}
         {data.liabilitiesCents > 0 && (
           <li className="data-row">
             <span className="row-text">{copy.debts}</span>
-            <span className="row-amount amount">{euros(-data.liabilitiesCents, locale)}</span>
+            <span className="row-amount amount"><PrivateAmount>{euros(-data.liabilitiesCents, locale)}</PrivateAmount></span>
           </li>
         )}
       </ul>
-      {total === 0 && <p className="amount worth-total">{euros(data.netWorthCents, locale)}</p>}
+      {total === 0 && <p className="amount worth-total"><PrivateAmount>{euros(data.netWorthCents, locale)}</PrivateAmount></p>}
     </section>
   );
 }
@@ -121,13 +122,14 @@ function Investments({ summary, benchmarks, locale, copy }: {
     <section className="card dashboard-narrow dashboard-investments" aria-labelledby="investments-title">
       <header className="card-head">
         <h2 id="investments-title">{copy.nav.investments}</h2>
+        <AmountVisibilityToggle locale={locale} />
         <Link className="text-link" href={`/${locale}/investments`}>{copy.details}</Link>
       </header>
-      <p className="investments-value amount">{euros(summary.valueCents, locale)}</p>
+      <p className="investments-value amount"><PrivateAmount>{euros(summary.valueCents, locale)}</PrivateAmount></p>
       <p className="investments-gain">
         {copy.unrealised}{" "}
         <span className={`amount${summary.gainCents > 0 ? " positive" : summary.gainCents < 0 ? " negative" : ""}`}>
-          {euros(summary.gainCents, locale, { showPlus: true })}
+          <PrivateAmount>{euros(summary.gainCents, locale, { showPlus: true })}</PrivateAmount>
         </span>{" "}
         {summary.gainRate !== null && <>(<Change rate={summary.gainRate} locale={locale} />)</>}
       </p>
@@ -202,7 +204,6 @@ export function Dashboard({ locale, data, profile }: { locale: Locale; data: Das
           <div className="dashboard-grid">
             {data.showNetWorth && <Worth data={data} locale={locale} copy={copy} />}
             {data.investments && <Investments summary={data.investments} benchmarks={data.benchmarks} locale={locale} copy={copy} />}
-            {data.investments && data.marketEnabled && <MarketRefresh />}
 
             <section className="card monthly dashboard-narrow" aria-labelledby="monthly-title">
               <h2 id="monthly-title">{copy.thisMonth}</h2>

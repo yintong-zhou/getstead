@@ -16,6 +16,7 @@ export type MarketQuote = { asOf: string; unitPrice: string; currency: string; f
 const ExactDecimal = Decimal.clone({ precision: 60, rounding: Decimal.ROUND_HALF_UP });
 const HOUR = 3_600_000;
 const TTL_MS = 12 * HOUR;
+const PRICE_TTL_MS = 4 * HOUR;
 const EMPTY_TTL_MS = 30 * 60_000;
 const WINDOW_MS = 24 * HOUR;
 const MAX_ATTEMPTS = 25;
@@ -84,7 +85,7 @@ function checkListings(payload: unknown): MarketListing[] | null {
     .map(({ symbol, name, market, currency }) => ({ symbol, name: name.slice(0, 120), market: market.slice(0, 60), currency }));
 }
 
-type Close = { asOf: string; price: string; currency: string; previous?: { asOf: string; price: string } };
+type Close = { asOf: string; price: string; currency: string; previous?: { asOf: string; price: string }; history?: { asOf: string; price: string }[] };
 function checkClose(payload: unknown, now: Date): Close | null {
   if (!isRecord(payload) || typeof payload.currency !== "string" || !CURRENCY.test(payload.currency)) return null;
   const asOf = day(payload.asOf), price = positive(payload.price);
@@ -92,7 +93,12 @@ function checkClose(payload: unknown, now: Date): Close | null {
   // Payloads cached before the adapter sent the previous close have none.
   const previousAsOf = day(payload.previousAsOf), previousPrice = positive(payload.previousPrice);
   const previous = previousAsOf && previousAsOf < asOf && previousPrice ? { asOf: previousAsOf, price: previousPrice } : undefined;
-  return { asOf, price, currency: payload.currency, previous };
+  const history = Array.isArray(payload.history) ? payload.history.flatMap((row) => {
+    if (!Array.isArray(row) || row.length !== 2) return [];
+    const date = day(row[0]), price = positive(row[1]);
+    return date && date <= asOf && price ? [{ asOf: date, price }] : [];
+  }) : undefined;
+  return { asOf, price, currency: payload.currency, previous, history };
 }
 
 /** Index points of a benchmark: latest close, the close before it, and the last close of the previous year. */
@@ -136,11 +142,11 @@ function convert(close: Close, currency: string, fx: FxRow | null): MarketQuote 
 export function createMarketData(deps: Deps) {
   const { store } = deps;
 
-  async function reserve(key: string, now: Date): Promise<Reservation> {
+  async function reserve(key: string, now: Date, operation: Operation): Promise<Reservation> {
     return store.locked<Reservation>(async (tx) => {
       const row = await tx.cache(key);
       // An instrument can open trading before it has a first daily close.
-      const ttl = row?.payload == null ? EMPTY_TTL_MS : TTL_MS;
+      const ttl = row?.payload == null ? EMPTY_TTL_MS : operation === "search" ? TTL_MS : PRICE_TTL_MS;
       if (row && row.attemptedAt.getTime() > now.getTime() - ttl) return { kind: "fresh", payload: row.payload };
       if (await tx.throttledSince(new Date(now.getTime() - COOLDOWN_MS))) return { kind: "blocked" };
       if (await tx.requestsSince(new Date(now.getTime() - WINDOW_MS)) >= MAX_ATTEMPTS) return { kind: "blocked" };
@@ -155,7 +161,7 @@ export function createMarketData(deps: Deps) {
   async function cached<P>(operation: Operation, value: string, now: Date, parse: Parse<P>): Promise<P | null> {
     const key = `yahoo:${operation}:${operation === "search" ? value.toLowerCase() : value}`;
     let reservation: Reservation;
-    try { reservation = await reserve(key, now); } catch { return null; }
+    try { reservation = await reserve(key, now, operation); } catch { return null; }
     if (reservation.kind === "fresh") return parse(reservation.payload);
     if (reservation.kind === "blocked") return null;
     let payload: P | null = null;
@@ -176,25 +182,31 @@ export function createMarketData(deps: Deps) {
     return cached("search", text.replace(/ +/g, " "), now, checkListings);
   }
 
-  /** The latest close in EUR, with the close before it when the adapter has one (for the daily change). */
-  async function marketQuote(listing: MarketListing, now = new Date()): Promise<(MarketQuote & { previous?: MarketQuote | null }) | null> {
+  /** Completed closes in EUR, converted with the historical FX close for each date. */
+  async function marketQuote(listing: MarketListing, now = new Date()): Promise<(MarketQuote & { previous?: MarketQuote | null; history?: MarketQuote[] }) | null> {
     const symbol = marketTicker(listing.symbol);
     if (!marketDataEnabled() || !SYMBOL.test(symbol) || !CURRENCY.test(listing.currency)) return null;
     const close = await cached("quote", symbol, now, (payload) => checkClose(payload, now));
     if (!close || close.currency !== listing.currency) return null;
-    const closes = [close, close.previous && { ...close.previous, currency: close.currency }];
-    if (listing.currency === "EUR") {
-      const [latest, previous] = closes.map((row) => row ? convert(row, "EUR", null) : null);
-      return latest && { ...latest, previous };
-    }
-    const series = await cached("fx", listing.currency, now, checkFx);
-    const [latest, previous] = closes.map((row) => {
+    const series = listing.currency === "EUR" ? null : await cached("fx", listing.currency, now, checkFx);
+    const convertClose = (row: { asOf: string; price: string } | undefined) => {
       if (!row) return null;
-      const oldest = addDays(row.asOf, -MAX_FX_GAP_DAYS);
-      const rate = series?.find(([date]) => date <= row.asOf && date < today(now) && date >= oldest);
-      return rate ? convert(row, listing.currency, rate) : null;
-    });
-    return latest && { ...latest, previous };
+      // The series is descending; find the newest eligible FX close without scanning years of history.
+      let left = 0, right = series?.length ?? 0;
+      while (left < right) {
+        const middle = Math.floor((left + right) / 2);
+        if (series![middle][0] > row.asOf || series![middle][0] >= today(now)) left = middle + 1;
+        else right = middle;
+      }
+      const rate = listing.currency === "EUR" ? null : series?.[left];
+      if (listing.currency !== "EUR" && (!rate || rate[0] < addDays(row.asOf, -MAX_FX_GAP_DAYS))) return null;
+      return convert({ ...row, currency: close.currency }, listing.currency, rate ?? null);
+    };
+    const latest = convertClose(close);
+    if (!latest) return null;
+    const previous = convertClose(close.previous);
+    const history = close.history?.map(convertClose).filter((row): row is MarketQuote => row !== null);
+    return { ...latest, previous, ...(history ? { history } : {}) };
   }
 
   /** Fetches the benchmarks when the shared cache is older than its TTL; at most one request per TTL for all users. */
@@ -263,7 +275,7 @@ async function requestMarket(operation: Operation, value: string): Promise<unkno
     const args = python === "py" ? ["-3"] : [];
     try {
       const { stdout } = await runPython(python, [...args, resolve("api/market_data.py"), payload], {
-        timeout: 16_000, maxBuffer: 65_536, windowsHide: true,
+        timeout: 16_000, maxBuffer: 8_388_608, windowsHide: true,
       });
       return JSON.parse(stdout);
     } catch (error) {

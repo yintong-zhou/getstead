@@ -8,6 +8,7 @@ import type { MovementDto } from "@/server/cash-flow/movements";
 import type { Locale } from "@/server/locale";
 import { addMonths, formatMonth } from "../format";
 import { Select } from "../select";
+import { euros } from "../euros";
 import { cashFlowCopy } from "./copy";
 import { movementsCopy } from "./movements-copy";
 import { HISTORY_TYPES, historyHref, type HistoryQuery, type HistoryType } from "./movements-query";
@@ -19,7 +20,7 @@ type Props = {
   accounts: AccountDto[];
   categories: CategoryDto[];
   query: HistoryQuery;
-  register: { movements: MovementDto[]; hasMore: boolean };
+  register: { movements: MovementDto[]; hasMore: boolean; totalCents: number };
 };
 
 /** One paginated register. The URL holds every filter; changing a filter drops the page. */
@@ -27,7 +28,7 @@ export function MovementsHistory({ locale, today, accounts, categories, query, r
   const copy = cashFlowCopy[locale];
   const extra = movementsCopy[locale];
   const router = useRouter();
-  const { month, type, accountId, categoryId, page } = query;
+  const { month, type, accountId, categoryId, page, pageSize } = query;
   const allPeriods = month === "all";
   const filtered = type !== "all" || Boolean(accountId || categoryId);
   const typeLabels: Record<HistoryType, string> = { all: extra.allTypes, in: extra.typeIn, out: extra.typeOut, transfers: extra.typeTransfers };
@@ -76,11 +77,14 @@ export function MovementsHistory({ locale, today, accounts, categories, query, r
             ]} />
           </div>
         </div>
-        {filtered && <Link className="text-link" href={historyHref(locale, { month })}>{extra.resetFilters}</Link>}
+        {filtered && <Link className="text-link" href={historyHref(locale, { month, pageSize })}>{extra.resetFilters}</Link>}
       </section>
 
       <section className="card" aria-labelledby="history-list-title">
-        <h2 id="history-list-title">{copy.movementList}</h2>
+        <div className="card-head history-list-head">
+          <h2 id="history-list-title">{copy.movementList}</h2>
+          <p className="history-total">{extra.historyTotal}: <strong>{euros(register.totalCents, locale)}</strong></p>
+        </div>
         {register.movements.length === 0 ? (
           <div className="empty-inline">
             <p>{page > 1 ? copy.emptyPage : extra.historyEmpty}</p>
@@ -91,7 +95,14 @@ export function MovementsHistory({ locale, today, accounts, categories, query, r
             <Row key={movement.id} locale={locale} movement={movement} accounts={accounts} categories={categories} today={today} />
           ))}</ul>
         )}
-        <Pager copy={copy} title={copy.movementList} page={page} hasMore={register.hasMore} href={pageLink} />
+        <div className="history-page-controls">
+          <div className="form-field history-page-size">
+            <label htmlFor="history-page-size">{extra.historyPageSize}</label>
+            <Select id="history-page-size" value={String(pageSize)} onChange={(value) => filter({ pageSize: Number(value) as 10 | 20 | 30 })}
+              options={[10, 20, 30].map((size) => ({ value: String(size), label: String(size) }))} />
+          </div>
+          <Pager copy={copy} title={copy.movementList} page={page} hasMore={register.hasMore} href={pageLink} />
+        </div>
       </section>
     </div>
   );

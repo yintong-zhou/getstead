@@ -7,7 +7,7 @@ const uuid = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
 test("hostile or missing values fall back to safe defaults", () => {
   const query = parseHistoryQuery({ type: "x", month: "2026-13", accountId: "1; drop", categoryId: "nope", page: "-3" }, today);
-  assert.deepEqual(query, { type: "all", month: "2026-11", accountId: undefined, categoryId: undefined, page: 1 });
+  assert.deepEqual(query, { type: "all", month: "2026-11", accountId: undefined, categoryId: undefined, page: 1, pageSize: 10 });
 });
 
 test("all periods never sends a month to the registry", () => {
@@ -29,4 +29,12 @@ test("preview is 3 rows unless 5 is chosen", () => {
   assert.equal(previewSize(undefined), 3);
   assert.equal(previewSize("7"), 3);
   assert.equal(previewSize("5"), 5);
+});
+
+test("history page size defaults to ten and survives filter and page links", () => {
+  assert.equal(parseHistoryQuery({}, today).pageSize, 10);
+  assert.equal(parseHistoryQuery({ pageSize: "15" }, today).pageSize, 10);
+  const query = parseHistoryQuery({ month: "all", pageSize: "30", page: "2" }, today);
+  assert.equal(registerParams(query).get("pageSize"), "30");
+  assert.match(historyHref("en", query), /page=2&pageSize=30$/);
 });
