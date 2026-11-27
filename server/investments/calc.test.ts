@@ -337,3 +337,14 @@ test("period gains use the actual price at each selected start date", () => {
   assert.deepEqual(change("2026-08-20"), { cents: 600, rate: 600 / 3400 });
   assert.deepEqual(change("2025-12-31"), { cents: 1000, rate: 1000 / 3000 });
 });
+
+test("missing start-date prices can make different periods show the same estimated gain", () => {
+  const rows = [trade({ tradeDate: "2025-01-01", amountCents: 2000n })];
+  const prices = [{ instrumentId: stock.id, asOf: "2026-11-20", unitPrice: "20" }];
+  const calculate = (start: string) => {
+    const [first, last] = portfolioTrend([stock], rows, prices, [start, "2026-11-20"]);
+    return { gain: last.gainCents - first.gainCents, rate: (last.gainCents - first.gainCents) / last.baseCents };
+  };
+  assert.deepEqual(calculate("2026-10-20"), { gain: 2000, rate: 1 });
+  assert.deepEqual(calculate("2025-11-20"), { gain: 2000, rate: 1 });
+});

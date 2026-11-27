@@ -16,14 +16,14 @@ import { privateAmount } from "./money";
 const copy = {
   en: {
     period: "Period", asOf: "As of",
-    ranges: { "1M": "1M", "3M": "3M", YTD: "YTD", "1Y": "1Y", MAX: "Max" },
-    rangeNames: { "1M": "last month", "3M": "last 3 months", YTD: "year to date", "1Y": "last year", MAX: "all time" },
+    ranges: { "1W": "1W", "1M": "1M", "3M": "3M", YTD: "YTD", "1Y": "1Y", MAX: "Max" },
+    rangeNames: { "1W": "last week", "1M": "last month", "3M": "last 3 months", YTD: "year to date", "1Y": "last year", MAX: "all time" },
     hiddenChart: "Chart of the selected period; amounts are hidden",
   },
   it: {
     period: "Periodo", asOf: "Al",
-    ranges: { "1M": "1M", "3M": "3M", YTD: "YTD", "1Y": "1A", MAX: "Max" },
-    rangeNames: { "1M": "ultimo mese", "3M": "ultimi 3 mesi", YTD: "da inizio anno", "1Y": "ultimo anno", MAX: "dall'inizio" },
+    ranges: { "1W": "1W", "1M": "1M", "3M": "3M", YTD: "YTD", "1Y": "1A", MAX: "Max" },
+    rangeNames: { "1W": "ultima settimana", "1M": "ultimo mese", "3M": "ultimi 3 mesi", YTD: "da inizio anno", "1Y": "ultimo anno", MAX: "dall'inizio" },
     hiddenChart: "Grafico del periodo selezionato; importi nascosti",
   },
 };

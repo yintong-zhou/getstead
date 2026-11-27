@@ -91,11 +91,12 @@ function checkClose(payload: unknown, now: Date): Close | null {
   const asOf = day(payload.asOf), price = positive(payload.price);
   if (!asOf || asOf > latestPossibleDay(now) || !price) return null;
   // Payloads cached before the adapter sent the previous close have none.
-  const previousAsOf = day(payload.previousAsOf), previousPrice = positive(payload.previousPrice);
+  const storedPrevious = isRecord(payload.previous) ? payload.previous : {};
+  const previousAsOf = day(payload.previousAsOf ?? storedPrevious.asOf), previousPrice = positive(payload.previousPrice ?? storedPrevious.price);
   const previous = previousAsOf && previousAsOf < asOf && previousPrice ? { asOf: previousAsOf, price: previousPrice } : undefined;
   const history = Array.isArray(payload.history) ? payload.history.flatMap((row) => {
-    if (!Array.isArray(row) || row.length !== 2) return [];
-    const date = day(row[0]), price = positive(row[1]);
+    const date = day(Array.isArray(row) ? row[0] : isRecord(row) ? row.asOf : null);
+    const price = positive(Array.isArray(row) ? row[1] : isRecord(row) ? row.price : null);
     return date && date <= asOf && price ? [{ asOf: date, price }] : [];
   }) : undefined;
   return { asOf, price, currency: payload.currency, previous, history };
